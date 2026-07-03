@@ -1,4 +1,4 @@
-import { Star, Quote } from 'lucide-react'
+import { Star, Quote } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
 import { testimonials } from '../../data/mockData'
 
@@ -15,19 +15,19 @@ export default function Testimonials() {
 
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((t, i) => (
-            <GlassCard key={i} data-aos="fade-up" data-aos-delay={i * 100}>
-              <Quote className="w-8 h-8 text-primary/30 dark:text-sky/30 mb-4" />
+            <GlassCard key={t.name} data-aos="fade-up" data-aos-delay={i * 100}>
+              <Quote className="w-8 h-8 text-primary/30 dark:text-sky/30 mb-4" aria-hidden="true" />
               <p className="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed italic">
                 "{t.text}"
               </p>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-slate-900 dark:text-white">{t.name}</p>
-                  <p className="text-sm text-slate-500">{t.role}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{t.role}</p>
                 </div>
-                <div className="flex gap-0.5">
+                <div className="flex gap-0.5" role="img" aria-label={`5 yulduzdan ${t.rating} yulduz`}>
                   {Array.from({ length: t.rating }).map((_, j) => (
-                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" aria-hidden="true" />
                   ))}
                 </div>
               </div>

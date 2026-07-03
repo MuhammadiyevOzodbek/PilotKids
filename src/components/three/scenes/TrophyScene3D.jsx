@@ -1,11 +1,8 @@
 import { OrbitControls, Environment } from '@react-three/drei'
 import SceneCanvas from '../SceneCanvas'
 import TrophyPodium from '../models/TrophyPodium'
-import { useIsMobile } from '../../../hooks/useDevice'
 
 export default function TrophyScene3D({ className = '' }) {
-  const isMobile = useIsMobile()
-
   return (
     <SceneCanvas
       className={`w-full h-48 sm:h-56 ${className}`}

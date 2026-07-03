@@ -72,19 +72,23 @@ function Badge({ position, delay = 0 }) {
   )
 }
 
+// Zarrachalar geometriyasi render tanasidan tashqarida (modul darajasida) yaratiladi —
+// react-hooks purity qoidasi Math.random'ni render/hook ichida chaqirishni taqiqlaydi.
+function createParticleGeometry() {
+  const arr = new Float32Array(60 * 3)
+  for (let i = 0; i < 60; i++) {
+    arr[i * 3] = (Math.random() - 0.5) * 2
+    arr[i * 3 + 1] = Math.random() * 2
+    arr[i * 3 + 2] = (Math.random() - 0.5) * 2
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(arr, 3))
+  return geo
+}
+
 export default function TrophyPodium() {
   const particlesRef = useRef()
-  const particleGeometry = useMemo(() => {
-    const arr = new Float32Array(60 * 3)
-    for (let i = 0; i < 60; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 2
-      arr[i * 3 + 1] = Math.random() * 2
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 2
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3))
-    return geo
-  }, [])
+  const particleGeometry = useMemo(() => createParticleGeometry(), [])
 
   useFrame((state) => {
     if (particlesRef.current) {

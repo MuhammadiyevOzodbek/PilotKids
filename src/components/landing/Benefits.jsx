@@ -1,7 +1,10 @@
-import * as LucideIcons from 'lucide-react'
+import { Cpu, Users, Trophy, Zap, Shield, TrendingUp, Star } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
 import AnimatedIcon from '../ui/AnimatedIcon'
 import { benefits } from '../../data/mockData'
+
+// Aniq (statik) map — dinamik namespace kirishi tree-shaking'ni buzardi.
+const BENEFIT_ICONS = { Cpu, Users, Trophy, Zap, Shield, TrendingUp }
 
 export default function Benefits() {
   return (
@@ -19,9 +22,9 @@ export default function Benefits() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {benefits.map((benefit, i) => {
-            const Icon = LucideIcons[benefit.icon] || LucideIcons.Star
+            const Icon = BENEFIT_ICONS[benefit.icon] || Star
             return (
-              <GlassCard key={i} data-aos="fade-up" data-aos-delay={i * 100} glow className="group">
+              <GlassCard key={benefit.title} data-aos="fade-up" data-aos-delay={i * 100} glow className="group">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:from-primary/30 group-hover:to-accent/30 transition-colors duration-400">
                   <AnimatedIcon icon={Icon} robotics />
                 </div>

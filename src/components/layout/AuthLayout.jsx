@@ -1,4 +1,4 @@
-import { Bot } from 'lucide-react'
+import { Bot } from '../../lib/icons'
 import { Link } from 'react-router-dom'
 export default function AuthLayout({ children, title, subtitle }) {
   return (
@@ -13,7 +13,7 @@ export default function AuthLayout({ children, title, subtitle }) {
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center glow-blue">
             <Bot className="w-12 h-12 text-white" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-white mb-3">PilotKids</h1>
+          <p className="font-display text-3xl font-bold text-white mb-3">PilotKids</p>
           <p className="text-sky text-lg mb-6">Kelajak muhandislari shu yerda boshlanadi</p>
           <p className="text-slate-400 text-sm">
             Robototexnika, elektronika va muhandislikni onlayn o'rganing. Amaliy loyihalar va professional mentorlar bilan.
@@ -34,9 +34,9 @@ export default function AuthLayout({ children, title, subtitle }) {
         <div className="flex-1 flex items-center justify-center px-4 pb-12">
           <div className="w-full max-w-md">
             <div className="text-center mb-8 lg:text-left">
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
                 {title}
-              </h2>
+              </h1>
               {subtitle && (
                 <p className="text-slate-500 dark:text-slate-400">{subtitle}</p>
               )}

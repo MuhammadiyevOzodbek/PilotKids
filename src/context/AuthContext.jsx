@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useMemo, useCallback } from 'react'
 
 const AuthContext = createContext()
 
@@ -16,7 +16,8 @@ export function AuthProvider({ children }) {
     return null
   })
 
-  const login = (email, password) => {
+  // eslint-disable-next-line no-unused-vars -- password real API bilan almashtirilganda ishlatiladi
+  const login = useCallback((email, password) => {
     // JWT-ready structure — replace with real API call
     const mockUser = {
       id: '1',
@@ -32,9 +33,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('pilotkids_user', JSON.stringify(mockUser))
     setUser(mockUser)
     return { success: true, token: mockToken, user: mockUser }
-  }
+  }, [])
 
-  const register = (name, email, password) => {
+  // eslint-disable-next-line no-unused-vars -- password real API bilan almashtirilganda ishlatiladi
+  const register = useCallback((name, email, password) => {
     const mockUser = {
       id: String(Date.now()),
       name,
@@ -49,21 +51,27 @@ export function AuthProvider({ children }) {
     localStorage.setItem('pilotkids_user', JSON.stringify(mockUser))
     setUser(mockUser)
     return { success: true, token: mockToken, user: mockUser }
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('pilotkids_token')
     localStorage.removeItem('pilotkids_user')
     setUser(null)
-  }
+  }, [])
 
-  const getToken = () => localStorage.getItem('pilotkids_token')
+  const getToken = useCallback(() => localStorage.getItem('pilotkids_token'), [])
+
+  const value = useMemo(
+    () => ({ user, login, register, logout, getToken, isAuthenticated: !!user }),
+    [user, login, register, logout, getToken]
+  )
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, getToken, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext)

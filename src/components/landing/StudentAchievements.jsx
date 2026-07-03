@@ -1,4 +1,4 @@
-import { Trophy, Medal } from 'lucide-react'
+import { Trophy, Medal } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
 import { achievements } from '../../data/mockData'
 
@@ -22,9 +22,9 @@ export default function StudentAchievements() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {achievements.map((item, i) => (
-            <GlassCard key={i} data-aos="fade-up" data-aos-delay={i * 100} className="text-center">
+            <GlassCard key={`${item.student}-${item.project}`} data-aos="fade-up" data-aos-delay={i * 100} className="text-center">
               <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br ${medalColors[item.award] || 'from-primary to-sky'} flex items-center justify-center`}>
-                <Medal className="w-8 h-8 text-white" />
+                <Medal className="w-8 h-8 text-white" aria-hidden="true" />
               </div>
               <h3 className="font-semibold text-slate-900 dark:text-white">{item.student}</h3>
               <p className="text-sm text-primary dark:text-sky mt-1">{item.project}</p>

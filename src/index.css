@@ -176,6 +176,31 @@
   }
 }
 
+/* Harakatni kamaytirish — vestibulyar sezgirlik va diqqat uchun (a11y).
+   Cheksiz aylanish/glitch/pulslar va sahifa animatsiyalari deyarli o'chiriladi. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Gradient matn uchun fallback — yuqori kontrast / forced-colors rejimida
+   matn "transparent" bo'lib ko'rinmay qolmasligi uchun. */
+@media (forced-colors: active) {
+  .text-gradient {
+    -webkit-text-fill-color: currentColor;
+    color: CanvasText;
+    background: none;
+  }
+}
+
 /* Custom cursor — desktop only */
 @media (min-width: 1024px) and (pointer: fine) {
   html.custom-cursor-active,

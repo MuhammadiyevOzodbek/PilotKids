@@ -1,5 +1,8 @@
-import * as LucideIcons from 'lucide-react'
+import { BookOpen, CircuitBoard, Radio, Bot, Award, Circle } from '../../lib/icons'
 import { roadmap } from '../../data/mockData'
+
+// Aniq (statik) map — dinamik `Icons[name]` namespace kirishi tree-shaking'ni buzardi.
+const ROADMAP_ICONS = { BookOpen, CircuitBoard, Radio, Bot, Award }
 
 export default function LearningRoadmap() {
   return (
@@ -17,7 +20,7 @@ export default function LearningRoadmap() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {roadmap.map((item, i) => {
-              const Icon = LucideIcons[item.icon] || LucideIcons.Circle
+              const Icon = ROADMAP_ICONS[item.icon] || Circle
               return (
                 <div
                   key={item.step}

@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
 
-export default function NavLinkItem({ href, children, isRoute = false, onClick }) {
-  const Tag = isRoute ? motion.a : motion.a
-
+// Landing sahifadagi hash-havolalar (#about, #benefits ...) uchun animatsiyali link.
+// Route (SPA) navigatsiyasi uchun Navbar to'g'ridan-to'g'ri <Link> ishlatadi.
+export default function NavLinkItem({ href, children, onClick }) {
   return (
-    <Tag
+    <motion.a
       href={href}
       onClick={onClick}
       className="relative text-sm font-medium text-slate-600 dark:text-slate-300 py-1 group"
@@ -21,6 +21,6 @@ export default function NavLinkItem({ href, children, isRoute = false, onClick }
         transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
       />
       <span className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-primary/5 dark:bg-sky/5 -z-0" />
-    </Tag>
+    </motion.a>
   )
 }

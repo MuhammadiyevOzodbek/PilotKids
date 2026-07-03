@@ -1,18 +1,27 @@
 import { Link, useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Menu, X, Bot } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Menu, X, Bot, Sun, Moon } from '../../lib/icons'
 import { useState } from 'react'
 import Button from '../ui/Button'
 import NavLinkItem from '../ui/NavLinkItem'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
+import { landingLinks } from '../../data/navigation'
 
-const navLinks = [
-  { to: '/#about', label: 'Biz haqimizda' },
-  { to: '/#benefits', label: 'Afzalliklar' },
-  { to: '/#roadmap', label: 'Yo\'l xaritasi' },
-  { to: '/#pricing', label: 'Narxlar' },
-  { to: '/courses', label: 'Kurslar', isRoute: true },
-]
+function ThemeToggle({ className = '' }) {
+  const { isDark, toggleTheme } = useTheme()
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.9, rotate: 15 }}
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Yorug\' rejimga o\'tish' : 'Qorong\'u rejimga o\'tish'}
+      className={`p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${className}`}
+    >
+      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+    </motion.button>
+  )
+}
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
@@ -34,11 +43,11 @@ export default function Navbar() {
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center group-hover:glow-cyan transition-shadow duration-300"
           >
-            <Bot className="w-6 h-6 text-white" />
+            <Bot className="w-6 h-6 text-white" aria-hidden="true" />
           </motion.div>
           <div>
             <span className="font-display font-bold text-lg text-slate-900 dark:text-white">PilotKids</span>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block leading-tight">
+            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block leading-tight">
               Kelajak muhandislari shu yerda boshlanadi
             </p>
           </div>
@@ -46,7 +55,7 @@ export default function Navbar() {
 
         {isLanding && (
           <div className="hidden lg:flex items-center gap-6">
-            {navLinks.map((link) => (
+            {landingLinks.map((link) => (
               link.isRoute ? (
                 <Link
                   key={link.to}
@@ -74,6 +83,7 @@ export default function Navbar() {
         )}
 
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           {isAuthenticated ? (
             <Link to="/dashboard" data-cursor-hover>
               <Button size="sm" premium>Kabinet</Button>
@@ -90,10 +100,15 @@ export default function Navbar() {
           )}
         </div>
 
-        <div className="flex md:hidden items-center gap-2">
+        <div className="flex md:hidden items-center gap-1">
+          <ThemeToggle />
           <motion.button
+            type="button"
             whileTap={{ scale: 0.9 }}
             onClick={() => setOpen(!open)}
+            aria-label={open ? 'Menyuni yopish' : 'Menyuni ochish'}
+            aria-expanded={open}
+            aria-controls="mobile-menu"
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -101,34 +116,48 @@ export default function Navbar() {
         </div>
       </div>
 
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.3 }}
-          className="md:hidden mt-2 max-w-7xl mx-auto glass-light dark:glass rounded-2xl p-4 space-y-3"
-        >
-          {isLanding && navLinks.map((link) => (
-            <a
-              key={link.to}
-              href={link.isRoute ? undefined : link.to}
-              onClick={() => setOpen(false)}
-              className="block py-2 text-slate-600 dark:text-slate-300 hover:text-primary transition-colors duration-300"
-            >
-              {link.label}
-            </a>
-          ))}
-          <div className="flex gap-2 pt-2">
-            <Link to="/login" className="flex-1" onClick={() => setOpen(false)}>
-              <Button variant="outline" size="sm" className="w-full">Kirish</Button>
-            </Link>
-            <Link to="/register" className="flex-1" onClick={() => setOpen(false)}>
-              <Button size="sm" className="w-full" premium>Boshlash</Button>
-            </Link>
-          </div>
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id="mobile-menu"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="md:hidden mt-2 max-w-7xl mx-auto glass-light dark:glass rounded-2xl p-4 space-y-3"
+          >
+            {isLanding && landingLinks.map((link) => (
+              link.isRoute ? (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setOpen(false)}
+                  className="block py-2 text-slate-600 dark:text-slate-300 hover:text-primary transition-colors duration-300"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.to}
+                  href={link.to}
+                  onClick={() => setOpen(false)}
+                  className="block py-2 text-slate-600 dark:text-slate-300 hover:text-primary transition-colors duration-300"
+                >
+                  {link.label}
+                </a>
+              )
+            ))}
+            <div className="flex gap-2 pt-2">
+              <Link to="/login" className="flex-1" onClick={() => setOpen(false)}>
+                <Button variant="outline" size="sm" className="w-full">Kirish</Button>
+              </Link>
+              <Link to="/register" className="flex-1" onClick={() => setOpen(false)}>
+                <Button size="sm" className="w-full" premium>Boshlash</Button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   )
 }

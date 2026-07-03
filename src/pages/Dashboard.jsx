@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { motion } from 'framer-motion'
 import {
   Bell, BookOpen, Award, Clock, Crown, TrendingUp, ChevronRight,
-} from 'lucide-react'
+} from '../lib/icons'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -12,15 +12,35 @@ import DashboardWidget from '../components/ui/DashboardWidget'
 import PageTransition from '../components/ui/PageTransition'
 import { useAuth } from '../context/AuthContext'
 import {
-  weeklyChartData, notifications, upcomingLessons, courses,
+  weeklyChartData, notifications, upcomingLessons, courses, RANKS,
 } from '../data/mockData'
 import SceneFallback from '../components/three/SceneFallback'
 import { AssistantScene } from '../components/three/lazy'
+import { useIsMobile } from '../hooks/useDevice'
+
+// Foydalanuvchining joriy va keyingi darajasiga nisbatan progressni hisoblaydi.
+function getRankProgress(xp = 0) {
+  const sorted = [...RANKS].sort((a, b) => a.minXp - b.minXp)
+  let current = sorted[0]
+  let next = null
+  for (let i = 0; i < sorted.length; i++) {
+    if (xp >= sorted[i].minXp) {
+      current = sorted[i]
+      next = sorted[i + 1] || null
+    }
+  }
+  if (!next) return { percent: 100, xpLeft: 0, nextName: null }
+  const span = next.minXp - current.minXp
+  const percent = Math.min(Math.round(((xp - current.minXp) / span) * 100), 100)
+  return { percent, xpLeft: next.minXp - xp, nextName: next.name }
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const isMobile = useIsMobile(640)
   const completedCourses = courses.filter((c) => c.progress === 100).length
   const inProgress = courses.filter((c) => c.progress > 0 && c.progress < 100).length
+  const rankProgress = getRankProgress(user?.xp)
 
   return (
     <DashboardLayout>
@@ -34,11 +54,13 @@ export default function Dashboard() {
           <div className="absolute inset-0 bg-grid opacity-20" />
           <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="hidden sm:block w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 shrink-0">
-                <Suspense fallback={<SceneFallback className="h-full" />}>
-                  <AssistantScene expression="happy" />
-                </Suspense>
-              </div>
+              {!isMobile && (
+                <div className="hidden sm:block w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 shrink-0">
+                  <Suspense fallback={<SceneFallback className="h-full" />}>
+                    <AssistantScene expression="happy" />
+                  </Suspense>
+                </div>
+              )}
               <div>
                 <p className="text-white/80 text-sm mb-1">Xush kelibsiz 👋</p>
                 <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
@@ -75,9 +97,13 @@ export default function Dashboard() {
                 <span className="font-medium text-slate-900 dark:text-white">{user?.rank}</span>
               </div>
               <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: '48%' }} />
+                <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500" style={{ width: `${rankProgress.percent}%` }} />
               </div>
-              <p className="text-xs text-slate-400">Keyingi darajaga 5150 XP qoldi</p>
+              <p className="text-xs text-slate-400">
+                {rankProgress.nextName
+                  ? `Keyingi darajaga (${rankProgress.nextName}) ${rankProgress.xpLeft.toLocaleString()} XP qoldi`
+                  : 'Eng yuqori darajaga yetdingiz! 🚀'}
+              </p>
             </div>
           </GlassCard>
           </DashboardWidget>
@@ -88,7 +114,7 @@ export default function Dashboard() {
               { icon: Award, label: 'Sertifikatlar', value: completedCourses, color: 'from-amber-500 to-amber-600' },
               { icon: TrendingUp, label: 'XP Ball', value: user?.xp?.toLocaleString(), color: 'from-emerald-500 to-emerald-600' },
             ].map((stat, i) => (
-              <DashboardWidget key={i} delay={0.15 + i * 0.05}>
+              <DashboardWidget key={stat.label} delay={0.15 + i * 0.05}>
               <GlassCard className="!p-5 h-full group/stat">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}

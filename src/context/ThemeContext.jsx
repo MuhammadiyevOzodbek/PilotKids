@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 
 const STORAGE_KEY = 'pilotkids-theme'
 
@@ -24,18 +24,28 @@ function applyTheme(theme) {
 const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
-  const [theme] = useState(getInitialTheme)
+  const [theme, setTheme] = useState(getInitialTheme)
 
   useEffect(() => {
     applyTheme(theme)
     localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  }, [])
+
+  const value = useMemo(
+    () => ({ theme, isDark: theme === 'dark', setTheme, toggleTheme }),
+    [theme, toggleTheme]
+  )
+
   return (
-    <ThemeContext.Provider value={{ theme, isDark: theme === 'dark' }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => useContext(ThemeContext)

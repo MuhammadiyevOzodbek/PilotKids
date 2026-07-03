@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Settings, Cog } from 'lucide-react'
+import { Settings, Cog } from '../../lib/icons'
 
 function Particle({ style, delay }) {
   return (
@@ -15,15 +15,18 @@ function Particle({ style, delay }) {
   )
 }
 
-export default function HeroBackground() {
-  const particles = Array.from({ length: 20 }, (_, i) => ({
-    left: `${Math.random() * 100}%`,
-    top: `${Math.random() * 100}%`,
-    delay: Math.random() * 3,
-  }))
+// Zarrachalar joylashuvi bir marta (modul darajasida) hisoblanadi — har render'da
+// qayta yaratilmaydi va render tanasida Math.random chaqirilmaydi (barqaror kalit uchun id).
+const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  left: `${Math.random() * 100}%`,
+  top: `${Math.random() * 100}%`,
+  delay: Math.random() * 3,
+}))
 
+export default function HeroBackground() {
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
       <div className="absolute inset-0 bg-gradient-to-b from-dark via-slate-900 to-dark" />
       <div className="absolute inset-0 bg-grid opacity-40" />
       <div className="absolute inset-0 bg-circuit" />
@@ -65,8 +68,8 @@ export default function HeroBackground() {
       </motion.div>
 
       {/* Particles */}
-      {particles.map((p, i) => (
-        <Particle key={i} style={{ left: p.left, top: p.top }} delay={p.delay} />
+      {PARTICLES.map((p) => (
+        <Particle key={p.id} style={{ left: p.left, top: p.top }} delay={p.delay} />
       ))}
 
       {/* Blue glow lines */}

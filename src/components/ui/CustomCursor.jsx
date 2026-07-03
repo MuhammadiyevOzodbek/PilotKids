@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 
+// Faqat desktop (fine pointer, katta ekran) uchun. Bir marta boshlang'ich holatda aniqlanadi
+// (effect ichida setState orqali emas) — shu bois qo'shimcha render bo'lmaydi.
+function detectDesktop() {
+  if (typeof window === 'undefined') return false
+  const isTouch = window.matchMedia('(pointer: coarse)').matches
+  return !isTouch && window.innerWidth >= 1024
+}
+
 export default function CustomCursor() {
-  const [visible, setVisible] = useState(false)
+  const [enabled] = useState(detectDesktop)
   const [hovering, setHovering] = useState(false)
   const cursorX = useMotionValue(-100)
   const cursorY = useMotionValue(-100)
@@ -10,45 +18,43 @@ export default function CustomCursor() {
   const ringY = useSpring(cursorY, { stiffness: 250, damping: 22 })
 
   useEffect(() => {
-    const isTouch = window.matchMedia('(pointer: coarse)').matches
-    const isSmall = window.innerWidth < 1024
-    if (isTouch || isSmall) return
+    if (!enabled) return
 
     document.documentElement.classList.add('custom-cursor-active')
-    setVisible(true)
 
     const move = (e) => {
       cursorX.set(e.clientX)
       cursorY.set(e.clientY)
     }
 
-    const onEnter = () => setHovering(true)
-    const onLeave = () => setHovering(false)
+    // Event delegation — SPA'da route almashganda paydo bo'lgan yangi element'lar ham
+    // avtomatik hover effektini oladi (mount paytida querySelectorAll qilinmaydi).
+    const isInteractive = (el) =>
+      el && typeof el.closest === 'function' && el.closest('a, button, [data-cursor-hover]')
+
+    const onOver = (e) => { if (isInteractive(e.target)) setHovering(true) }
+    const onOut = (e) => { if (isInteractive(e.target)) setHovering(false) }
 
     window.addEventListener('mousemove', move)
-    const interactives = document.querySelectorAll('a, button, [data-cursor-hover]')
-    interactives.forEach((el) => {
-      el.addEventListener('mouseenter', onEnter)
-      el.addEventListener('mouseleave', onLeave)
-    })
+    document.addEventListener('mouseover', onOver)
+    document.addEventListener('mouseout', onOut)
 
     return () => {
       document.documentElement.classList.remove('custom-cursor-active')
       window.removeEventListener('mousemove', move)
-      interactives.forEach((el) => {
-        el.removeEventListener('mouseenter', onEnter)
-        el.removeEventListener('mouseleave', onLeave)
-      })
+      document.removeEventListener('mouseover', onOver)
+      document.removeEventListener('mouseout', onOut)
     }
-  }, [cursorX, cursorY])
+  }, [enabled, cursorX, cursorY])
 
-  if (!visible) return null
+  if (!enabled) return null
 
   return (
     <>
       <motion.div
         className="fixed top-0 left-0 z-[99999] pointer-events-none mix-blend-screen"
         style={{ x: cursorX, y: cursorY, translateX: '-50%', translateY: '-50%' }}
+        aria-hidden="true"
       >
         <motion.div
           animate={{ scale: hovering ? 0.5 : 1, opacity: hovering ? 0.9 : 1 }}
@@ -59,6 +65,7 @@ export default function CustomCursor() {
       <motion.div
         className="fixed top-0 left-0 z-[99998] pointer-events-none"
         style={{ x: ringX, y: ringY, translateX: '-50%', translateY: '-50%' }}
+        aria-hidden="true"
       >
         <motion.div
           animate={{

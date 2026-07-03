@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Medal, Zap } from 'lucide-react'
+import { Medal, Zap } from '../../lib/icons'
 
 const shimmerClass = {
   0: 'shimmer-gold',
@@ -58,7 +58,7 @@ export function TopRankCard({ student, medal, height, glow, tab, index }) {
   )
 }
 
-export function LeaderboardRow({ student, index, tab, getRankEmoji }) {
+export function LeaderboardRow({ student, index, tab, getRankEmoji, maxXp = 1 }) {
   const isTop3 = index < 3
 
   return (
@@ -97,7 +97,7 @@ export function LeaderboardRow({ student, index, tab, getRankEmoji }) {
         <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500 group-hover/row:shadow-[0_0_10px_rgba(56,189,248,0.5)]"
-            style={{ width: `${Math.min((student.xp / 12450) * 100, 100)}%` }}
+            style={{ width: `${Math.min((student.xp / maxXp) * 100, 100)}%` }}
           />
         </div>
       </div>

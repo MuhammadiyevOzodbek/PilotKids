@@ -1,11 +1,17 @@
 import { Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Cpu, CircuitBoard, Code, Wrench, Zap } from 'lucide-react'
+import { Cpu, CircuitBoard, Code, Wrench, Zap } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
 import SceneFallback from '../three/SceneFallback'
 import { RoboticArmScene } from '../three/lazy'
 
-const icons = [Cpu, CircuitBoard, Code, Wrench, Zap]
+const icons = [
+  { Icon: Cpu, label: 'Protsessor' },
+  { Icon: CircuitBoard, label: 'Elektron plata' },
+  { Icon: Code, label: 'Dasturlash' },
+  { Icon: Wrench, label: 'Muhandislik' },
+  { Icon: Zap, label: 'Energiya' },
+]
 
 export default function WhatIsPilotKids() {
   return (
@@ -23,15 +29,15 @@ export default function WhatIsPilotKids() {
                 <RoboticArmScene />
               </Suspense>
               <div className="absolute top-4 left-4 flex gap-2 z-20 pointer-events-none">
-                {icons.map((Icon, i) => (
+                {icons.map(({ Icon, label }, i) => (
                   <motion.div
-                    key={i}
+                    key={label}
                     initial={{ opacity: 0, scale: 0 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.1 }}
                     className="w-10 h-10 rounded-lg bg-slate-700/80 flex items-center justify-center"
                   >
-                    <Icon className="w-5 h-5 text-sky" />
+                    <Icon className="w-5 h-5 text-sky" aria-hidden="true" />
                   </motion.div>
                 ))}
               </div>
@@ -57,8 +63,8 @@ export default function WhatIsPilotKids() {
                 { title: 'Video Darslar', desc: 'Professional kontent' },
                 { title: 'Mentorlar', desc: 'Tajribali muhandislar' },
                 { title: 'Sertifikatlar', desc: 'Rasmiy tasdiqlash' },
-              ].map((item, i) => (
-                <GlassCard key={i} className="!p-4" glow>
+              ].map((item) => (
+                <GlassCard key={item.title} className="!p-4" glow>
                   <h4 className="font-semibold text-slate-900 dark:text-white mb-1">{item.title}</h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{item.desc}</p>
                 </GlassCard>

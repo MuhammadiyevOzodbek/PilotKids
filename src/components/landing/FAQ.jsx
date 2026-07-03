@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown } from '../../lib/icons'
 import { motion, AnimatePresence } from 'framer-motion'
 import { faqs } from '../../data/mockData'
 
@@ -19,23 +19,28 @@ export default function FAQ() {
         <div className="space-y-3">
           {faqs.map((faq, i) => (
             <div
-              key={i}
+              key={faq.q}
               data-aos="fade-up"
               data-aos-delay={i * 50}
               className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
             >
               <button
+                type="button"
                 onClick={() => setOpen(open === i ? -1 : i)}
+                aria-expanded={open === i}
+                aria-controls={`faq-panel-${i}`}
                 className="w-full flex items-center justify-between p-5 text-left bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
               >
                 <span className="font-semibold text-slate-900 dark:text-white pr-4">{faq.q}</span>
                 <ChevronDown
+                  aria-hidden="true"
                   className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${open === i ? 'rotate-180' : ''}`}
                 />
               </button>
               <AnimatePresence>
                 {open === i && (
                   <motion.div
+                    id={`faq-panel-${i}`}
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}

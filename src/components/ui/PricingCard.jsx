@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Check, Sparkles } from 'lucide-react'
+import { Check, Sparkles } from '../../lib/icons'
 import { Link } from 'react-router-dom'
 import Button from './Button'
 

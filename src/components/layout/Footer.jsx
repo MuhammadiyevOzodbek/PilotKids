@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { Bot, Mail, Phone, MapPin, Send, Share2 } from 'lucide-react'
+import { Bot, Mail, Phone, MapPin, Send, Share2 } from '../../lib/icons'
 import { motion } from 'framer-motion'
 import FooterLink from '../ui/FooterLink'
 import SocialIcon from '../ui/SocialIcon'
@@ -23,8 +22,8 @@ export default function Footer() {
               Kelajak muhandislari shu yerda boshlanadi
             </p>
             <div className="flex gap-3">
-              <SocialIcon icon={Send} />
-              <SocialIcon icon={Share2} />
+              <SocialIcon icon={Send} label="Telegram" />
+              <SocialIcon icon={Share2} label="Ijtimoiy tarmoqlar" />
             </div>
           </div>
 
@@ -52,22 +51,22 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Aloqa</h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2 group">
-                <Mail className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
-                info@pilotkids.uz
+                <Mail className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" aria-hidden="true" />
+                <a href="mailto:info@pilotkids.uz" className="hover:text-white transition-colors">info@pilotkids.uz</a>
               </li>
               <li className="flex items-center gap-2 group">
-                <Phone className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
-                +998 90 123 45 67
+                <Phone className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" aria-hidden="true" />
+                <a href="tel:+998901234567" className="hover:text-white transition-colors">+998 90 123 45 67</a>
               </li>
               <li className="flex items-center gap-2 group">
-                <MapPin className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+                <MapPin className="w-4 h-4 text-sky transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" aria-hidden="true" />
                 Toshkent, O'zbekiston
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-500">
+        <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-slate-400">
           <p>&copy; {new Date().getFullYear()} PilotKids. Barcha huquqlar himoyalangan.</p>
           <div className="flex gap-6">
             <FooterLink href="#">Maxfiylik</FooterLink>

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Clock, BarChart3, Play } from 'lucide-react'
+import { Clock, BarChart3, Play } from '../../lib/icons'
 import GlassCard from './GlassCard'
 import Button from './Button'
 

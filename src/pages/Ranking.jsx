@@ -1,6 +1,6 @@
 import { useState, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Medal, Star } from 'lucide-react'
+import { Star } from '../lib/icons'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import GlassCard from '../components/ui/GlassCard'
 import PageTransition from '../components/ui/PageTransition'
@@ -15,6 +15,9 @@ export default function Ranking() {
   const sorted = [...leaderboard].sort((a, b) =>
     tab === 'weekly' ? b.weeklyXp - a.weeklyXp : b.xp - a.xp
   )
+
+  // Progress bar uchun eng yuqori XP dinamik aniqlanadi (qattiq kodlangan qiymat emas).
+  const maxXp = Math.max(...leaderboard.map((s) => s.xp), 1)
 
   const getRankEmoji = (rankName) => {
     const rank = RANKS.find((r) => r.name === rankName)
@@ -36,7 +39,7 @@ export default function Ranking() {
 
         {/* Rank tiers */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-          {RANKS.map((rank, i) => (
+          {RANKS.map((rank) => (
             <GlassCard key={rank.name} className="!p-4 text-center" data-aos="fade-up">
               <span className="text-2xl">{rank.emoji}</span>
               <p className="text-xs font-semibold text-slate-900 dark:text-white mt-2">{rank.name}</p>
@@ -105,6 +108,7 @@ export default function Ranking() {
                 student={student}
                 index={i}
                 tab={tab}
+                maxXp={maxXp}
                 getRankEmoji={getRankEmoji}
               />
             ))}

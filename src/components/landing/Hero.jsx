@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom'
 import { Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight, Play } from '../../lib/icons'
 import Button from '../ui/Button'
 import HeroBackground from './HeroBackground'
 import SceneFallback from '../three/SceneFallback'
 import { HeroScene3D } from '../three/lazy'
+import { useIsMobile } from '../../hooks/useDevice'
 
 export default function Hero() {
+  // 3D sahna faqat desktopda (lg+) ko'rinadi. Mobilda uni umuman mount qilmaymiz —
+  // aks holda `hidden lg:block` bilan ham og'ir three.js chunk'i behuda yuklanardi.
+  const isMobile = useIsMobile(1024)
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 pb-16 px-4">
       <HeroBackground />
@@ -83,19 +88,21 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="hidden lg:block relative h-[420px] xl:h-[480px]"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-3xl" />
-          <div className="relative h-full rounded-3xl overflow-hidden border border-white/10">
-            <Suspense fallback={<SceneFallback className="h-full rounded-3xl" />}>
-              <HeroScene3D className="h-full" />
-            </Suspense>
-          </div>
-        </motion.div>
+        {!isMobile && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="hidden lg:block relative h-[420px] xl:h-[480px]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-3xl blur-3xl" />
+            <div className="relative h-full rounded-3xl overflow-hidden border border-white/10">
+              <Suspense fallback={<SceneFallback className="h-full rounded-3xl" />}>
+                <HeroScene3D className="h-full" />
+              </Suspense>
+            </div>
+          </motion.div>
+        )}
       </div>
     </section>
   )

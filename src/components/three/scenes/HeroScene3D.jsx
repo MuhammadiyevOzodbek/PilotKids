@@ -4,15 +4,12 @@ import SceneCanvas from '../SceneCanvas'
 import EngineeringEnvironment from '../EngineeringEnvironment'
 import EducationalRobot from '../models/EducationalRobot'
 import { useScrollY } from '../../../hooks/useDevice'
-import { useIsMobile } from '../../../hooks/useDevice'
 
+// Mobil gate Hero.jsx'da (lazy import'dan oldin) — bu komponent faqat desktopda mount qilinadi.
 export default function HeroScene3D({ className = '' }) {
   const [hovered, setHovered] = useState(false)
   const scrollY = useScrollY()
-  const isMobile = useIsMobile()
   const scrollRotation = Math.min(scrollY * 0.0008, 0.5)
-
-  if (isMobile) return null
 
   return (
     <SceneCanvas

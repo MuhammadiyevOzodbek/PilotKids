@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { Home } from 'lucide-react'
+import { Home } from '../lib/icons'
 import Button from '../components/ui/Button'
 import PageTransition from '../components/ui/PageTransition'
 import SceneFallback from '../components/three/SceneFallback'
