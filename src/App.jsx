@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
-import CustomCursor from './components/ui/CustomCursor'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import PageLoader from './components/ui/PageLoader'
 
@@ -55,7 +54,6 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <CustomCursor />
           <AnimatedRoutes />
         </BrowserRouter>
       </AuthProvider>
