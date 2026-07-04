@@ -1,9 +1,7 @@
-import { Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { Cpu, CircuitBoard, Code, Wrench, Zap } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
-import SceneFallback from '../three/SceneFallback'
-import { RoboticArmScene } from '../three/lazy'
+import ScrollReveal from '../ui/ScrollReveal'
 
 const icons = [
   { Icon: Cpu, label: 'Protsessor' },
@@ -15,36 +13,28 @@ const icons = [
 
 export default function WhatIsPilotKids() {
   return (
-    <section id="about" className="py-24 px-4 bg-slate-50 dark:bg-slate-900/50">
+    <section id="about" data-scroll-stage className="py-24 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <motion.div
-            data-aos="fade-right"
-            className="relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-3xl blur-2xl" />
-            <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-dark to-slate-800 border border-slate-700">
-              <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none z-10" />
-              <Suspense fallback={<SceneFallback className="h-[320px] sm:h-[380px] lg:h-[420px]" />}>
-                <RoboticArmScene />
-              </Suspense>
-              <div className="absolute top-4 left-4 flex gap-2 z-20 pointer-events-none">
-                {icons.map(({ Icon, label }, i) => (
-                  <motion.div
-                    key={label}
-                    initial={{ opacity: 0, scale: 0 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="w-10 h-10 rounded-lg bg-slate-700/80 flex items-center justify-center"
-                  >
-                    <Icon className="w-5 h-5 text-sky" aria-hidden="true" />
-                  </motion.div>
-                ))}
-              </div>
+          {/* 3D robot uchun joy — fixed sahnada kamera bu bosqichda robotga
+              yaqinlashib, uni chap tomonda ko'rsatadi. Ikonkalar ustida suzadi. */}
+          <ScrollReveal direction="left" className="relative hidden lg:block h-[420px]">
+            <div className="absolute top-0 left-0 flex gap-2 z-10 pointer-events-none">
+              {icons.map(({ Icon, label }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="w-10 h-10 rounded-lg glass flex items-center justify-center"
+                >
+                  <Icon className="w-5 h-5 text-primary dark:text-sky" aria-hidden="true" />
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
+          </ScrollReveal>
 
-          <div data-aos="fade-left">
+          <ScrollReveal direction="right">
             <span className="text-primary dark:text-sky font-semibold text-sm uppercase tracking-wider">
               PilotKids Nima?
             </span>
@@ -70,7 +60,7 @@ export default function WhatIsPilotKids() {
                 </GlassCard>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

@@ -4,11 +4,16 @@ import { Search } from '../lib/icons'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import CourseCard from '../components/ui/CourseCard'
 import PageTransition from '../components/ui/PageTransition'
-import { courses, COURSE_CATEGORIES } from '../data/mockData'
+import { LoadingState, ErrorState } from '../components/ui/QueryState'
+import { useCourses } from '../hooks/useApi'
 
 export default function Courses() {
   const [category, setCategory] = useState('Barchasi')
   const [search, setSearch] = useState('')
+  const { data: courses = [], isLoading, isError, error, refetch } = useCourses()
+
+  // Toifalar ro'yxati kelgan kurslardan olinadi (mockData'ga bog'liqlik yo'q)
+  const categories = [...new Set(courses.map((c) => c.category))]
 
   const filtered = courses.filter((c) => {
     const matchCat = category === 'Barchasi' || c.category === category
@@ -39,7 +44,7 @@ export default function Courses() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {['Barchasi', ...COURSE_CATEGORIES].map((cat) => (
+          {['Barchasi', ...categories].map((cat) => (
             <motion.button
               key={cat}
               whileHover={{ scale: 1.05, y: -2 }}
@@ -56,7 +61,11 @@ export default function Courses() {
           ))}
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <LoadingState label="Kurslar yuklanmoqda..." />
+        ) : isError ? (
+          <ErrorState error={error} onRetry={refetch} />
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
               <Search className="w-8 h-8 text-slate-400" aria-hidden="true" />

@@ -1,0 +1,10 @@
+# Maxfiy — hech qachon commit qilinmaydi (DATABASE_URL, JWT_SECRET)
+.env
+.env.local
+.env.*.local
+
+node_modules
+dist
+drizzle/meta
+*.log
+.DS_Store

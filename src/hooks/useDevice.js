@@ -16,6 +16,23 @@ export function useIsMobile(breakpoint = 768) {
   return isMobile
 }
 
+export function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduced(mq.matches)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  return reduced
+}
+
 export function useScrollY() {
   const [scrollY, setScrollY] = useState(0)
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from '../../lib/icons'
 import { motion, AnimatePresence } from 'framer-motion'
+import ScrollReveal from '../ui/ScrollReveal'
 import { faqs } from '../../data/mockData'
 
 export default function FAQ() {
@@ -9,19 +10,19 @@ export default function FAQ() {
   return (
     <section id="faq" className="py-24 px-4">
       <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-16" data-aos="fade-up">
+        <ScrollReveal className="text-center mb-16">
           <span className="text-primary dark:text-sky font-semibold text-sm uppercase tracking-wider">FAQ</span>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mt-2">
             Ko'p So'raladigan Savollar
           </h2>
-        </div>
+        </ScrollReveal>
 
         <div className="space-y-3">
           {faqs.map((faq, i) => (
-            <div
+            <ScrollReveal
               key={faq.q}
-              data-aos="fade-up"
-              data-aos-delay={i * 50}
+              index={i}
+              distance={32}
               className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
             >
               <button
@@ -52,7 +53,7 @@ export default function FAQ() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       </div>

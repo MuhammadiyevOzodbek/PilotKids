@@ -4,6 +4,8 @@
 // Yangi ikona kerak bo'lsa shu yerga bitta qator qo'shing.
 
 export { default as ArrowRight } from 'lucide-react/dist/esm/icons/arrow-right.mjs'
+export { default as Loader2 } from 'lucide-react/dist/esm/icons/loader-2.mjs'
+export { default as AlertCircle } from 'lucide-react/dist/esm/icons/alert-circle.mjs'
 export { default as Radio } from 'lucide-react/dist/esm/icons/radio.mjs'
 export { default as Circle } from 'lucide-react/dist/esm/icons/circle.mjs'
 export { default as Users } from 'lucide-react/dist/esm/icons/users.mjs'

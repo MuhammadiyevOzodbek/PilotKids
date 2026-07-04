@@ -63,10 +63,10 @@ export function Login() {
     }
     setLoading(true)
     try {
-      login(email, password)
+      await login(email, password)
       navigate(from, { replace: true })
-    } catch {
-      setError('Kirishda xatolik yuz berdi')
+    } catch (err) {
+      setError(err?.message || 'Kirishda xatolik yuz berdi')
     } finally {
       setLoading(false)
     }
@@ -151,10 +151,10 @@ export function Register() {
     }
     setLoading(true)
     try {
-      register(name, email, password)
+      await register(name, email, password)
       navigate('/dashboard', { replace: true })
-    } catch {
-      setError('Ro\'yxatdan o\'tishda xatolik')
+    } catch (err) {
+      setError(err?.message || 'Ro\'yxatdan o\'tishda xatolik')
     } finally {
       setLoading(false)
     }

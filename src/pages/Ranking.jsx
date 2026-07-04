@@ -7,10 +7,13 @@ import PageTransition from '../components/ui/PageTransition'
 import SceneFallback from '../components/three/SceneFallback'
 import { TopRankCard, LeaderboardRow } from '../components/ui/RankingCard'
 import { TrophyScene3D } from '../components/three/lazy'
-import { leaderboard, RANKS } from '../data/mockData'
+import { LoadingState, ErrorState } from '../components/ui/QueryState'
+import { useRanking } from '../hooks/useApi'
+import { RANKS } from '../data/mockData'
 
 export default function Ranking() {
   const [tab, setTab] = useState('monthly')
+  const { data: leaderboard = [], isLoading, isError, error, refetch } = useRanking()
 
   const sorted = [...leaderboard].sort((a, b) =>
     tab === 'weekly' ? b.weeklyXp - a.weeklyXp : b.xp - a.xp
@@ -40,7 +43,7 @@ export default function Ranking() {
         {/* Rank tiers */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           {RANKS.map((rank) => (
-            <GlassCard key={rank.name} className="!p-4 text-center" data-aos="fade-up">
+            <GlassCard key={rank.name} className="!p-4 text-center">
               <span className="text-2xl">{rank.emoji}</span>
               <p className="text-xs font-semibold text-slate-900 dark:text-white mt-2">{rank.name}</p>
               <p className="text-[10px] text-slate-400">{rank.minXp.toLocaleString()}+ XP</p>
@@ -70,6 +73,12 @@ export default function Ranking() {
           ))}
         </div>
 
+        {isLoading ? (
+          <LoadingState label="Reyting yuklanmoqda..." />
+        ) : isError ? (
+          <ErrorState error={error} onRetry={refetch} />
+        ) : (
+        <>
         {/* Top 3 */}
         <div className="grid sm:grid-cols-3 gap-4 mb-8 max-w-3xl mx-auto">
           {sorted.slice(0, 3).map((student, i) => {
@@ -114,6 +123,8 @@ export default function Ranking() {
             ))}
           </div>
         </GlassCard>
+        </>
+        )}
       </PageTransition>
     </DashboardLayout>
   )

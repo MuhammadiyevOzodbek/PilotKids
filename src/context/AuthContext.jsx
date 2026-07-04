@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useMemo, useCallback } from 'react'
+import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react'
+import { api, setToken, clearToken, getToken } from '../lib/api'
 
 const AuthContext = createContext()
+const USER_KEY = 'pilotkids_user'
 
 export function AuthProvider({ children }) {
+  // Boshlang'ich holat localStorage'dan (deterministik — SSR-mos, flash yo'q).
   const [user, setUser] = useState(() => {
-    const token = localStorage.getItem('pilotkids_token')
-    const saved = localStorage.getItem('pilotkids_user')
+    const token = getToken()
+    const saved = localStorage.getItem(USER_KEY)
     if (token && saved) {
       try {
         return JSON.parse(saved)
@@ -16,61 +19,69 @@ export function AuthProvider({ children }) {
     return null
   })
 
-  // eslint-disable-next-line no-unused-vars -- password real API bilan almashtirilganda ishlatiladi
-  const login = useCallback((email, password) => {
-    // JWT-ready structure — replace with real API call
-    const mockUser = {
-      id: '1',
-      name: 'Sardor Karimov',
-      email,
-      avatar: null,
-      xp: 4850,
-      rank: 'Robotics Explorer',
-      isPremium: true,
-    }
-    const mockToken = 'mock_jwt_token_' + Date.now()
-    localStorage.setItem('pilotkids_token', mockToken)
-    localStorage.setItem('pilotkids_user', JSON.stringify(mockUser))
-    setUser(mockUser)
-    return { success: true, token: mockToken, user: mockUser }
+  const persist = useCallback((u) => {
+    setUser(u)
+    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u))
+    else localStorage.removeItem(USER_KEY)
   }, [])
 
-  // eslint-disable-next-line no-unused-vars -- password real API bilan almashtirilganda ishlatiladi
-  const register = useCallback((name, email, password) => {
-    const mockUser = {
-      id: String(Date.now()),
-      name,
-      email,
-      avatar: null,
-      xp: 0,
-      rank: 'Junior Engineer',
-      isPremium: false,
-    }
-    const mockToken = 'mock_jwt_token_' + Date.now()
-    localStorage.setItem('pilotkids_token', mockToken)
-    localStorage.setItem('pilotkids_user', JSON.stringify(mockUser))
-    setUser(mockUser)
-    return { success: true, token: mockToken, user: mockUser }
-  }, [])
+  const login = useCallback(
+    async (email, password) => {
+      const { token, user: u } = await api.post(
+        '/api/auth/login',
+        { email, password },
+        { auth: false }
+      )
+      setToken(token)
+      persist(u)
+      return u
+    },
+    [persist]
+  )
+
+  const register = useCallback(
+    async (name, email, password) => {
+      const { token, user: u } = await api.post(
+        '/api/auth/register',
+        { name, email, password },
+        { auth: false }
+      )
+      setToken(token)
+      persist(u)
+      return u
+    },
+    [persist]
+  )
 
   const logout = useCallback(() => {
-    localStorage.removeItem('pilotkids_token')
-    localStorage.removeItem('pilotkids_user')
-    setUser(null)
-  }, [])
+    clearToken()
+    persist(null)
+  }, [persist])
 
-  const getToken = useCallback(() => localStorage.getItem('pilotkids_token'), [])
+  // Server ma'lumotini yangilash (XP/rank o'zgargach chaqiriladi)
+  const refreshUser = useCallback(async () => {
+    try {
+      const { user: u } = await api.get('/api/auth/me')
+      persist(u)
+    } catch (e) {
+      if (e?.status === 401) logout() // token muddati o'tgan
+    }
+  }, [persist, logout])
+
+  // Mount'da token bo'lsa /me orqali tekshirish/yangilash. refreshUser barqaror
+  // (useCallback) — effekt faqat bir marta ishlaydi. setState refreshUser ichida
+  // await'dan KEYIN sodir bo'ladi (sinxron emas), shu bois qoida o'chiriladi.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (getToken()) refreshUser()
+  }, [refreshUser])
 
   const value = useMemo(
-    () => ({ user, login, register, logout, getToken, isAuthenticated: !!user }),
-    [user, login, register, logout, getToken]
+    () => ({ user, login, register, logout, refreshUser, isAuthenticated: !!user }),
+    [user, login, register, logout, refreshUser]
   )
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

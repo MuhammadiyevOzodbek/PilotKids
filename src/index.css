@@ -1,5 +1,9 @@
 @import "tailwindcss";
-@import "aos/dist/aos.css";
+
+/* dark: varianti .dark klassiga ergashadi (ThemeContext boshqaradi) —
+   busiz Tailwind 4 dark: faqat OS prefers-color-scheme'ga qaraydi va
+   qo'lda tema almashtirish CSS'ga ta'sir qilmaydi. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-primary: #2563EB;

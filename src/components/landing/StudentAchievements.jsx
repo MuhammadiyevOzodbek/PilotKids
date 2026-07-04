@@ -1,5 +1,6 @@
 import { Trophy, Medal } from '../../lib/icons'
 import GlassCard from '../ui/GlassCard'
+import ScrollReveal from '../ui/ScrollReveal'
 import { achievements } from '../../data/mockData'
 
 const medalColors = {
@@ -11,18 +12,19 @@ const medalColors = {
 
 export default function StudentAchievements() {
   return (
-    <section className="py-24 px-4 bg-slate-50 dark:bg-slate-900/50">
+    <section data-scroll-stage className="py-24 px-4 bg-slate-50/60 dark:bg-slate-900/40">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16" data-aos="fade-up">
+        <ScrollReveal className="text-center mb-16">
           <span className="text-primary dark:text-sky font-semibold text-sm uppercase tracking-wider">Yutuqlar</span>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mt-2">
             O'quvchilar Yutuqlari
           </h2>
-        </div>
+        </ScrollReveal>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {achievements.map((item, i) => (
-            <GlassCard key={`${item.student}-${item.project}`} data-aos="fade-up" data-aos-delay={i * 100} className="text-center">
+            <ScrollReveal key={`${item.student}-${item.project}`} index={i} className="h-full">
+            <GlassCard className="text-center h-full">
               <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br ${medalColors[item.award] || 'from-primary to-sky'} flex items-center justify-center`}>
                 <Medal className="w-8 h-8 text-white" aria-hidden="true" />
               </div>
@@ -34,6 +36,7 @@ export default function StudentAchievements() {
               </div>
               <span className="text-xs text-slate-400 mt-2 block">{item.date}</span>
             </GlassCard>
+            </ScrollReveal>
           ))}
         </div>
       </div>

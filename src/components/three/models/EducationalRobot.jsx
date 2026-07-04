@@ -6,6 +6,7 @@ export default function EducationalRobot({
   scrollRotation = 0,
   hovered = false,
   onWave,
+  waving: wavingProp = false, // tashqaridan boshqarish (scroll final CTA bosqichi)
 }) {
   const groupRef = useRef()
   const headRef = useRef()
@@ -60,8 +61,9 @@ export default function EducationalRobot({
     }
 
     if (rightArmRef.current) {
-      if (waving) {
-        const elapsed = (performance.now() - waveStart.current) / 1000
+      if (waving || wavingProp) {
+        // Klik orqali — boshlanish momentidan, scroll (prop) orqali — clock vaqtidan
+        const elapsed = waving ? (performance.now() - waveStart.current) / 1000 : t
         rightArmRef.current.rotation.z = -0.3 + Math.sin(elapsed * 10) * 0.6
         rightArmRef.current.rotation.x = -0.5
       } else {

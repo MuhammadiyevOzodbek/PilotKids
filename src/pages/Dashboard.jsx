@@ -12,11 +12,12 @@ import DashboardWidget from '../components/ui/DashboardWidget'
 import PageTransition from '../components/ui/PageTransition'
 import { useAuth } from '../context/AuthContext'
 import {
-  weeklyChartData, notifications, upcomingLessons, courses, RANKS,
+  weeklyChartData, notifications, upcomingLessons, RANKS,
 } from '../data/mockData'
 import SceneFallback from '../components/three/SceneFallback'
 import { AssistantScene } from '../components/three/lazy'
 import { useIsMobile } from '../hooks/useDevice'
+import { useCourses } from '../hooks/useApi'
 
 // Foydalanuvchining joriy va keyingi darajasiga nisbatan progressni hisoblaydi.
 function getRankProgress(xp = 0) {
@@ -38,6 +39,7 @@ function getRankProgress(xp = 0) {
 export default function Dashboard() {
   const { user } = useAuth()
   const isMobile = useIsMobile(640)
+  const { data: courses = [] } = useCourses()
   const completedCourses = courses.filter((c) => c.progress === 100).length
   const inProgress = courses.filter((c) => c.progress > 0 && c.progress < 100).length
   const rankProgress = getRankProgress(user?.xp)
