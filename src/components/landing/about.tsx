@@ -18,7 +18,8 @@ export function About() {
             PilotKids nima?
           </span>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            Bolalar uchun <span className="text-gradient">kelajak texnologiyalari</span> maktabi
+            Bolalar uchun <span className="text-gradient">kelajak texnologiyalarining</span> virtual
+            maktabi
           </h2>
           <p className="text-muted-foreground mt-4 text-lg">
             PilotKids — bu robototexnika, dasturlash va sun'iy intellektni o'yin tarzida

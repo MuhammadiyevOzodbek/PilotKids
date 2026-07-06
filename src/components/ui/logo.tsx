@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,9 +15,19 @@ export function Logo({
   className?: string;
   showText?: boolean;
 }) {
+  const pathname = usePathname();
+
+  // Allaqachon manzil sahifasida bo'lsak — bosilganda eng yuqoriga skroll qilamiz
+  const handleClick = () => {
+    if (pathname === href) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <Link
       href={href}
+      onClick={handleClick}
       className={cn("group inline-flex items-center gap-2", className)}
       aria-label="PilotKids bosh sahifasi"
     >

@@ -37,7 +37,8 @@ export const BENEFITS: Benefit[] = [
   {
     icon: Users,
     title: "Mentor Qo'llab-quvvatlash",
-    description: "Tajribali muhandislar har qadamda yoningizda, savollaringizga javob beradi.",
+    description:
+      "Tajribali muhandislar har qadamda yoningizda, savollaringizga virtual javob beradi.",
   },
   {
     icon: Cpu,
