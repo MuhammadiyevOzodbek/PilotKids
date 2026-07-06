@@ -1,26 +1,310 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Foydalanuvchi boshqaradigan qorong'u rejim — .dark klass orqali (OS emas) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────── Dizayn tokenlari ─────────────────────────── */
+@theme {
+  /* Shriftlar */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+
+  /* Brend ranglari (doimiy) */
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-sky-brand: #38bdf8;
+  --color-accent: #06b6d4;
+  --color-accent-foreground: #ffffff;
+  --color-dark: #0f172a;
+
+  /* Semantik */
+  --color-success: #10b981; /* emerald-500 */
+  --color-danger: #dc2626; /* red-600 */
+  --color-premium: #f59e0b; /* amber-500 / gold */
+
+  /* Animatsiya keyframe'lari */
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-spin-slow: spin 12s linear infinite;
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.5s linear infinite;
 }
 
+/* Temaga qarab almashadigan semantik tokenlar (inline — runtime CSS var) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─────────────────────────── Yorug' tema ─────────────────────────── */
+:root {
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0; /* slate-200 */
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --muted: #f1f5f9; /* slate-100 */
+  --muted-foreground: #64748b; /* slate-500 */
+
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-light-bg: rgba(255, 255, 255, 0.82);
+  --glass-light-border: rgba(226, 232, 240, 0.9);
+  --grid-line: rgba(15, 23, 42, 0.06);
+}
+
+/* ─────────────────────────── Qorong'u tema ─────────────────────────── */
+.dark {
+  --background: #0b1120; /* deep navy */
+  --foreground: #f1f5f9; /* slate-100 */
+  --card: #0f172a; /* slate-900 */
+  --card-foreground: #f1f5f9;
+  --border: #1e293b; /* slate-800 */
+  --input: #334155; /* slate-700 */
+  --ring: #38bdf8;
+  --muted: #1e293b; /* slate-800 */
+  --muted-foreground: #94a3b8; /* slate-400 */
+
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-light-bg: rgba(255, 255, 255, 0.07);
+  --glass-light-border: rgba(255, 255, 255, 0.12);
+  --grid-line: rgba(148, 163, 184, 0.08);
+}
+
+/* ─────────────────────────── Asosiy uslublar ─────────────────────────── */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+  }
+  /* Ko'rinadigan fokus halqasi (a11y) */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─────────────────────────── Utility klasslar ─────────────────────────── */
+@layer utilities {
+  /* Shisha (glassmorphism) */
+  .glass {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-light {
+    background-color: var(--glass-light-bg);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    border: 1px solid var(--glass-light-border);
+  }
+
+  /* Signatur gradient: sky → accent → primary */
+  .text-gradient {
+    background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #2563eb 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  /* Lucide (stroke) ikonkalar uchun gradient — SVG paint server orqali.
+     text-gradient (color: transparent) ikonkani ko'rinmas qiladi, shuning
+     uchun stroke'ga to'g'ridan-to'g'ri gradient beramiz. */
+  .icon-gradient {
+    stroke: url(#pk-icon-gradient);
+  }
+  .bg-gradient-signature {
+    background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #2563eb 100%);
+  }
+  .border-gradient-signature {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--card), var(--card)) padding-box,
+      linear-gradient(135deg, #38bdf8, #06b6d4, #2563eb) border-box;
+  }
+
+  /* Rangli nur soyalar */
+  .glow-blue {
+    box-shadow:
+      0 0 20px rgba(37, 99, 235, 0.45),
+      0 0 45px rgba(37, 99, 235, 0.2);
+  }
+  .glow-cyan {
+    box-shadow:
+      0 0 20px rgba(6, 182, 212, 0.45),
+      0 0 45px rgba(56, 189, 248, 0.22);
+  }
+
+  /* Plata to'ri va nur fonlari */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .bg-circuit {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.18), transparent 42%),
+      radial-gradient(circle at 85% 65%, rgba(6, 182, 212, 0.14), transparent 42%),
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size:
+      auto,
+      auto,
+      44px 44px,
+      44px 44px;
+  }
+
+  /* Animatsiyalar */
+  .animate-float {
+    animation: var(--animate-float);
+  }
+  .spin-slow {
+    animation: var(--animate-spin-slow);
+  }
+  .pulse-glow {
+    animation: var(--animate-pulse-glow);
+  }
+  .shimmer {
+    background: linear-gradient(
+      110deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.45) 50%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: var(--animate-shimmer);
+  }
+  .glitch {
+    position: relative;
+  }
+  .glitch::before,
+  .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .glitch::before {
+    color: #06b6d4;
+    animation: glitch 2.6s infinite;
+    clip-path: inset(0 0 55% 0);
+  }
+  .glitch::after {
+    color: #2563eb;
+    animation: glitch 2s infinite reverse;
+    clip-path: inset(55% 0 0 0);
+  }
+
+  /* Vertikal skroll-panelchani nozik ko'rsatish */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+/* ─────────────────────────── Keyframe'lar ─────────────────────────── */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px rgba(37, 99, 235, 0.35),
+      0 0 32px rgba(6, 182, 212, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(37, 99, 235, 0.6),
+      0 0 60px rgba(6, 182, 212, 0.35);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 220% 0;
+  }
+  to {
+    background-position: -220% 0;
+  }
+}
+@keyframes glitch {
+  0%,
+  100% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 1px);
+  }
+  40% {
+    transform: translate(2px, -1px);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+}
+
+/* ───────────── Kirish imkoniyati: harakatni kamaytirish (majburiy) ───────────── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-float,
+  .spin-slow,
+  .pulse-glow,
+  .shimmer,
+  .glitch::before,
+  .glitch::after {
+    animation: none !important;
+  }
 }

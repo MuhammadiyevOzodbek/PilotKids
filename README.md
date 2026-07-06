@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PilotKids — Robototexnika Akademiyasi
 
-## Getting Started
+8–18 yoshli bolalar uchun onlayn robototexnika akademiyasi (EdTech).
+**Shior:** _Kelajak muhandislari shu yerda boshlanadi._
 
-First, run the development server:
+## Stack
+
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript (strict) · Tailwind CSS 4 ·
+shadcn/ui · Framer Motion · Three.js + @react-three/fiber + drei · Zustand · Recharts ·
+Lucide · React Hook Form + Zod · Neon PostgreSQL · Drizzle ORM · Better Auth · Vercel.
+
+## Ishga tushirish
 
 ```bash
+npm install
+cp .env.example .env.local   # qiymatlarni to'ldiring
+npm run db:migrate           # yoki: npm run db:push
+npm run db:seed              # demo ma'lumot + demo@pilotkids.uz / demo1234
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Skriptlar
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Skript | Vazifa |
+|---|---|
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` / `start` | Production build / server |
+| `npm run lint` / `typecheck` / `format` | Sifat tekshiruvlari |
+| `npm run db:generate` | Schema'dan migration yaratish |
+| `npm run db:push` | Schema'ni to'g'ridan-to'g'ri Neon'ga sinxronlash (tavsiya) |
+| `npm run db:seed` | Seed (idempotent) |
+| `npm run db:studio` | Drizzle Studio |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Muhit o'zgaruvchilari
 
-## Learn More
+`.env.local` (server-only; brauzerga chiqmaydi):
 
-To learn more about Next.js, take a look at the following resources:
+- `DATABASE_URL` — Neon PostgreSQL connection string
+- `BETTER_AUTH_SECRET` — `openssl rand -base64 32`
+- `BETTER_AUTH_URL` — ilova URL (prod: Vercel domeni)
+- `NEXT_PUBLIC_APP_URL` — ommaviy ilova URL (prod: Vercel domeni)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — ixtiyoriy (OAuth)
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — ixtiyoriy (OAuth)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Vercel'ga deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Repozitoriyani GitHub'ga push qiling.
+2. Vercel'da loyihani import qiling (Next.js avtomatik aniqlanadi).
+3. **Environment Variables** bo'limiga yuqoridagilarni qo'shing. `BETTER_AUTH_URL` va
+   `NEXT_PUBLIC_APP_URL` ni Vercel domeningizga tenglang (masalan `https://pilotkids.vercel.app`).
+4. OAuth ishlatilsa: Google/GitHub konsolida **Authorized redirect URI** sifatida
+   `https://<domen>/api/auth/callback/google` (va `/github`) ni qo'shing.
+5. Deploy. Ma'lumotlar bazasi (Neon) allaqachon migratsiya + seed qilingan bo'lsa,
+   qo'shimcha qadam kerak emas.
 
-## Deploy on Vercel
+> Migration: bu loyihada schema Neon'ga qo'llab bo'lindi. Kelajakdagi schema
+> o'zgarishlari uchun `npm run db:push` dan foydalaning.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Struktura
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/                # (marketing) landing · (auth) · (dashboard) · api/auth · SEO routelari
+├── components/         # ui · landing · auth · dashboard · courses · subscription · three
+├── lib/                # db (schema/queries/seed) · auth · actions · validations · data
+├── store/              # useThemeStore · useScrollStore
+├── hooks/              # useDevice · useMounted
+└── middleware.ts       # route himoyasi
+```
+
+Demo hisob: **demo@pilotkids.uz** / **demo1234**
