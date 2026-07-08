@@ -24,7 +24,7 @@ export function FinalCta() {
             </div>
 
             <h2 className="font-display relative text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-              Kelajakni <span className="text-gradient">hozir</span> boshlang
+              Kelajakni <span className="text-gradient">hozirdan</span> boshlang
             </h2>
             <p className="text-muted-foreground relative mx-auto mt-4 max-w-xl text-lg">
               Bepul ro'yxatdan o'ting va bolangizni kelajak muhandisiga aylantiring. Birinchi dars
