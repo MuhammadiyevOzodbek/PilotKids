@@ -53,12 +53,13 @@ export const BENEFITS: Benefit[] = [
   {
     icon: Clock,
     title: "Moslashuvchan Jadval",
-    description: "Istagan vaqtingizda, o'z sur'atingizda o'rganing — hech qanday shoshilish yo'q.",
+    description: "Har kuni, istalgan vaqtda shoshilmasdan o'rganing.",
   },
   {
     icon: Award,
     title: "Rasmiy Sertifikat",
-    description: "Har bir kursni yakunlaganingizda tan olingan sertifikatga ega bo'lasiz.",
+    description:
+      "Kursning har bir bosqichini muvaffaqiyatli yakunlasangiz sertifikat sohibiga aylanasiz!",
   },
 ];
 
@@ -80,16 +81,16 @@ export const ROADMAP: RoadmapStep[] = [
     title: "Dasturlash",
     description: "Scratch'dan Python'gacha — robotlarni boshqarish.",
   },
-  { step: 4, title: "Loyihalar", description: "Mustaqil ravishda o'z robotingizni loyihalash." },
+  { step: 4, title: "Loyihalar", description: "Mustaqil ravishda o'z robotingizni yaratasiz." },
   {
     step: 5,
     title: "Sun'iy Intellekt",
-    description: "AI va mashinali o'qitish asoslarini o'zlashtirish.",
+    description: "Aqlli Idrokdan foydalanishni o'rganasiz.",
   },
   {
     step: 6,
-    title: "Mutaxassislik",
-    description: "Murakkab tizimlar va musobaqalarga tayyorgarlik.",
+    title: "Eng so'nggida",
+    description: "Kurs yakunida muhandis-dasturchi bo'lasiz.",
   },
 ];
 

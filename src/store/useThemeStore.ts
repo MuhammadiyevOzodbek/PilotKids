@@ -1,13 +1,15 @@
 "use client";
 
 import { create } from "zustand";
+import { THEME_STORAGE_KEY } from "@/lib/theme-constants";
 
 /** Foydalanuvchi tanlovi — "system" localStorage'da saqlanmaydi (default). */
 export type Theme = "light" | "dark" | "system";
 /** DOM'ga haqiqatda qo'llanadigan tema. */
 export type ResolvedTheme = "light" | "dark";
 
-export const THEME_STORAGE_KEY = "pk-theme";
+// Qayta eksport — mavjud import qiluvchilar buzilmasligi uchun
+export { THEME_STORAGE_KEY };
 
 interface ThemeState {
   /** Foydalanuvchi tanlovi ("system" — hech narsa saqlanmagan holat) */

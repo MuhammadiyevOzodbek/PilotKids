@@ -17,9 +17,33 @@ const github =
     ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
     : {};
 
+// Ishonchli originlar — production domeni bilan localhost mos kelmasa,
+// better-auth CSRF/origin tekshiruvi so'rovni 403 bilan rad etadi.
+// BETTER_AUTH_URL va NEXT_PUBLIC_APP_URL dan originlarni yig'amiz.
+const trustedOrigins = [env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL]
+  .filter((v): v is string => Boolean(v))
+  .map((url) => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return null;
+    }
+  })
+  .filter((v): v is string => Boolean(v));
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
+  trustedOrigins: Array.from(new Set(trustedOrigins)),
+  // Xatolarni server loglariga to'liq chiqaramiz (deploy platformasida ko'rinadi)
+  logger: {
+    level: "debug",
+  },
+  onAPIError: {
+    onError: (error) => {
+      console.error("[PilotKids][better-auth] API xatosi:", error);
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

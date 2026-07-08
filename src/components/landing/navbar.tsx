@@ -16,7 +16,7 @@ export function Navbar() {
 
   // Scroll'da glass fonga o'tish — faqat chegara kesib o'tilganda state yangilanadi
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => setScrolled(window.scrollY > 0);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -33,8 +33,8 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        scrolled ? "glass border-b shadow-sm" : "border-b border-transparent",
+        "fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-out",
+        scrolled ? "glass-nav h-16" : "h-16 border-b border-transparent bg-transparent",
       )}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">

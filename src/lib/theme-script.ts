@@ -1,4 +1,4 @@
-import { THEME_STORAGE_KEY } from "@/store/useThemeStore";
+import { THEME_STORAGE_KEY } from "@/lib/theme-constants";
 
 /**
  * <head> ga inline joylashtiriladigan skript — DOM render qilinishidan OLDIN

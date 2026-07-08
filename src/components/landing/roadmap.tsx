@@ -15,7 +15,7 @@ export function Roadmap() {
               Bilimdan <span className="text-gradient">mahoratgacha</span>
             </>
           }
-          subtitle="Noldan boshlab, bosqichma-bosqich haqiqiy muhandisga aylaning."
+          subtitle="Noldan boshlab, bosqichma-bosqich haqiqiy muhandisga aylanasiz."
         />
 
         <div className="relative mt-16">
