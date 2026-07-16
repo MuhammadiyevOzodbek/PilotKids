@@ -56,20 +56,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+    <div className="auth-split">
       <div
+        className="auth-aside"
         style={{
           position: "relative",
           overflow: "hidden",
           background: "radial-gradient(120% 120% at 20% 0%,#16224a,#0B1220)",
           color: "#EAF0FB",
-          padding: 48,
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
         }}
       >
         <div
+          className="orb"
           style={{
             position: "absolute",
             width: 360,
@@ -84,6 +85,7 @@ export default function LoginPage() {
         />
         <Link
           href="/"
+          className="tap"
           style={{
             position: "relative",
             display: "flex",
@@ -111,13 +113,15 @@ export default function LoginPage() {
         <div style={{ position: "relative" }}>
           <Robot3D
             kind="hero"
+            className="auth-aside-hide"
             style={{ height: 260, animation: "floatY 6s ease-in-out infinite" }}
           />
           <h2
+            className="auth-aside-hide"
             style={{
               fontFamily: "'Sora'",
               fontWeight: 800,
-              fontSize: 32,
+              fontSize: "clamp(24px,2.6vw,32px)",
               letterSpacing: "-.02em",
               margin: "8px 0 12px",
               maxWidth: 380,
@@ -125,22 +129,31 @@ export default function LoginPage() {
           >
             Yana ko&apos;rishganimizdan xursandmiz
           </h2>
-          <p style={{ color: "#AEBBD4", fontSize: 16, lineHeight: 1.6, maxWidth: 360, margin: 0 }}>
+          <p
+            className="auth-aside-hide"
+            style={{ color: "#AEBBD4", fontSize: 16, lineHeight: 1.6, maxWidth: 360, margin: 0 }}
+          >
             Robo va sizning loyihalaringiz kutmoqda. Qurishda davom etamizmi?
           </p>
         </div>
-        <div style={{ position: "relative", color: "#6f82a3", fontSize: 13 }}>
+        <div
+          className="auth-aside-hide"
+          style={{ position: "relative", color: "#6f82a3", fontSize: 13 }}
+        >
           © 2026 PilotKids · Bolalar uchun xavfsiz ta&apos;lim
         </div>
       </div>
-      <div style={{ display: "grid", placeItems: "center", padding: 48, background: "var(--bg)" }}>
+      <div
+        className="auth-main"
+        style={{ display: "grid", placeItems: "center", background: "var(--bg)" }}
+      >
         <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 400 }}>
-          <ThemeToggle style={{ float: "right", width: 42, height: 42, borderRadius: 12 }} />
+          <ThemeToggle style={{ float: "right" }} />
           <h1
             style={{
               fontFamily: "'Sora'",
               fontWeight: 800,
-              fontSize: 32,
+              fontSize: "clamp(26px,5vw,32px)",
               letterSpacing: "-.02em",
               margin: "6px 0 8px",
               color: "var(--text)",
@@ -211,7 +224,7 @@ export default function LoginPage() {
           </div>
 
           <div style={{ textAlign: "right", marginBottom: 22 }}>
-            <Link href="/signup" style={{ fontSize: 14, fontWeight: 600 }}>
+            <Link href="/signup" className="tap" style={{ fontSize: 14, fontWeight: 600 }}>
               Parolni unutdingizmi?
             </Link>
           </div>
@@ -296,7 +309,7 @@ export default function LoginPage() {
 
           <p style={{ textAlign: "center", color: "var(--text-2)", marginTop: 28, fontSize: 14.5 }}>
             Bu yerda yangimisiz?{" "}
-            <Link href="/signup" style={{ fontWeight: 700 }}>
+            <Link href="/signup" className="tap-inline" style={{ fontWeight: 700 }}>
               Ro&apos;yxatdan o&apos;ting
             </Link>
           </p>

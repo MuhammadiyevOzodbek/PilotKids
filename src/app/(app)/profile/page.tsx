@@ -33,13 +33,13 @@ export default async function ProfilePage() {
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <div
+        className="profile-hero"
         style={{
           position: "relative",
           overflow: "hidden",
           borderRadius: 26,
           background: "linear-gradient(120deg,#16224a,#0B1220)",
           color: "#EAF0FB",
-          padding: 38,
           display: "flex",
           alignItems: "center",
           gap: 24,
@@ -137,14 +137,7 @@ export default async function ProfilePage() {
           Tahrirlash
         </Link>
       </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3,1fr)",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
+      <div className="grid-3" style={{ gap: 16, marginBottom: 24 }}>
         {profileStats.map((s) => (
           <div
             key={s.label}

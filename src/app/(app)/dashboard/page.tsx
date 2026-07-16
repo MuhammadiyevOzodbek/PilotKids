@@ -72,7 +72,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* CONTINUE + STATS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 22, marginBottom: 22 }}>
+      <div
+        className="split"
+        style={{ "--split": "1.7fr 1fr", gap: 22, marginBottom: 22 } as React.CSSProperties}
+      >
         <div
           style={{
             position: "relative",
@@ -243,6 +246,7 @@ export default async function DashboardPage() {
         </h2>
         <Link
           href="/courses"
+          className="tap"
           style={{
             display: "flex",
             alignItems: "center",
@@ -260,7 +264,7 @@ export default async function DashboardPage() {
           <Icon name="arrow_forward" size={18} />
         </Link>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
+      <div className="grid-4" style={{ gap: 20 }}>
         {featured.map((c) => (
           <Link
             key={c.id}

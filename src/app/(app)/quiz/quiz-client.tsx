@@ -170,6 +170,7 @@ export function QuizClient({
       >
         <Link
           href="/lesson"
+          className="tap"
           style={{
             display: "inline-flex",
             alignItems: "center",

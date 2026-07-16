@@ -128,7 +128,7 @@ export default async function LeaderboardPage() {
       </div>
 
       {/* ranking list */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 24 }}>
+      <div className="split" style={{ "--split": "1.5fr 1fr", gap: 24 } as React.CSSProperties}>
         <div
           style={{
             background: "var(--surface)",
@@ -218,7 +218,7 @@ export default async function LeaderboardPage() {
               {badges.filter((b) => b.earned).length}/{badges.length}
             </span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+          <div className="grid-4" style={{ gap: 12 }}>
             {badges.map((b) => {
               const earnedOpacity = b.earned ? "1" : ".4";
               return (
@@ -237,6 +237,7 @@ export default async function LeaderboardPage() {
                     <Icon name={b.icon} size={26} color={b.color} />
                   </div>
                   <div
+                    className="micro-label"
                     style={{
                       fontSize: 10.5,
                       fontWeight: 600,

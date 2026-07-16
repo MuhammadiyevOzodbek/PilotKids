@@ -29,7 +29,7 @@ export default async function LessonPage() {
         <Icon name="arrow_back" size={20} />
         {course?.title ?? "Robototexnika 101"}
       </Link>
-      <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 26 }}>
+      <div className="split" style={{ "--split": "1.7fr 1fr", gap: 26 } as React.CSSProperties}>
         <div>
           <div
             style={{

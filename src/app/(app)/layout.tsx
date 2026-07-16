@@ -19,7 +19,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           streak={stats.streak}
           hasUnread={unread > 0}
         />
-        <main style={{ flex: 1, padding: "34px 32px 60px" }}>{children}</main>
+        <main className="app-main" style={{ flex: 1 }}>
+          {children}
+        </main>
       </div>
     </div>
   );

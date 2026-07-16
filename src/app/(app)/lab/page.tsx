@@ -38,7 +38,7 @@ export default async function LabPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 28px" }}>
         Darslardagi bilimni haqiqiy qurilmalarga aylantiring
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 22 }}>
+      <div className="grid-3" style={{ gap: 22 }}>
         {projects.map((p) => (
           <div
             key={p.id}

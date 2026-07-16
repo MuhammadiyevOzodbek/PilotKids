@@ -30,16 +30,16 @@ export default async function CourseDetailsPage() {
         <Icon name="arrow_back" size={20} />
         Kurslar
       </Link>
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 26 }}>
+      <div className="split" style={{ "--split": "1.6fr 1fr", gap: 26 } as React.CSSProperties}>
         <div>
           <div
+            className="detail-hero"
             style={{
               position: "relative",
               overflow: "hidden",
               borderRadius: 26,
               background: "linear-gradient(120deg,#12203f,#0B1220)",
               color: "#EAF0FB",
-              padding: 38,
             }}
           >
             <div
@@ -54,7 +54,15 @@ export default async function CourseDetailsPage() {
                 filter: "blur(12px)",
               }}
             />
-            <div style={{ position: "relative", display: "flex", gap: 10, marginBottom: 18 }}>
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 18,
+              }}
+            >
               <span
                 style={{
                   padding: "6px 12px",

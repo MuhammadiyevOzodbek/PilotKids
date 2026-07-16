@@ -22,14 +22,7 @@ export default async function CoursesPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 26px" }}>
         Qiziqishingizga mos yo&apos;nalishni tanlang
       </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 18,
-          marginBottom: 40,
-        }}
-      >
+      <div className="grid-4" style={{ gap: 18, marginBottom: 40 }}>
         {categories.map((c) => (
           <Link
             key={c.id}
@@ -88,7 +81,7 @@ export default async function CoursesPage() {
       >
         Mashhur kurslar
       </h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
+      <div className="grid-4" style={{ gap: 20 }}>
         {featured.map((c) => (
           <Link
             key={c.id}

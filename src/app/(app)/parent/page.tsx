@@ -72,14 +72,7 @@ export default async function ParentPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 28px" }}>
         Farzandingiz o&apos;quv faoliyatini kuzating
       </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
+      <div className="grid-4" style={{ gap: 16, marginBottom: 24 }}>
         {parentStats.map((s) => (
           <div
             key={s.label}
@@ -118,7 +111,7 @@ export default async function ParentPage() {
           </div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 24 }}>
+      <div className="split" style={{ "--split": "1.5fr 1fr", gap: 24 } as React.CSSProperties}>
         <div
           style={{
             background: "var(--surface)",

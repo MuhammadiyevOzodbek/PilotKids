@@ -74,20 +74,21 @@ export default function SignupPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+    <div className="auth-split">
       <div
+        className="auth-aside"
         style={{
           position: "relative",
           overflow: "hidden",
           background: "radial-gradient(120% 120% at 20% 0%,#16224a,#0B1220)",
           color: "#EAF0FB",
-          padding: 48,
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
         }}
       >
         <div
+          className="orb"
           style={{
             position: "absolute",
             width: 360,
@@ -102,6 +103,7 @@ export default function SignupPage() {
         />
         <Link
           href="/"
+          className="tap"
           style={{
             position: "relative",
             display: "flex",
@@ -128,10 +130,11 @@ export default function SignupPage() {
         </Link>
         <div style={{ position: "relative" }}>
           <h2
+            className="auth-aside-hide"
             style={{
               fontFamily: "'Sora'",
               fontWeight: 800,
-              fontSize: 34,
+              fontSize: "clamp(24px,2.8vw,34px)",
               letterSpacing: "-.02em",
               margin: "0 0 16px",
               maxWidth: 400,
@@ -139,7 +142,10 @@ export default function SignupPage() {
           >
             Minglab yosh quruvchilarga qo&apos;shiling
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 360 }}>
+          <div
+            className="auth-aside-hide"
+            style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 360 }}
+          >
             {[
               "Yosh bo'yicha moslashtirilgan darslar",
               "Ota-ona nazorati va xavfsizlik",
@@ -163,24 +169,28 @@ export default function SignupPage() {
             ))}
           </div>
         </div>
-        <div style={{ position: "relative", color: "#6f82a3", fontSize: 13 }}>© 2026 PilotKids</div>
+        <div
+          className="auth-aside-hide"
+          style={{ position: "relative", color: "#6f82a3", fontSize: 13 }}
+        >
+          © 2026 PilotKids
+        </div>
       </div>
       <div
+        className="auth-main"
         style={{
           display: "grid",
           placeItems: "center",
-          padding: 40,
           background: "var(--bg)",
-          overflow: "auto",
         }}
       >
         <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 410 }}>
-          <ThemeToggle style={{ float: "right", width: 42, height: 42, borderRadius: 12 }} />
+          <ThemeToggle style={{ float: "right" }} />
           <h1
             style={{
               fontFamily: "'Sora'",
               fontWeight: 800,
-              fontSize: 30,
+              fontSize: "clamp(25px,5vw,30px)",
               letterSpacing: "-.02em",
               margin: "6px 0 8px",
               color: "var(--text)",
@@ -202,9 +212,7 @@ export default function SignupPage() {
             style={{ ...inputStyle, marginBottom: 16 }}
           />
 
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 12, marginBottom: 16 }}
-          >
+          <div className="signup-row" style={{ gap: 12, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Email</label>
               <input
@@ -345,7 +353,7 @@ export default function SignupPage() {
 
           <p style={{ textAlign: "center", color: "var(--text-2)", marginTop: 22, fontSize: 14.5 }}>
             Hisobingiz bormi?{" "}
-            <Link href="/login" style={{ fontWeight: 700 }}>
+            <Link href="/login" className="tap-inline" style={{ fontWeight: 700 }}>
               Kirish
             </Link>
           </p>

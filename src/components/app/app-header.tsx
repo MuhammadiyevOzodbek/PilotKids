@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSidebar } from "@/lib/ui-store";
 
 const iconBtn: React.CSSProperties = {
   width: 44,
@@ -29,22 +30,44 @@ export function AppHeader({
   streak: number;
   hasUnread: boolean;
 }) {
+  const toggle = useSidebar((s) => s.toggle);
+
   return (
     <header
+      className="app-header"
       style={{
         position: "sticky",
         top: 0,
         zIndex: 20,
         display: "flex",
         alignItems: "center",
-        gap: 18,
-        padding: "16px 32px",
         background: "color-mix(in srgb,var(--bg) 82%,transparent)",
         backdropFilter: "blur(12px)",
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div style={{ position: "relative", flex: 1, maxWidth: 440 }}>
+      {/* Ko'rinishni `.app-burger` klassi boshqaradi — shuning uchun bu yerda
+          ataylab `display` berilmagan (inline stil klassni bosib ketardi). */}
+      <button
+        className="app-burger tap"
+        onClick={toggle}
+        aria-label="Menyuni ochish"
+        style={{
+          placeItems: "center",
+          flexShrink: 0,
+          width: 44,
+          height: 44,
+          borderRadius: 12,
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--text)",
+          cursor: "pointer",
+        }}
+      >
+        <Icon name="menu" size={21} />
+      </button>
+
+      <div className="app-header-search" style={{ position: "relative", flex: 1, maxWidth: 440 }}>
         <span
           className="ms"
           aria-hidden
@@ -76,6 +99,7 @@ export function AppHeader({
       <div style={{ flex: 1 }} />
 
       <div
+        className="app-header-stats"
         style={{
           display: "flex",
           alignItems: "center",
@@ -92,6 +116,7 @@ export function AppHeader({
         {streak}
       </div>
       <div
+        className="app-header-stats"
         style={{
           display: "flex",
           alignItems: "center",
@@ -156,7 +181,12 @@ export function AppHeader({
         >
           {initials}
         </span>
-        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>{name}</span>
+        <span
+          className="app-header-name"
+          style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}
+        >
+          {name}
+        </span>
       </Link>
     </header>
   );

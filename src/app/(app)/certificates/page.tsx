@@ -22,7 +22,7 @@ export default async function CertificatesPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 30px" }}>
         {certs.filter((c) => c.state === "done").length} ta olindi · davom eting
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 24 }}>
+      <div className="grid-2" style={{ gap: 24 }}>
         {certs.map((c) => {
           const done = c.state === "done";
           const prog = c.state === "progress";
@@ -69,6 +69,7 @@ export default async function CertificatesPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
+                    className="micro-label"
                     style={{
                       display: "inline-flex",
                       alignItems: "center",

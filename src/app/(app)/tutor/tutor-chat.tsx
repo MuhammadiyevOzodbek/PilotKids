@@ -124,7 +124,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
               key={c}
               type="button"
               onClick={() => send(c)}
-              className="hover-primary"
+              className="hover-primary tap"
               style={{
                 padding: "8px 14px",
                 borderRadius: 99,
@@ -158,12 +158,13 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
           }}
         >
           <input
-            className="field"
+            className="field tap"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Robo'dan istalgan narsani so'rang…"
             style={{
               flex: 1,
+              minWidth: 0,
               border: "none",
               background: "transparent",
               color: "var(--text)",

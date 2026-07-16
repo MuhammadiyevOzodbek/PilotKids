@@ -9,24 +9,17 @@ export default async function TutorPage() {
 
   return (
     <div
+      className="tutor-shell"
       style={{
         maxWidth: 1080,
         margin: "0 auto",
-        height: "calc(100vh - 168px)",
-        minHeight: 560,
         animation: "fadeUp .5s ease both",
       }}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(220px,280px) 1fr",
-          gap: 22,
-          height: "100%",
-        }}
-      >
-        {/* Robo panel */}
+      <div className="tutor-grid" style={{ gap: 22 }}>
+        {/* Robo panel — tor ekranda chatga joy bo'shatib yashiriladi */}
         <div
+          className="tutor-aside"
           style={{
             background: "linear-gradient(180deg,#16224a,#0B1220)",
             borderRadius: 24,

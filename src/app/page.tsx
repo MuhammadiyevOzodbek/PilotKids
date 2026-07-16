@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { Robot3D } from "@/components/robot-3d";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/mobile-nav";
 import {
   partners,
   valueCards,
@@ -75,6 +76,7 @@ export default async function Home() {
         }}
       >
         <div
+          className="orb"
           style={{
             position: "absolute",
             width: 420,
@@ -88,6 +90,7 @@ export default async function Home() {
           }}
         />
         <div
+          className="orb"
           style={{
             position: "absolute",
             width: 320,
@@ -103,6 +106,7 @@ export default async function Home() {
 
         {/* top nav */}
         <nav
+          className="nav-bar"
           style={{
             position: "relative",
             zIndex: 5,
@@ -111,7 +115,6 @@ export default async function Home() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "22px 32px",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
@@ -139,11 +142,13 @@ export default async function Home() {
               PilotKids
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div
+              className="nav-links"
               style={{
                 display: "flex",
                 gap: 28,
+                marginRight: 14,
                 color: "#AEBBD4",
                 fontWeight: 600,
                 fontSize: 15,
@@ -162,8 +167,8 @@ export default async function Home() {
                 Narxlar
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <ThemeToggle variant="navy" style={{ width: 42, height: 42, borderRadius: 12 }} />
+            <div className="nav-cta" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <ThemeToggle variant="navy" />
               <Link
                 href="/login"
                 style={{
@@ -180,25 +185,23 @@ export default async function Home() {
                 Kirish
               </Link>
             </div>
+            <MobileNav />
           </div>
         </nav>
 
         {/* hero body */}
         <div
+          className="hero-grid sec-x"
           style={{
             position: "relative",
             zIndex: 3,
             maxWidth: 1240,
             margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1.05fr .95fr",
             gap: 20,
             alignItems: "center",
-            padding: "40px 32px 90px",
-            minHeight: "74vh",
           }}
         >
-          <div style={{ animation: "fadeUp .7s ease both" }}>
+          <div className="hero-copy" style={{ animation: "fadeUp .7s ease both" }}>
             <div
               style={{
                 display: "inline-flex",
@@ -209,7 +212,7 @@ export default async function Home() {
                 background: "rgba(255,255,255,.07)",
                 border: "1px solid rgba(255,255,255,.12)",
                 fontWeight: 700,
-                fontSize: 12.5,
+                fontSize: "clamp(12px,2.6vw,12.5px)",
                 letterSpacing: ".14em",
                 color: "#8fb2ff",
               }}
@@ -220,7 +223,7 @@ export default async function Home() {
               className="font-display"
               style={{
                 fontWeight: 800,
-                fontSize: 60,
+                fontSize: "clamp(32px,6.2vw,60px)",
                 lineHeight: 1.04,
                 letterSpacing: "-.03em",
                 margin: "22px 0 0",
@@ -231,7 +234,7 @@ export default async function Home() {
             </h1>
             <p
               style={{
-                fontSize: 19,
+                fontSize: "clamp(16px,2vw,19px)",
                 lineHeight: 1.6,
                 color: "#AEBBD4",
                 maxWidth: 520,
@@ -241,7 +244,7 @@ export default async function Home() {
               7–18 yoshli bolalar uchun robototexnika, kod va STEM — o&apos;ynab, qurib va sinab
               o&apos;rganish platformasi.
             </p>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <div className="hero-cta" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <Link
                 href="/signup"
                 className="hover-up"
@@ -283,7 +286,10 @@ export default async function Home() {
                 Demoni ko&apos;rish
               </Link>
             </div>
-            <div style={{ display: "flex", gap: 30, marginTop: 44 }}>
+            <div
+              className="hero-stats"
+              style={{ display: "flex", flexWrap: "wrap", gap: 30, marginTop: 44 }}
+            >
               <div>
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26 }}>
                   120+
@@ -310,7 +316,7 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div style={{ position: "relative", height: 520 }}>
+          <div className="hero-visual" style={{ position: "relative" }}>
             <div
               style={{
                 position: "absolute",
@@ -337,6 +343,7 @@ export default async function Home() {
               }}
             />
             <div
+              className="hero-float"
               style={{
                 position: "absolute",
                 top: "9%",
@@ -378,6 +385,7 @@ export default async function Home() {
               </div>
             </div>
             <div
+              className="hero-float"
               style={{
                 position: "absolute",
                 bottom: "16%",
@@ -419,6 +427,7 @@ export default async function Home() {
               </div>
             </div>
             <div
+              className="hero-float"
               style={{
                 position: "absolute",
                 top: "44%",
@@ -448,10 +457,11 @@ export default async function Home() {
 
       {/* TRUSTED BY */}
       <section
+        className="sec-x"
         style={{
           maxWidth: 1180,
           margin: "0 auto",
-          padding: "44px 32px 0",
+          paddingTop: 44,
         }}
       >
         <p
@@ -505,7 +515,10 @@ export default async function Home() {
       </section>
 
       {/* VALUE SECTIONS */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "80px 32px 40px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 80, paddingBottom: 40 }}
+      >
         <div
           style={{
             textAlign: "center",
@@ -528,7 +541,7 @@ export default async function Home() {
             className="font-display"
             style={{
               fontWeight: 800,
-              fontSize: 38,
+              fontSize: "clamp(26px,4.4vw,38px)",
               letterSpacing: "-.02em",
               margin: "12px 0 0",
               color: "var(--text)",
@@ -537,13 +550,7 @@ export default async function Home() {
             Ekrandan tashqarida quriladigan mahorat
           </h2>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 24,
-          }}
-        >
+        <div className="grid-3" style={{ gap: 24 }}>
           {valueCards.map((v) => (
             <div
               key={v.title}
@@ -596,7 +603,10 @@ export default async function Home() {
       </section>
 
       {/* CATEGORIES STRIP */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "44px 32px 20px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 44, paddingBottom: 20 }}
+      >
         <div
           style={{
             display: "flex",
@@ -623,7 +633,7 @@ export default async function Home() {
               className="font-display"
               style={{
                 fontWeight: 800,
-                fontSize: 34,
+                fontSize: "clamp(25px,4vw,34px)",
                 letterSpacing: "-.02em",
                 margin: "10px 0 0",
                 color: "var(--text)",
@@ -634,6 +644,7 @@ export default async function Home() {
           </div>
           <Link
             href="/signup"
+            className="tap"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -651,13 +662,7 @@ export default async function Home() {
             <Icon name="arrow_forward" size={19} />
           </Link>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 16,
-          }}
-        >
+        <div className="grid-4" style={{ gap: 16 }}>
           {categories.map((c) => (
             <div
               key={c.id}
@@ -714,7 +719,10 @@ export default async function Home() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "80px 32px 40px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 80, paddingBottom: 40 }}
+      >
         <div style={{ textAlign: "center", maxWidth: 620, margin: "0 auto 52px" }}>
           <div
             style={{
@@ -731,7 +739,7 @@ export default async function Home() {
             className="font-display"
             style={{
               fontWeight: 800,
-              fontSize: 36,
+              fontSize: "clamp(26px,4.2vw,36px)",
               letterSpacing: "-.02em",
               margin: "12px 0 0",
               color: "var(--text)",
@@ -740,13 +748,7 @@ export default async function Home() {
             To&apos;rt qadamda quruvchiga aylaning
           </h2>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 22,
-          }}
-        >
+        <div className="grid-4" style={{ gap: 22 }}>
           {howSteps.map((h) => (
             <div
               key={h.n}
@@ -812,7 +814,10 @@ export default async function Home() {
       </section>
 
       {/* POPULAR COURSES */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 32px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 40, paddingBottom: 40 }}
+      >
         <div style={{ textAlign: "center", maxWidth: 620, margin: "0 auto 44px" }}>
           <div
             style={{
@@ -829,7 +834,7 @@ export default async function Home() {
             className="font-display"
             style={{
               fontWeight: 800,
-              fontSize: 36,
+              fontSize: "clamp(26px,4.2vw,36px)",
               letterSpacing: "-.02em",
               margin: "12px 0 0",
               color: "var(--text)",
@@ -838,13 +843,7 @@ export default async function Home() {
             Nimadan boshlash mumkin
           </h2>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 20,
-          }}
-        >
+        <div className="grid-4" style={{ gap: 20 }}>
           {featured.map((c) => (
             <Link
               key={c.id}
@@ -916,17 +915,18 @@ export default async function Home() {
       </section>
 
       {/* PARENT TRUST */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "60px 32px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 60, paddingBottom: 60 }}
+      >
         <div
+          className="parent-grid"
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
             gap: 40,
             alignItems: "center",
             background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: 28,
-            padding: 48,
             boxShadow: "var(--shadow)",
           }}
         >
@@ -953,7 +953,7 @@ export default async function Home() {
               className="font-display"
               style={{
                 fontWeight: 800,
-                fontSize: 32,
+                fontSize: "clamp(24px,3.8vw,32px)",
                 letterSpacing: "-.02em",
                 margin: "0 0 14px",
                 color: "var(--text)",
@@ -1006,23 +1006,20 @@ export default async function Home() {
               ))}
             </div>
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 16,
-            }}
-          >
+          <div className="stat-grid" style={{ gap: 16 }}>
             <div
               style={{
                 background: "linear-gradient(135deg,#12203f,#0B1220)",
                 borderRadius: 20,
                 padding: 26,
                 color: "#EAF0FB",
-                gridColumn: "span 2",
+                gridColumn: "1 / -1",
               }}
             >
-              <div className="font-display" style={{ fontWeight: 800, fontSize: 40 }}>
+              <div
+                className="font-display"
+                style={{ fontWeight: 800, fontSize: "clamp(30px,5vw,40px)" }}
+              >
                 14 000+
               </div>
               <div
@@ -1099,7 +1096,10 @@ export default async function Home() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 32px 20px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 40, paddingBottom: 20 }}
+      >
         <div style={{ textAlign: "center", maxWidth: 620, margin: "0 auto 44px" }}>
           <div
             style={{
@@ -1116,7 +1116,7 @@ export default async function Home() {
             className="font-display"
             style={{
               fontWeight: 800,
-              fontSize: 36,
+              fontSize: "clamp(26px,4.2vw,36px)",
               letterSpacing: "-.02em",
               margin: "12px 0 0",
               color: "var(--text)",
@@ -1125,13 +1125,7 @@ export default async function Home() {
             Oilalar va o&apos;quvchilar sevadi
           </h2>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 22,
-          }}
-        >
+        <div className="grid-3" style={{ gap: 22 }}>
           {testimonials.map((t) => (
             <div
               key={t.name}
@@ -1205,7 +1199,10 @@ export default async function Home() {
       </section>
 
       {/* TEAM */}
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "70px 32px 20px" }}>
+      <section
+        className="sec-x"
+        style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 70, paddingBottom: 20 }}
+      >
         <div style={{ textAlign: "center", maxWidth: 640, margin: "0 auto 48px" }}>
           <div
             style={{
@@ -1222,7 +1219,7 @@ export default async function Home() {
             className="font-display"
             style={{
               fontWeight: 800,
-              fontSize: 36,
+              fontSize: "clamp(26px,4.2vw,36px)",
               letterSpacing: "-.02em",
               margin: "12px 0 14px",
               color: "var(--text)",
@@ -1242,13 +1239,7 @@ export default async function Home() {
             kasblarini o&apos;ynab o&apos;rgatishga bag&apos;ishlangan.
           </p>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 22,
-          }}
-        >
+        <div className="grid-4" style={{ gap: 22 }}>
           {team.map((t) => (
             <div
               key={t.name}
@@ -1353,15 +1344,15 @@ export default async function Home() {
       </section>
 
       {/* FINAL CTA */}
-      <section style={{ maxWidth: 1180, margin: "64px auto 40px", padding: "0 32px" }}>
+      <section className="sec-x" style={{ maxWidth: 1180, margin: "64px auto 40px" }}>
         <div
+          className="cta-box"
           style={{
             position: "relative",
             overflow: "hidden",
             borderRadius: 32,
             background: "linear-gradient(120deg,#12203f,#0B1220)",
             color: "#EAF0FB",
-            padding: "66px 56px",
             textAlign: "center",
           }}
         >
@@ -1382,7 +1373,7 @@ export default async function Home() {
             style={{
               position: "relative",
               fontWeight: 800,
-              fontSize: 40,
+              fontSize: "clamp(26px,4.6vw,40px)",
               letterSpacing: "-.02em",
               margin: "0 0 14px",
             }}
@@ -1393,7 +1384,7 @@ export default async function Home() {
             style={{
               position: "relative",
               color: "#AEBBD4",
-              fontSize: 18,
+              fontSize: "clamp(15px,2vw,18px)",
               margin: "0 auto 30px",
               maxWidth: 520,
             }}
@@ -1428,25 +1419,24 @@ export default async function Home() {
 
       {/* FOOTER */}
       <footer
+        className="footer"
         style={{
           background: "linear-gradient(180deg,#0B1220,#080d18)",
           color: "#AEBBD4",
-          padding: "64px 32px 32px",
           marginTop: 40,
         }}
       >
         <div
+          className="footer-grid"
           style={{
             maxWidth: 1180,
             margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1.6fr 1fr 1fr 1fr",
             gap: 40,
             paddingBottom: 44,
             borderBottom: "1px solid rgba(255,255,255,.08)",
           }}
         >
-          <div style={{ maxWidth: 300 }}>
+          <div className="footer-brand" style={{ maxWidth: 300 }}>
             <div
               style={{
                 display: "flex",

@@ -58,15 +58,35 @@ body {
   margin: 0;
   padding: 0;
 }
+html {
+  /* iOS landscape'da shriftni o'zboshimcha kattalashtirmasin */
+  -webkit-text-size-adjust: 100%;
+}
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   color: var(--text);
   background: var(--bg);
-  min-height: 100vh;
+  min-height: 100svh;
+  /* Gorizontal siljishga qarshi himoya (clip — sticky/position:sticky ni buzmaydi) */
+  overflow-x: clip;
   transition:
     background 0.4s ease,
     color 0.4s ease;
+}
+/* Media elementlar hech qachon konteynerdan toshmasin */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+/* Uzun so'z/URL tor ekranda layoutni yormasin */
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: break-word;
 }
 a {
   color: var(--primary);
@@ -126,57 +146,78 @@ input::placeholder {
     transform 0.25s ease,
     box-shadow 0.25s ease;
 }
-.hover-lift:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lg);
-}
 .hover-lift-sm {
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
-.hover-lift-sm:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-}
 .hover-x {
   transition: transform 0.2s ease;
-}
-.hover-x:hover {
-  transform: translateX(4px);
-}
-.hover-row:hover {
-  background: var(--surface-2);
-}
-.hover-row3:hover {
-  background: var(--surface-3);
 }
 .hover-op {
   transition: opacity 0.2s ease;
 }
-.hover-op:hover {
-  opacity: 1 !important;
-}
-.hover-primary:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-.hover-white:hover {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.25);
-}
-.hover-up:hover {
-  transform: translateY(-2px);
-}
 .nav-link {
   transition: color 0.15s ease;
 }
-.nav-link:hover {
-  color: var(--text);
+
+/* :hover faqat haqiqiy ko'rsatkichli qurilmalarda. Sensorli ekranda hover
+   holati bosgandan keyin "yopishib" qoladi — shuning uchun media bilan ajratamiz. */
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+  }
+  .hover-lift-sm:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+  }
+  .hover-x:hover {
+    transform: translateX(4px);
+  }
+  .hover-row:hover {
+    background: var(--surface-2);
+  }
+  .hover-row3:hover {
+    background: var(--surface-3);
+  }
+  .hover-op:hover {
+    opacity: 1 !important;
+  }
+  .hover-primary:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  .hover-white:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+  .hover-up:hover {
+    transform: translateY(-2px);
+  }
+  .nav-link:hover {
+    color: var(--text);
+  }
 }
+
+/* Sensorli qurilmada bosish teskari aloqasi hover o'rnini bosadi */
+@media (hover: none) {
+  .hover-lift:active,
+  .hover-lift-sm:active,
+  .hover-up:active {
+    transform: scale(0.985);
+  }
+}
+
 .field:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 4px var(--ring);
+}
+
+/* Klaviatura fokusi hamma joyda ko'rinsin */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* ─────────────────────────── Animatsiyalar ─────────────────────────── */
@@ -229,9 +270,604 @@ input::placeholder {
     background-position: 400px 0;
   }
 }
+/* ══════════════════════════ RESPONSIV QATLAM ══════════════════════════
+   Sayt inline stillarda yozilgan, inline stil esa @media ni ifodalay olmaydi
+   va klassni bosib ketadi. Shu bois responsivlikka aloqador xossalar (grid
+   ustunlari, konteyner paddinglari, ko'rinish) shu yerdagi klasslarga
+   ko'chirilgan — inline stilda ular qoldirilmagan.
+
+   Breakpointlar (desktop-first, chunki asosiy stil desktop uchun):
+     1180px — tor desktop
+     1024px — planshet
+     900px  — kichik planshet (mobil menyu shu yerda yoqiladi)
+     640px  — telefon
+     420px  — kichik telefon (iPhone SE)
+   Shrift o'lchamlari media emas, clamp() bilan — ular uzluksiz miqyoslanadi. */
+
+/* ───────────── Konteyner ───────────── */
+.sec-x {
+  padding-inline: 32px;
+}
+@media (max-width: 900px) {
+  .sec-x {
+    padding-inline: 20px;
+  }
+}
+@media (max-width: 420px) {
+  .sec-x {
+    padding-inline: 16px;
+  }
+}
+
+/* ───────────── Umumiy grid tarhlar ─────────────
+   `1fr` aslida `minmax(auto,1fr)` — `auto` minimal o'lchami kontentning
+   min-content kengligiga teng. Ya'ni o'ralmaydigan uzun kontent (nishon,
+   sarlavha, URL) ustunni kerakli kenglikdan kattalashtirib, butun tarhni
+   yorib yuboradi ("grid blowout"). `min-width: 0` buni to'xtatadi. */
+.grid-2 > *,
+.grid-3 > *,
+.grid-4 > *,
+.split > *,
+.hero-grid > *,
+.parent-grid > *,
+.stat-grid > *,
+.footer-grid > *,
+.tutor-grid > *,
+.signup-row > * {
+  min-width: 0;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 860px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Asosiy ustun + yon panel. Nisbat har sahifada boshqacha, shuning uchun u
+   `--split` o'zgaruvchisi orqali beriladi (inline `grid-template-columns`
+   yozib bo'lmaydi — u media qoidasini bosib ketardi). */
+.split {
+  display: grid;
+  grid-template-columns: var(--split, 1.6fr 1fr);
+}
+@media (max-width: 1024px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────── Hero ───────────── */
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  padding-block: 40px 90px;
+  min-height: 74svh;
+}
+.hero-visual {
+  height: 520px;
+}
+@media (max-width: 1024px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    padding-block: 16px 64px;
+    min-height: 0;
+  }
+  .hero-copy {
+    text-align: center;
+  }
+  /* Matn bloklari (maxWidth bilan) markazga tekislanadi */
+  .hero-copy > p {
+    margin-inline: auto;
+  }
+  .hero-cta,
+  .hero-stats {
+    justify-content: center;
+  }
+  .hero-visual {
+    height: 420px;
+    max-width: 520px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+@media (max-width: 640px) {
+  .hero-visual {
+    height: 300px;
+  }
+  /* Suzuvchi kartochkalar tor ekranda robotni bosib ketadi.
+     !important — element inline `display:flex` bilan keladi, u aks holda
+     bu qoidani bosib ketadi (inline stil klassdan kuchliroq). */
+  .hero-float {
+    display: none !important;
+  }
+  .hero-stats {
+    gap: 18px;
+  }
+}
+@media (max-width: 420px) {
+  .hero-visual {
+    height: 240px;
+  }
+  /* Tor ekranda CTA tugmalari to'liq kenglikda — nishon kattaroq bo'ladi */
+  .hero-cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-cta > a {
+    justify-content: center;
+  }
+}
+/* Past bo'yli landshaft (telefon yonlab): hero ekranni to'ldirib yubormasin */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hero-grid {
+    min-height: 0;
+    padding-block: 24px 40px;
+  }
+  .hero-visual {
+    height: 280px;
+  }
+}
+
+/* Dekorativ orblar tor ekranda kichrayadi (blur — mobil GPU uchun qimmat).
+   Diqqat: transform bilan kichraytirib bo'lmaydi — `orbFloat` animatsiyasi
+   transform'ni o'zi boshqaradi va uni bosib ketadi. Shuning uchun o'lcham. */
+@media (max-width: 640px) {
+  .orb {
+    width: 220px !important;
+    height: 220px !important;
+    filter: blur(28px);
+  }
+}
+
+/* ───────────── Yuqori navigatsiya ───────────── */
+.nav-bar {
+  padding: 22px 32px;
+}
+.nav-burger {
+  display: none;
+}
+@media (max-width: 900px) {
+  .nav-bar {
+    padding: 16px 20px;
+  }
+  .nav-links {
+    display: none !important;
+  }
+  .nav-burger {
+    display: grid;
+  }
+}
+@media (max-width: 480px) {
+  /* Burger ichida ham bor — sarlavhada joy bo'shatamiz */
+  .nav-cta {
+    display: none !important;
+  }
+}
+@media (max-width: 420px) {
+  .nav-bar {
+    padding: 14px 16px;
+  }
+}
+
+/* Mobil menyu paneli */
+.nav-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+}
+.nav-drawer[data-open="true"] {
+  display: block;
+}
+.nav-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 18, 0.6);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease both;
+}
+.nav-drawer-panel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(320px, 86vw);
+  background: linear-gradient(180deg, #16224a, #0b1220);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: slideInRight 0.24s ease both;
+  overflow-y: auto;
+}
+
+/* ───────────── "Ota-onalar uchun" bloki ───────────── */
+.parent-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 48px;
+}
+@media (max-width: 900px) {
+  .parent-grid {
+    grid-template-columns: 1fr;
+    padding: 32px;
+  }
+}
+@media (max-width: 420px) {
+  .parent-grid {
+    padding: 24px 20px;
+  }
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 420px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────── Yakuniy CTA ───────────── */
+.cta-box {
+  padding: 66px 56px;
+}
+@media (max-width: 900px) {
+  .cta-box {
+    padding: 48px 28px;
+  }
+}
+@media (max-width: 420px) {
+  .cta-box {
+    padding: 40px 20px;
+  }
+}
+
+/* ───────────── Futer ───────────── */
+.footer {
+  padding: 64px 32px 32px;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+}
+@media (max-width: 900px) {
+  .footer {
+    padding: 48px 20px 24px;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 480px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 420px) {
+  .footer {
+    padding: 40px 16px 24px;
+  }
+}
+
+/* ───────────── Auth (login / signup) ───────────── */
+.auth-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100svh;
+}
+.auth-aside {
+  padding: 48px;
+}
+.auth-main {
+  padding: 48px;
+}
+@media (max-width: 900px) {
+  .auth-split {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  /* Chap navy panel mobilda ixcham "banner"ga aylanadi */
+  .auth-aside {
+    padding: 20px;
+    gap: 14px;
+  }
+  .auth-aside-hide {
+    display: none !important;
+  }
+  .auth-main {
+    padding: 32px 20px 48px;
+    min-height: auto;
+  }
+}
+@media (max-width: 420px) {
+  .auth-aside,
+  .auth-main {
+    padding-inline: 16px;
+  }
+}
+/* Signup'dagi Email + Yosh juftligi */
+.signup-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+}
+@media (max-width: 420px) {
+  .signup-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────── Ilova qobig'i (sidebar + header) ───────────── */
+.app-sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+.app-backdrop {
+  display: none;
+}
+.app-main {
+  padding: 34px 32px 60px;
+}
+@media (max-width: 1024px) {
+  /* Sidebar off-canvas panelga aylanadi */
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  .app-sidebar[data-open="true"] {
+    transform: translateX(0);
+  }
+  .app-backdrop[data-open="true"] {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(4, 8, 18, 0.5);
+    animation: fadeIn 0.2s ease both;
+  }
+  .app-burger {
+    display: grid;
+  }
+  .app-main {
+    padding: 24px 20px 48px;
+  }
+}
+@media (min-width: 1025px) {
+  /* Desktopda burger kerak emas — sidebar doim ko'rinadi */
+  .app-burger {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .app-main {
+    padding: 20px 16px 40px;
+  }
+}
+
+/* ───────────── Kurs tafsiloti sarlavhasi ───────────── */
+.detail-hero {
+  padding: 38px;
+}
+@media (max-width: 640px) {
+  .detail-hero {
+    padding: 26px 20px;
+  }
+}
+
+/* ───────────── Profil sarlavhasi ───────────── */
+.profile-hero {
+  padding: 38px;
+}
+@media (max-width: 640px) {
+  .profile-hero {
+    flex-direction: column;
+    text-align: center;
+    padding: 28px 20px;
+  }
+}
+
+/* ───────────── Robo tutor (chat) ─────────────
+   Balandlik header+padding'dan qolgan joyga moslanadi. `svh` — mobil
+   brauzerlarda manzil paneli yig'ilganda `vh` sakrab ketadi. */
+.tutor-shell {
+  height: calc(100svh - 168px);
+  min-height: 560px;
+}
+.tutor-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  height: 100%;
+}
+@media (max-width: 1024px) {
+  .tutor-shell {
+    height: calc(100svh - 144px);
+  }
+}
+@media (max-width: 900px) {
+  .tutor-grid {
+    grid-template-columns: 1fr;
+  }
+  .tutor-aside {
+    display: none !important;
+  }
+}
+@media (max-width: 640px) {
+  .tutor-shell {
+    height: calc(100svh - 124px);
+    min-height: 420px;
+  }
+}
+
+/* Header: joy torayganda ikkinchi darajali elementlar olib tashlanadi */
+.app-header {
+  padding: 16px 32px;
+  gap: 18px;
+}
+@media (max-width: 1024px) {
+  .app-header {
+    padding: 12px 20px;
+    gap: 12px;
+  }
+}
+@media (max-width: 860px) {
+  .app-header-stats {
+    display: none !important;
+  }
+}
+@media (max-width: 640px) {
+  .app-header-search {
+    display: none !important;
+  }
+  .app-header-name {
+    display: none !important;
+  }
+}
+@media (max-width: 420px) {
+  .app-header {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+}
+
+/* ───────────── Sensorli qurilmada nishon o'lchami ─────────────
+   Apple HIG / WCAG 2.5.5: kamida 44×44px. Faqat qo'pol ko'rsatkichda
+   qo'llanadi — sichqonchada kichikroq nishon ham muammo emas. */
+@media (pointer: coarse) {
+  .tap {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Inline elementda min-height e'tiborga olinmaydi — darajasini ko'taramiz */
+  a.tap {
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Jumla ichidagi havola (WCAG 2.5.5 "inline" istisnosi) — uni 44px'ga
+     cho'zsak jumla buziladi. Buning o'rniga vertikal padding beramiz: inline
+     elementda padding satrlar oralig'ini o'zgartirmaydi, ammo barmoq uchun
+     bosish sohasini kattalashtiradi. */
+  .tap-inline {
+    padding-block: 13px;
+  }
+  /* Switch kabi ataylab kichik boshqaruv: vizual o'lchami to'g'ri (iOS switch
+     ham 51×31pt), faqat bosish sohasi kichik. Ko'rinmas ::after bilan uni
+     44×44'gacha kengaytiramiz — tarh o'zgarmaydi. */
+  .tap-halo {
+    position: relative;
+  }
+  .tap-halo::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+  }
+}
+
+/* ───────────── Mayda yorliqlar ─────────────
+   Ikonka izohi / status yorlig'i desktopda 10.5–11px — u yerda o'qish masofasi
+   yaqin va joy tor. Telefonda esa bu juda mayda (Apple min 11pt, Material min
+   12sp tavsiya qiladi), shuning uchun faqat tor ekranda kattalashtiramiz.
+   Desktop dizayni o'zgarmaydi. */
+@media (max-width: 900px) {
+  .micro-label {
+    font-size: 12px !important;
+  }
+}
+
+/* ───────────── Chop etish ───────────── */
+@media print {
+  .no-print,
+  .nav-bar,
+  .nav-drawer,
+  .app-sidebar,
+  .app-header,
+  .footer {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  * {
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
     transition: none !important;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }

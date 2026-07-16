@@ -134,6 +134,8 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
           </div>
           <button
             onClick={toggleNotif}
+            className="tap-halo"
+            aria-label="Bildirishnomalarni yoqish/o'chirish"
             style={{
               width: 52,
               height: 30,
@@ -182,6 +184,8 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
           </div>
           <button
             onClick={() => toggle()}
+            className="tap-halo"
+            aria-label="Qorong'u mavzuni yoqish/o'chirish"
             style={{
               width: 52,
               height: 30,
