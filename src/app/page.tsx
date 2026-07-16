@@ -2,12 +2,67 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { Robot3D } from "@/components/robot-3d";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { partners, valueCards, howSteps, testimonials, team, footerCols } from "@/lib/data";
+import {
+  partners,
+  valueCards,
+  howSteps,
+  testimonials,
+  team,
+  footerCols,
+  featured as featuredFallback,
+  categories as categoriesFallback,
+} from "@/lib/data";
 import { getFeaturedCourses, getCategories } from "@/lib/queries";
 
+// Build vaqtida DB'ga so'rov yubormaslik uchun sahifa so'rov paytida render qilinadi.
+export const dynamic = "force-dynamic";
+
+type LandingCourse = {
+  id: string;
+  icon: string;
+  color: string;
+  soft: string;
+  title: string;
+  level: string;
+  totalLessons: number;
+  hours: string;
+};
+type LandingCategory = {
+  id: string;
+  icon: string;
+  color: string;
+  soft: string;
+  title: string;
+  courseCount: string;
+};
+
 export default async function Home() {
-  const featured = await getFeaturedCourses();
-  const categories = await getCategories();
+  // DB uzilsa ham sahifa yiqilmasin — statik kontentga qaytamiz (build/runtime bardoshli).
+  let featured: LandingCourse[];
+  let categories: LandingCategory[];
+  try {
+    [featured, categories] = await Promise.all([getFeaturedCourses(), getCategories()]);
+  } catch (err) {
+    console.error("Landing DB xatosi, fallback ishlatildi:", err);
+    featured = featuredFallback.map((c, i) => ({
+      id: `course-${i}`,
+      icon: c.icon,
+      color: c.color,
+      soft: c.soft,
+      title: c.title,
+      level: c.level,
+      totalLessons: c.lessons,
+      hours: c.hours,
+    }));
+    categories = categoriesFallback.map((c, i) => ({
+      id: `cat-${i}`,
+      icon: c.icon,
+      color: c.color,
+      soft: c.soft,
+      title: c.title,
+      courseCount: c.count,
+    }));
+  }
   return (
     <div style={{ minHeight: "100vh" }}>
       {/* HERO (navy, always dark) */}
