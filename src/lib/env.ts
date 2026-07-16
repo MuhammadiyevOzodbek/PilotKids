@@ -1,56 +1,32 @@
+import "server-only";
 import { z } from "zod";
 
-/**
- * Server-only muhit o'zgaruvchilari.
- *
- * Bu modul FAQAT server tomonida import qilinishi kerak (Server Actions,
- * Route Handlers, DB/Auth konfiguratsiyasi). Neon connection string va boshqa
- * maxfiy kalitlar hech qachon brauzerga chiqmasligi shart.
- */
+/** Server muhit o'zgaruvchilari — faqat serverda o'qiladi. */
 const serverSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-
-  // Neon PostgreSQL — faqat serverda
-  DATABASE_URL: z.string().url("DATABASE_URL noto'g'ri formatda"),
-
-  // Better Auth
-  BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET talab qilinadi"),
+  DATABASE_URL: z.string().url("DATABASE_URL noto'g'ri yoki yo'q"),
+  BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET kerak"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
-
-  // OAuth (ixtiyoriy — bo'lmasa social login o'chadi)
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GITHUB_CLIENT_ID: z.string().optional(),
-  GITHUB_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
+  GITHUB_CLIENT_ID: z.string().optional().default(""),
+  GITHUB_CLIENT_SECRET: z.string().optional().default(""),
 });
 
-export type ServerEnv = z.infer<typeof serverSchema>;
+const parsed = serverSchema.safeParse(process.env);
 
-let cachedEnv: ServerEnv | null = null;
-
-/**
- * Muhit o'zgaruvchilarini validatsiya qilib qaytaradi. Xato bo'lsa aniq
- * xabar bilan to'xtaydi (build/runtime da darhol ma'lum bo'ladi).
- */
-export function getServerEnv(): ServerEnv {
-  if (cachedEnv) return cachedEnv;
-
-  const parsed = serverSchema.safeParse(process.env);
-
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
-      .join("\n");
-    throw new Error(`❌ Muhit o'zgaruvchilari noto'g'ri:\n${issues}`);
-  }
-
-  cachedEnv = parsed.data;
-  return cachedEnv;
+if (!parsed.success) {
+  console.error("❌ Muhit o'zgaruvchilarida xatolik:", z.treeifyError(parsed.error));
+  throw new Error("Muhit o'zgaruvchilari to'g'ri sozlanmagan (.env.local ni tekshiring)");
 }
 
-/**
- * Public (client) muhit o'zgaruvchilari — NEXT_PUBLIC_ prefiksi bilan.
- */
+export const env = parsed.data;
+
 export const publicEnv = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-} as const;
+};
+
+/** OAuth provayder yoqilganmi (kalitlar to'ldirilganmi). */
+export const oauth = {
+  google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  github: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
+};

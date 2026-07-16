@@ -2,78 +2,62 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
-import { getServerEnv } from "@/lib/env";
+import { user, session, account, verification } from "@/lib/db/schema";
+import { seedUserData } from "@/lib/db/starter";
+import { env, oauth } from "@/lib/env";
 
-const env = getServerEnv();
-
-const google =
-  env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
-    ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
-    : {};
-
-const github =
-  env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
-    ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
-    : {};
-
-// Ishonchli originlar — production domeni bilan localhost mos kelmasa,
-// better-auth CSRF/origin tekshiruvi so'rovni 403 bilan rad etadi.
-// BETTER_AUTH_URL va NEXT_PUBLIC_APP_URL dan originlarni yig'amiz.
-const trustedOrigins = [env.BETTER_AUTH_URL, process.env.NEXT_PUBLIC_APP_URL]
-  .filter((v): v is string => Boolean(v))
-  .map((url) => {
-    try {
-      return new URL(url).origin;
-    } catch {
-      return null;
-    }
-  })
-  .filter((v): v is string => Boolean(v));
+const socialProviders: Record<string, { clientId: string; clientSecret: string }> = {};
+if (oauth.google) {
+  socialProviders.google = {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  };
+}
+if (oauth.github) {
+  socialProviders.github = {
+    clientId: env.GITHUB_CLIENT_ID,
+    clientSecret: env.GITHUB_CLIENT_SECRET,
+  };
+}
 
 export const auth = betterAuth({
-  secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  trustedOrigins: Array.from(new Set(trustedOrigins)),
-  // Xatolarni server loglariga to'liq chiqaramiz (deploy platformasida ko'rinadi)
-  logger: {
-    level: "debug",
-  },
-  onAPIError: {
-    onError: (error) => {
-      console.error("[PilotKids][better-auth] API xatosi:", error);
-    },
-  },
+  secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
-    schema: {
-      user: schema.users,
-      session: schema.sessions,
-      account: schema.accounts,
-      verification: schema.verifications,
-    },
+    schema: { user, session, account, verification },
   }),
   emailAndPassword: {
     enabled: true,
-    minPasswordLength: 6,
     autoSignIn: true,
-    // Real email provideri Phase 12'da ulanadi; hozircha havolani logga chiqaramiz
-    sendResetPassword: async ({ user, url }) => {
-      console.log(`[PilotKids] Parolni tiklash havolasi (${user.email}): ${url}`);
-    },
+    minPasswordLength: 6,
   },
-  socialProviders: {
-    ...google,
-    ...github,
-  },
+  socialProviders,
   user: {
     additionalFields: {
-      avatarUrl: { type: "string", required: false, input: false },
       age: { type: "number", required: false, input: true },
-      xp: { type: "number", required: false, input: false, defaultValue: 0 },
-      rankId: { type: "string", required: false, input: false },
+      // role klient tomonidan yuborilmasin — signup'da o'zini "parent" qilib olmasin.
+      role: { type: "string", required: false, defaultValue: "student", input: false },
+      xp: { type: "number", required: false, defaultValue: 0, input: false },
+      streak: { type: "number", required: false, defaultValue: 0, input: false },
+      level: { type: "number", required: false, defaultValue: 1, input: false },
     },
   },
-  // nextCookies oxirgi plagin bo'lishi shart
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 kun
+    updateAge: 60 * 60 * 24, // 1 kun
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Yangi foydalanuvchiga boshlang'ich ma'lumot (enrollment, nishon, sertifikat...)
+        after: async (createdUser) => {
+          await seedUserData(createdUser.id);
+        },
+      },
+    },
+  },
   plugins: [nextCookies()],
 });
+
+export type Session = typeof auth.$Infer.Session;

@@ -2,10 +2,10 @@
 
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
-import type { auth } from "./index";
+import type { auth } from "@/lib/auth";
 
-/** Mijoz tomonidagi Better Auth klienti — signIn/signUp/signOut/useSession. */
 export const authClient = createAuthClient({
+  // baseURL berilmadi — client joriy origin'ni ishlatadi (dev port'iga bog'liq emas).
   plugins: [inferAdditionalFields<typeof auth>()],
 });
 

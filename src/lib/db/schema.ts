@@ -1,72 +1,54 @@
-import { relations } from "drizzle-orm";
 import {
-  boolean,
-  integer,
-  jsonb,
-  pgEnum,
   pgTable,
   text,
+  integer,
+  boolean,
   timestamp,
-  unique,
   uuid,
+  jsonb,
+  primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
-/* ───────────────────────────── Enumlar ───────────────────────────── */
-export const difficultyEnum = pgEnum("difficulty", ["beginner", "intermediate", "advanced"]);
-export const planEnum = pgEnum("plan", ["free", "premium"]);
-export const subscriptionStatusEnum = pgEnum("subscription_status", [
-  "active",
-  "canceled",
-  "expired",
-]);
+/* ─────────────────────────── Better Auth jadvallari ─────────────────────────── */
 
-/* ───────────────────── Darajalar (ranks) ───────────────────── */
-export const ranks = pgTable("ranks", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull(),
-  minXp: integer("min_xp").notNull().default(0),
-  badge: text("badge").notNull(),
-  order: integer("order").notNull(),
-});
-
-/* ─────────────── Better Auth: user (+ ilova maydonlari) ─────────────── */
-export const users = pgTable("user", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
-  // Ilova maydonlari
-  avatarUrl: text("avatar_url"),
+  // PilotKids profil maydonlari
   age: integer("age"),
-  xp: integer("xp").notNull().default(0),
-  rankId: uuid("rank_id").references(() => ranks.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  role: text("role").default("student").notNull(), // student | parent
+  xp: integer("xp").default(0).notNull(),
+  streak: integer("streak").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-/* ─────────────── Better Auth: session ─────────────── */
-export const sessions = pgTable("session", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
   expiresAt: timestamp("expires_at").notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
 });
 
-/* ─────────────── Better Auth: account (parol + OAuth) ─────────────── */
-export const accounts = pgTable("account", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
@@ -74,194 +56,230 @@ export const accounts = pgTable("account", {
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   scope: text("scope"),
   password: text("password"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-/* ─────────────── Better Auth: verification ─────────────── */
-export const verifications = pgTable("verification", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-/* ───────────────────── Kategoriyalar ───────────────────── */
-export const categories = pgTable("categories", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull(),
+/* ─────────────────────────── Kontent jadvallari (seed) ─────────────────────────── */
+
+export const category = pgTable("category", {
+  id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
-});
-
-/* ───────────────────── Kurslar ───────────────────── */
-export const courses = pgTable("courses", {
-  id: uuid("id").defaultRandom().primaryKey(),
   title: text("title").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").notNull(),
+  soft: text("soft").notNull(),
+  courseCount: text("course_count").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+export const course = pgTable("course", {
+  id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
-  description: text("description").notNull(),
-  categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
-  difficulty: difficultyEnum("difficulty").notNull().default("beginner"),
-  durationHours: integer("duration_hours").notNull().default(0),
-  totalLessons: integer("total_lessons").notNull().default(0),
-  thumbnailUrl: text("thumbnail_url"),
-  isPremium: boolean("is_premium").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  categoryId: uuid("category_id").references(() => category.id, { onDelete: "set null" }),
+  icon: text("icon").notNull(),
+  color: text("color").notNull(),
+  soft: text("soft").notNull(),
+  level: text("level").notNull(), // BOSHLANG'ICH | O'RTA | ...
+  totalLessons: integer("total_lessons").default(0).notNull(),
+  hours: text("hours").notNull(),
+  featured: boolean("featured").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ───────────────────── Darslar (lessons) ───────────────────── */
-export const lessons = pgTable(
-  "lessons",
+export const lesson = pgTable(
+  "lesson",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     courseId: uuid("course_id")
       .notNull()
-      .references(() => courses.id, { onDelete: "cascade" }),
+      .references(() => course.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
     title: text("title").notNull(),
-    content: text("content").notNull().default(""),
-    order: integer("order").notNull(),
-    durationMinutes: integer("duration_minutes").notNull().default(0),
+    meta: text("meta").notNull(),
+    type: text("type").default("video").notNull(), // video | code | quiz | lab
+    durationMin: integer("duration_min").default(0).notNull(),
   },
-  (t) => [unique("lessons_course_order_unique").on(t.courseId, t.order)],
+  (t) => [unique("lesson_course_order_uq").on(t.courseId, t.sortOrder)],
 );
 
-/* ─────────────── Test savollari (quiz_questions) ─────────────── */
-export const quizQuestions = pgTable(
-  "quiz_questions",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    lessonId: uuid("lesson_id")
-      .notNull()
-      .references(() => lessons.id, { onDelete: "cascade" }),
-    prompt: text("prompt").notNull(),
-    // Variantlar ro'yxati (2–5 ta). To'g'ri javob indeksi correctIndex.
-    options: jsonb("options").$type<string[]>().notNull(),
-    correctIndex: integer("correct_index").notNull().default(0),
-    order: integer("order").notNull(),
-  },
-  (t) => [unique("quiz_questions_lesson_order_unique").on(t.lessonId, t.order)],
-);
+export const badge = pgTable("badge", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").notNull(),
+  soft: text("soft").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
 
-/* ─────────── Dars yakunlashlari (lesson_completions) ─────────── */
-export const lessonCompletions = pgTable(
-  "lesson_completions",
+export const labProject = pgTable("lab_project", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").notNull(),
+  soft: text("soft").notNull(),
+  diff: text("diff").notNull(),
+  diffCol: text("diff_col").notNull(),
+  diffBg: text("diff_bg").notNull(),
+  parts: text("parts").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+export const quizQuestion = pgTable("quiz_question", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  courseId: uuid("course_id").references(() => course.id, { onDelete: "cascade" }),
+  lessonId: uuid("lesson_id").references(() => lesson.id, { onDelete: "cascade" }),
+  prompt: text("prompt").notNull(),
+  options: jsonb("options").$type<string[]>().notNull(),
+  correctIndex: integer("correct_index").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+});
+
+/* ─────────────────────────── Foydalanuvchi ma'lumotlari ─────────────────────────── */
+
+export const enrollment = pgTable(
+  "enrollment",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    lessonId: uuid("lesson_id")
-      .notNull()
-      .references(() => lessons.id, { onDelete: "cascade" }),
-    completedAt: timestamp("completed_at").notNull().defaultNow(),
-  },
-  (t) => [unique("lesson_completions_user_lesson_unique").on(t.userId, t.lessonId)],
-);
-
-/* ───────────────────── Ro'yxatga olishlar (enrollments) ───────────────────── */
-export const enrollments = pgTable(
-  "enrollments",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     courseId: uuid("course_id")
       .notNull()
-      .references(() => courses.id, { onDelete: "cascade" }),
-    progressPercent: integer("progress_percent").notNull().default(0),
+      .references(() => course.id, { onDelete: "cascade" }),
+    progressPercent: integer("progress_percent").default(0).notNull(),
     completedAt: timestamp("completed_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [unique("enrollments_user_course_unique").on(t.userId, t.courseId)],
+  (t) => [unique("enrollment_user_course_uq").on(t.userId, t.courseId)],
 );
 
-/* ───────────────────── Bildirishnomalar ───────────────────── */
-export const notifications = pgTable("notifications", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const lessonProgress = pgTable(
+  "lesson_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lesson.id, { onDelete: "cascade" }),
+    status: text("status").default("locked").notNull(), // done | current | locked
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [unique("lesson_progress_user_lesson_uq").on(t.userId, t.lessonId)],
+);
+
+export const userBadge = pgTable(
+  "user_badge",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    badgeId: uuid("badge_id")
+      .notNull()
+      .references(() => badge.id, { onDelete: "cascade" }),
+    earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.badgeId] })],
+);
+
+export const certificate = pgTable("certificate", {
+  id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
+  courseId: uuid("course_id").references(() => course.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  color: text("color").notNull(),
+  soft: text("soft").notNull(),
+  state: text("state").default("locked").notNull(), // done | progress | locked
+  issuedLabel: text("issued_label").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const notification = pgTable("notification", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   message: text("message").notNull(),
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ───────────────────── Obunalar ───────────────────── */
-export const subscriptions = pgTable("subscriptions", {
-  id: uuid("id").defaultRandom().primaryKey(),
+/** Haftalik faollik (ota-ona paneli grafigi uchun). */
+export const dailyActivity = pgTable(
+  "daily_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    weekday: integer("weekday").notNull(), // 0=Du ... 6=Ya
+    minutes: integer("minutes").default(0).notNull(),
+  },
+  (t) => [unique("daily_activity_user_day_uq").on(t.userId, t.weekday)],
+);
+
+/** AI Tutor (Robo) suhbat xabarlari. */
+export const chatMessage = pgTable("chat_message", {
+  id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  plan: planEnum("plan").notNull().default("free"),
-  status: subscriptionStatusEnum("status").notNull().default("active"),
-  startDate: timestamp("start_date").notNull().defaultNow(),
-  endDate: timestamp("end_date"),
+    .references(() => user.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // bot | me
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/* ───────────────────── Relations ───────────────────── */
-export const usersRelations = relations(users, ({ one, many }) => ({
-  rank: one(ranks, { fields: [users.rankId], references: [ranks.id] }),
-  enrollments: many(enrollments),
-  notifications: many(notifications),
-  subscriptions: many(subscriptions),
+/** Foydalanuvchi sozlamalari. */
+export const userSettings = pgTable("user_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  notificationsEnabled: boolean("notifications_enabled").default(true).notNull(),
+  theme: text("theme").default("light").notNull(),
+});
+
+/* ─────────────────────────── Relations ─────────────────────────── */
+
+export const courseRelations = relations(course, ({ one, many }) => ({
+  category: one(category, { fields: [course.categoryId], references: [category.id] }),
+  lessons: many(lesson),
 }));
 
-export const ranksRelations = relations(ranks, ({ many }) => ({
-  users: many(users),
+export const lessonRelations = relations(lesson, ({ one }) => ({
+  course: one(course, { fields: [lesson.courseId], references: [course.id] }),
 }));
 
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  courses: many(courses),
+export const enrollmentRelations = relations(enrollment, ({ one }) => ({
+  course: one(course, { fields: [enrollment.courseId], references: [course.id] }),
+  user: one(user, { fields: [enrollment.userId], references: [user.id] }),
 }));
 
-export const coursesRelations = relations(courses, ({ one, many }) => ({
-  category: one(categories, { fields: [courses.categoryId], references: [categories.id] }),
-  enrollments: many(enrollments),
-  lessons: many(lessons),
-}));
-
-export const lessonsRelations = relations(lessons, ({ one, many }) => ({
-  course: one(courses, { fields: [lessons.courseId], references: [courses.id] }),
-  completions: many(lessonCompletions),
-  questions: many(quizQuestions),
-}));
-
-export const quizQuestionsRelations = relations(quizQuestions, ({ one }) => ({
-  lesson: one(lessons, { fields: [quizQuestions.lessonId], references: [lessons.id] }),
-}));
-
-export const lessonCompletionsRelations = relations(lessonCompletions, ({ one }) => ({
-  user: one(users, { fields: [lessonCompletions.userId], references: [users.id] }),
-  lesson: one(lessons, { fields: [lessonCompletions.lessonId], references: [lessons.id] }),
-}));
-
-export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
-  user: one(users, { fields: [enrollments.userId], references: [users.id] }),
-  course: one(courses, { fields: [enrollments.courseId], references: [courses.id] }),
-}));
-
-export const notificationsRelations = relations(notifications, ({ one }) => ({
-  user: one(users, { fields: [notifications.userId], references: [users.id] }),
-}));
-
-export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
-  user: one(users, { fields: [subscriptions.userId], references: [users.id] }),
-}));
-
-/* ───────────────────── Tip aliaslari ───────────────────── */
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type Rank = typeof ranks.$inferSelect;
-export type Category = typeof categories.$inferSelect;
-export type Course = typeof courses.$inferSelect;
-export type NewCourse = typeof courses.$inferInsert;
-export type Lesson = typeof lessons.$inferSelect;
-export type NewLesson = typeof lessons.$inferInsert;
-export type QuizQuestion = typeof quizQuestions.$inferSelect;
-export type NewQuizQuestion = typeof quizQuestions.$inferInsert;
-export type LessonCompletion = typeof lessonCompletions.$inferSelect;
-export type Enrollment = typeof enrollments.$inferSelect;
-export type Notification = typeof notifications.$inferSelect;
-export type Subscription = typeof subscriptions.$inferSelect;
+export type User = typeof user.$inferSelect;
+export type Course = typeof course.$inferSelect;
+export type Lesson = typeof lesson.$inferSelect;
+export type Category = typeof category.$inferSelect;
+export type Badge = typeof badge.$inferSelect;
+export type LabProject = typeof labProject.$inferSelect;
+export type Certificate = typeof certificate.$inferSelect;
+export type Notification = typeof notification.$inferSelect;
+export type Enrollment = typeof enrollment.$inferSelect;

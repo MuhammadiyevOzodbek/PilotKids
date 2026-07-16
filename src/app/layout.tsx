@@ -1,68 +1,44 @@
 import type { Metadata, Viewport } from "next";
-import { inter, spaceGrotesk } from "@/lib/fonts";
-import { themeInitScript } from "@/lib/theme-script";
+import { sora, jakarta } from "@/lib/fonts";
+import { themeInitScript } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme-provider";
-import { publicEnv } from "@/lib/env";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(publicEnv.appUrl),
   title: {
     default: "PilotKids — Robototexnika Akademiyasi",
     template: "%s · PilotKids",
   },
   description:
-    "8–18 yoshli bolalar uchun onlayn robototexnika akademiyasi. Kelajak muhandislari shu yerda boshlanadi.",
-  keywords: ["robototexnika", "bolalar", "onlayn kurs", "Arduino", "muhandislik", "PilotKids"],
-  authors: [{ name: "PilotKids" }],
-  openGraph: {
-    type: "website",
-    locale: "uz_UZ",
-    title: "PilotKids — Robototexnika Akademiyasi",
-    description: "Kelajak muhandislari shu yerda boshlanadi.",
-    siteName: "PilotKids",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "PilotKids — Robototexnika Akademiyasi",
-    description: "Kelajak muhandislari shu yerda boshlanadi.",
-  },
+    "7–18 yoshli bolalar uchun robototexnika, kod va STEM platformasi. O'ynab, qurib, kashf et.",
+  keywords: ["robototexnika", "bolalar", "STEM", "Arduino", "kod", "PilotKids"],
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1120" },
+    { media: "(prefers-color-scheme: light)", color: "#EDF1F8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B1220" },
   ],
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="uz"
-      suppressHydrationWarning
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full`}
-    >
+    <html lang="uz" suppressHydrationWarning className={`${sora.variable} ${jakarta.variable}`}>
       <head>
+        {/* Material Symbols ikonka shrifti */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Material Symbols ikonka shrifti — next/font ikonka shriftlarini qo'llab-quvvatlamaydi,
+            shu bois <link> orqali yuklaymiz (ataylab). */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
+          rel="stylesheet"
+        />
         {/* FOUC'siz tema: DOM render'idan oldin <html> ga qo'llaymiz */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="flex min-h-full flex-col antialiased">
-        {/* Lucide (stroke) ikonkalar uchun global gradient paint server.
-            `.icon-gradient` sinfi shu id'ga murojaat qiladi — butun ilovada ishlaydi. */}
-        <svg width="0" height="0" className="absolute" aria-hidden focusable="false">
-          <defs>
-            <linearGradient id="pk-icon-gradient" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#38bdf8" />
-              <stop offset="50%" stopColor="#06b6d4" />
-              <stop offset="100%" stopColor="#2563eb" />
-            </linearGradient>
-          </defs>
-        </svg>
+      <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
