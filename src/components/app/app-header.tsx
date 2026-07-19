@@ -3,32 +3,22 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalSearch } from "@/components/app/global-search";
+import { NotificationsMenu, type NotificationItem } from "@/components/app/notifications-menu";
 import { useSidebar } from "@/lib/ui-store";
-
-const iconBtn: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: 12,
-  border: "1px solid var(--border)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  cursor: "pointer",
-  display: "grid",
-  placeItems: "center",
-};
 
 export function AppHeader({
   name,
   initials,
   xp,
   streak,
-  hasUnread,
+  notifications,
 }: {
   name: string;
   initials: string;
   xp: string;
   streak: number;
-  hasUnread: boolean;
+  notifications: NotificationItem[];
 }) {
   const toggle = useSidebar((s) => s.toggle);
 
@@ -67,35 +57,7 @@ export function AppHeader({
         <Icon name="menu" size={21} />
       </button>
 
-      <div className="app-header-search" style={{ position: "relative", flex: 1, maxWidth: 440 }}>
-        <span
-          className="ms"
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: 15,
-            top: "50%",
-            transform: "translateY(-50%)",
-            fontSize: 21,
-            color: "var(--text-3)",
-          }}
-        >
-          search
-        </span>
-        <input
-          placeholder="Kurs, dars yoki loyiha qidiring…"
-          style={{
-            width: "100%",
-            padding: "12px 16px 12px 46px",
-            borderRadius: 13,
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            color: "var(--text)",
-            fontSize: 14.5,
-            outline: "none",
-          }}
-        />
-      </div>
+      <GlobalSearch />
       <div style={{ flex: 1 }} />
 
       <div
@@ -135,23 +97,7 @@ export function AppHeader({
 
       <ThemeToggle />
 
-      <button style={{ ...iconBtn, position: "relative" }} aria-label="Bildirishnomalar">
-        <Icon name="notifications" size={21} />
-        {hasUnread && (
-          <span
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 11,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "var(--success)",
-              border: "2px solid var(--surface)",
-            }}
-          />
-        )}
-      </button>
+      <NotificationsMenu notifications={notifications} />
 
       <Link
         href="/profile"

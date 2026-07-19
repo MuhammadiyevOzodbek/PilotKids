@@ -1,12 +1,39 @@
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
-import { getUserStats, getWeekActivity, firstName } from "@/lib/queries";
+import {
+  getUserStats,
+  getWeekActivity,
+  getLatestBadge,
+  getUserSettings,
+  firstName,
+} from "@/lib/queries";
+import { ScreenTime } from "./screen-time";
+
+export const metadata = { title: "Ota-onalar uchun — PilotKids" };
+
+/** Sana farqini "2 kun oldin" ko'rinishida beradi. */
+function timeAgo(date: Date): string {
+  const diff = Date.now() - new Date(date).getTime();
+  const day = Math.floor(diff / 86_400_000);
+  if (day >= 1) return `${day} kun oldin`;
+  const hour = Math.floor(diff / 3_600_000);
+  if (hour >= 1) return `${hour} soat oldin`;
+  const min = Math.floor(diff / 60_000);
+  return min >= 1 ? `${min} daqiqa oldin` : "hozirgina";
+}
 
 export default async function ParentPage() {
   const user = await requireUser();
-  const stats = await getUserStats(user.id);
-  const week = await getWeekActivity(user.id);
+  const [stats, week, latestBadge, settings] = await Promise.all([
+    getUserStats(user.id),
+    getWeekActivity(user.id),
+    getLatestBadge(user.id),
+    getUserSettings(user.id),
+  ]);
   const totalMin = week.reduce((s, w) => s + w.minutes, 0);
+  // Bugungi faollik (0=Dushanba).
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const usedToday = week[todayIdx]?.minutes ?? 0;
   const parentStats = [
     {
       icon: "menu_book",
@@ -192,63 +219,37 @@ export default async function ParentPage() {
             >
               So&apos;nggi yutuq
             </h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 15,
-                  background: "rgba(139,92,246,.12)",
-                  display: "grid",
-                  placeItems: "center",
-                  color: "#8B5CF6",
-                }}
-              >
-                <Icon name="psychology" size={28} color="#8B5CF6" />
-              </span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
-                  Quiz Master
-                </div>
-                <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
-                  2 kun oldin
+            {latestBadge ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span
+                  style={{
+                    width: 52,
+                    height: 52,
+                    flexShrink: 0,
+                    borderRadius: 15,
+                    background: latestBadge.soft,
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  <Icon name={latestBadge.icon} size={28} color={latestBadge.color} />
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
+                    {latestBadge.name}
+                  </div>
+                  <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+                    {timeAgo(latestBadge.earnedAt)}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <p style={{ color: "var(--text-3)", fontSize: 13.5, fontWeight: 600, margin: 0 }}>
+                Hali nishon yo&apos;q — birinchi darsni tugatgach paydo bo&apos;ladi.
+              </p>
+            )}
           </div>
-          <div
-            style={{
-              background: "linear-gradient(135deg,#12203f,#0B1220)",
-              borderRadius: 22,
-              padding: 24,
-              color: "#EAF0FB",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <Icon name="timer" size={22} color="#38d39a" />
-              <h3 style={{ fontFamily: "'Sora'", fontWeight: 700, fontSize: 16, margin: 0 }}>
-                Ekran vaqti
-              </h3>
-            </div>
-            <p style={{ color: "#AEBBD4", fontSize: 13, margin: "0 0 16px", lineHeight: 1.5 }}>
-              Kunlik chegara: 1 soat 30 daqiqa
-            </p>
-            <button
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "none",
-                background: "rgba(255,255,255,.1)",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              Chegarani sozlash
-            </button>
-          </div>
+          <ScreenTime current={settings.dailyLimitMin} usedToday={usedToday} />
         </div>
       </div>
     </div>

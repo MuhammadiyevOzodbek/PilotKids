@@ -9,6 +9,7 @@ export type ChatMsg = { id?: string; role: string; text: string };
 
 export function TutorChat({ initial }: { initial: ChatMsg[] }) {
   const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -27,9 +28,16 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
     const clean = text.trim();
     if (!clean || isPending) return;
     setInput("");
+    setError(null);
     startTransition(async () => {
       addOptimistic({ role: "me", text: clean });
-      await sendChatMessage(clean);
+      const res = await sendChatMessage(clean);
+      // Rate limit yoki validatsiya xatosi — foydalanuvchiga ko'rsatamiz va
+      // yozgan matnini qaytarib beramiz, aks holda u yo'qolib ketardi.
+      if (!res.ok) {
+        setError(res.error);
+        setInput(clean);
+      }
     });
   }
 
@@ -56,6 +64,46 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
           gap: 16,
         }}
       >
+        {messages.length === 0 && (
+          <div style={{ margin: "auto", textAlign: "center", padding: "20px 10px" }}>
+            <span
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg,#2F6BF3,#5b8cff)",
+                display: "grid",
+                placeItems: "center",
+                margin: "0 auto 16px",
+              }}
+            >
+              <Icon name="smart_toy" size={34} color="#fff" />
+            </span>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: 19,
+                margin: "0 0 8px",
+                color: "var(--text)",
+              }}
+            >
+              Salom! Men Robo 👋
+            </h2>
+            <p
+              style={{
+                color: "var(--text-2)",
+                fontSize: 14.5,
+                lineHeight: 1.6,
+                margin: 0,
+                maxWidth: 340,
+              }}
+            >
+              Robototexnika, Arduino, sensorlar yoki dasturlash bo&apos;yicha istalgan savolingizni
+              bering. Quyidagi tayyor savollardan ham boshlashingiz mumkin.
+            </p>
+          </div>
+        )}
         {messages.map((m, i) => {
           const isBot = m.role === "bot";
           return (
@@ -109,6 +157,23 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
       </div>
 
       <div style={{ padding: "16px 22px", borderTop: "1px solid var(--border)" }}>
+        {error && (
+          <p
+            role="alert"
+            style={{
+              color: "#E5484D",
+              background: "rgba(229,72,77,.08)",
+              border: "1px solid rgba(229,72,77,.25)",
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: 13.5,
+              fontWeight: 600,
+              margin: "0 0 12px",
+            }}
+          >
+            {error}
+          </p>
+        )}
         <div
           style={{
             display: "flex",

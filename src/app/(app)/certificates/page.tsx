@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getUserCertificates } from "@/lib/queries";
+
+export const metadata = { title: "Sertifikatlar — PilotKids" };
 
 export default async function CertificatesPage() {
   const user = await requireUser();
@@ -22,6 +25,65 @@ export default async function CertificatesPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 30px" }}>
         {certs.filter((c) => c.state === "done").length} ta olindi · davom eting
       </p>
+      {certs.length === 0 && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "50px 24px",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 20,
+          }}
+        >
+          <span
+            style={{
+              width: 68,
+              height: 68,
+              borderRadius: 20,
+              background: "var(--primary-soft)",
+              display: "grid",
+              placeItems: "center",
+              margin: "0 auto 18px",
+            }}
+          >
+            <Icon name="workspace_premium" size={34} color="var(--primary)" />
+          </span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: 20,
+              margin: "0 0 8px",
+              color: "var(--text)",
+            }}
+          >
+            Hali sertifikat yo&apos;q
+          </h2>
+          <p style={{ color: "var(--text-2)", fontSize: 15, margin: "0 0 22px" }}>
+            Kursga yozilib, uni tugatganingizda birinchi sertifikatingiz shu yerda paydo
+            bo&apos;ladi.
+          </p>
+          <Link
+            href="/courses"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "13px 24px",
+              borderRadius: 13,
+              background: "var(--primary)",
+              color: "#fff",
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: 15,
+              textDecoration: "none",
+            }}
+          >
+            Kurs tanlash
+            <Icon name="arrow_forward" size={19} />
+          </Link>
+        </div>
+      )}
       <div className="grid-2" style={{ gap: 24 }}>
         {certs.map((c) => {
           const done = c.state === "done";
@@ -107,8 +169,8 @@ export default async function CertificatesPage() {
                   >
                     {c.issuedLabel}
                   </p>
-                  <button
-                    style={{
+                  {(() => {
+                    const btnStyle: React.CSSProperties = {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 8,
@@ -117,18 +179,44 @@ export default async function CertificatesPage() {
                       fontFamily: "var(--font-display)",
                       fontWeight: 700,
                       fontSize: 14,
-                      cursor: lock ? "not-allowed" : "pointer",
                       border: "none",
+                      textDecoration: "none",
                       ...(done
                         ? { background: "var(--success)", color: "#fff" }
                         : prog
                           ? { background: "var(--primary)", color: "#fff" }
                           : { background: "var(--surface-3)", color: "var(--text-3)" }),
-                    }}
-                  >
-                    <Icon name={btnIcon} size={18} />
-                    {btnLabel}
-                  </button>
+                    };
+
+                    // Tugallangan — yuklab olish; davom etayotgan — kursga qaytish;
+                    // qulflangan — bosilmaydigan holat.
+                    if (done) {
+                      return (
+                        <a
+                          href={`/api/certificates/${c.id}`}
+                          download
+                          style={{ ...btnStyle, cursor: "pointer" }}
+                        >
+                          <Icon name={btnIcon} size={18} />
+                          {btnLabel}
+                        </a>
+                      );
+                    }
+                    if (prog) {
+                      return (
+                        <Link href="/courses" style={{ ...btnStyle, cursor: "pointer" }}>
+                          <Icon name={btnIcon} size={18} />
+                          {btnLabel}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <button type="button" disabled style={{ ...btnStyle, cursor: "not-allowed" }}>
+                        <Icon name={btnIcon} size={18} />
+                        {btnLabel}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

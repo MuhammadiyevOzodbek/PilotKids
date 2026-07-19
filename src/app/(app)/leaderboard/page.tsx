@@ -56,7 +56,7 @@ export default async function LeaderboardPage() {
         }}
       >
         {podium.map((p) => (
-          <div key={p.id} style={{ flex: 1, maxWidth: 220, textAlign: "center" }}>
+          <div key={p.rank} style={{ flex: 1, maxWidth: 220, textAlign: "center" }}>
             <div style={{ position: "relative", display: "inline-block", marginBottom: 14 }}>
               <span
                 style={{
@@ -140,7 +140,7 @@ export default async function LeaderboardPage() {
         >
           {ranking.map((r) => (
             <div
-              key={r.id}
+              key={r.rank}
               className="hover-row"
               style={{
                 display: "flex",

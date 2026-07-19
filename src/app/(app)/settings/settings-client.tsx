@@ -1,22 +1,50 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { useTheme } from "@/lib/theme";
 import { signOut } from "@/lib/auth/client";
 import { setNotificationsEnabled } from "@/lib/actions/settings";
+import { ProfileEditor } from "./profile-editor";
 
-export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
+export function SettingsClient({
+  initialNotif,
+  name,
+  age,
+  email,
+}: {
+  initialNotif: boolean;
+  name: string;
+  age: number | null;
+  email: string;
+}) {
   const [notif, setNotif] = useState(initialNotif);
+  const [notifError, setNotifError] = useState<string | null>(null);
   const theme = useTheme((s) => s.theme);
   const toggle = useTheme((s) => s.toggle);
   const router = useRouter();
 
   function toggleNotif() {
     const next = !notif;
-    setNotif(next);
-    void setNotificationsEnabled(next); // DB'ga saqlaymiz (optimistik)
+    const prev = notif;
+    setNotif(next); // optimistik
+    setNotifError(null);
+    void setNotificationsEnabled(next).then(
+      (res) => {
+        // Server rad etsa — holatni orqaga qaytaramiz, aks holda toggle
+        // "yoqilgan" bo'lib ko'rinar, DB'da esa saqlanmagan bo'lardi.
+        if (!res.ok) {
+          setNotif(prev);
+          setNotifError(res.error);
+        }
+      },
+      () => {
+        setNotif(prev);
+        setNotifError("Saqlab bo'lmadi. Internetni tekshiring.");
+      },
+    );
   }
 
   async function handleLogout() {
@@ -86,7 +114,7 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>Til</div>
             <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
-              Interfeys tili
+              Hozircha faqat o&apos;zbek tili
             </div>
           </div>
           <span
@@ -133,8 +161,11 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
             </div>
           </div>
           <button
+            type="button"
             onClick={toggleNotif}
             className="tap-halo"
+            role="switch"
+            aria-checked={notif}
             aria-label="Bildirishnomalarni yoqish/o'chirish"
             style={{
               width: 52,
@@ -162,6 +193,20 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
             />
           </button>
         </div>
+        {notifError && (
+          <p
+            role="alert"
+            style={{
+              color: "#E5484D",
+              fontSize: 13,
+              fontWeight: 600,
+              margin: 0,
+              padding: "0 22px 14px",
+            }}
+          >
+            {notifError}
+          </p>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 22px" }}>
           <span
             style={{
@@ -183,8 +228,11 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => toggle()}
             className="tap-halo"
+            role="switch"
+            aria-checked={theme === "dark"}
             aria-label="Qorong'u mavzuni yoqish/o'chirish"
             style={{
               width: 52,
@@ -235,7 +283,9 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
           marginBottom: 26,
         }}
       >
-        <button
+        <ProfileEditor initialName={name} initialAge={age} email={email} />
+        <Link
+          href="/maxfiylik"
           className="hover-row"
           style={{
             display: "flex",
@@ -243,11 +293,9 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
             gap: 16,
             width: "100%",
             padding: "18px 22px",
-            border: "none",
             background: "transparent",
-            cursor: "pointer",
-            borderBottom: "1px solid var(--border)",
             textAlign: "left",
+            textDecoration: "none",
           }}
         >
           <span
@@ -258,39 +306,6 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
               background: "var(--surface-3)",
               display: "grid",
               placeItems: "center",
-              color: "var(--text-2)",
-            }}
-          >
-            <Icon name="manage_accounts" size={22} color="var(--text-2)" />
-          </span>
-          <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
-            Profilni tahrirlash
-          </span>
-          <Icon name="chevron_right" size={22} color="var(--text-3)" />
-        </button>
-        <button
-          className="hover-row"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            width: "100%",
-            padding: "18px 22px",
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
-        >
-          <span
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "var(--surface-3)",
-              display: "grid",
-              placeItems: "center",
-              color: "var(--text-2)",
             }}
           >
             <Icon name="verified_user" size={22} color="var(--text-2)" />
@@ -299,7 +314,7 @@ export function SettingsClient({ initialNotif }: { initialNotif: boolean }) {
             Maxfiylik va xavfsizlik
           </span>
           <Icon name="chevron_right" size={22} color="var(--text-3)" />
-        </button>
+        </Link>
       </div>
       <button
         onClick={handleLogout}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { signUp, signIn } from "@/lib/auth/client";
+import { signupSchema, firstError } from "@/lib/validation";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -38,17 +39,28 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!consent) {
-      setError("Davom etish uchun ota-ona roziligini tasdiqlang");
+
+    // Klient tomonda tekshiruv — server ham (auth hook'da) qayta tekshiradi.
+    const parsed = signupSchema.safeParse({
+      name,
+      email,
+      age: Number(age),
+      password,
+      consent,
+    });
+    if (!parsed.success) {
+      setError(firstError(parsed.error));
       return;
     }
+
     setLoading(true);
     try {
       const { error } = await signUp.email({
-        email,
-        password,
-        name,
-        age: age ? Number(age) : undefined,
+        email: parsed.data.email,
+        password: parsed.data.password,
+        name: parsed.data.name,
+        age: parsed.data.age,
+        parentConsent: true,
       });
       if (error) {
         setError(
@@ -245,12 +257,19 @@ export default function SignupPage() {
             className="field"
             type="password"
             required
-            minLength={6}
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            style={{ ...inputStyle, marginBottom: 18 }}
+            aria-describedby="parol-yordam"
+            style={{ ...inputStyle, marginBottom: 6 }}
           />
+          <p
+            id="parol-yordam"
+            style={{ color: "var(--text-3)", fontSize: 12.5, margin: "0 0 18px" }}
+          >
+            Kamida 8 belgi, ichida harf va raqam bo&apos;lsin.
+          </p>
 
           <label
             onClick={() => setConsent(!consent)}

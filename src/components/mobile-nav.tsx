@@ -5,7 +5,13 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const links = ["Kurslar", "Laboratoriya", "Ota-onalar", "Narxlar"];
+/** Ilova sahifalari auth talab qiladi — mehmon `proxy.ts` orqali /login'ga yo'naltiriladi. */
+const links = [
+  { label: "Kurslar", href: "/courses" },
+  { label: "Laboratoriya", href: "/lab" },
+  { label: "Ota-onalar", href: "/parent" },
+  { label: "Narxlar", href: "/#narxlar" },
+];
 
 /** Landing sarlavhasidagi mobil menyu — 900px'dan tor ekranlarda ko'rinadi
  *  (ko'rinishni `.nav-burger` klassi boshqaradi, globals.css'ga qarang). */
@@ -83,8 +89,9 @@ export function MobileNav() {
           </div>
 
           {links.map((l) => (
-            <span
-              key={l}
+            <Link
+              key={l.href}
+              href={l.href}
               onClick={() => setOpen(false)}
               style={{
                 display: "flex",
@@ -95,11 +102,11 @@ export function MobileNav() {
                 color: "#AEBBD4",
                 fontWeight: 600,
                 fontSize: 16,
-                cursor: "pointer",
+                textDecoration: "none",
               }}
             >
-              {l}
-            </span>
+              {l.label}
+            </Link>
           ))}
 
           <div style={{ height: 1, background: "rgba(255,255,255,.1)", margin: "12px 0" }} />

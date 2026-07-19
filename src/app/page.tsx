@@ -18,8 +18,26 @@ import { getFeaturedCourses, getCategories } from "@/lib/queries";
 // Build vaqtida DB'ga so'rov yubormaslik uchun sahifa so'rov paytida render qilinadi.
 export const dynamic = "force-dynamic";
 
+/** Footer ustunlaridagi matnli link → haqiqiy manzil.
+ *  Xaritada bo'lmagan yozuv umuman ko'rsatilmaydi (bosiladigan, lekin
+ *  hech qayerga olib bormaydigan element bo'lmasligi uchun). */
+const footerHrefs: Record<string, string> = {
+  Kurslar: "/courses",
+  Laboratoriya: "/lab",
+  Sertifikatlar: "/certificates",
+  "AI Tutor": "/tutor",
+  Narxlar: "/#narxlar",
+  "Ota-ona paneli": "/parent",
+  Xavfsizlik: "/maxfiylik#bolalar",
+  "Ekran vaqti": "/parent",
+  "Ko'p bola": "/parent",
+  "Biz haqimizda": "/#jamoa",
+  Jamoa: "/#jamoa",
+};
+
 type LandingCourse = {
   id: string;
+  slug?: string;
   icon: string;
   color: string;
   soft: string;
@@ -154,18 +172,35 @@ export default async function Home() {
                 fontSize: 15,
               }}
             >
-              <span className="hover-white" style={{ cursor: "pointer" }}>
+              {/* Ilova sahifalari auth talab qiladi — mehmon `proxy.ts` orqali /login'ga tushadi */}
+              <Link
+                href="/courses"
+                className="hover-white"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 Kurslar
-              </span>
-              <span className="hover-white" style={{ cursor: "pointer" }}>
+              </Link>
+              <Link
+                href="/lab"
+                className="hover-white"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 Laboratoriya
-              </span>
-              <span className="hover-white" style={{ cursor: "pointer" }}>
+              </Link>
+              <Link
+                href="/parent"
+                className="hover-white"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 Ota-onalar
-              </span>
-              <span className="hover-white" style={{ cursor: "pointer" }}>
+              </Link>
+              <Link
+                href="/#narxlar"
+                className="hover-white"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 Narxlar
-              </span>
+              </Link>
             </div>
             <div className="nav-cta" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <ThemeToggle variant="navy" />
@@ -720,6 +755,7 @@ export default async function Home() {
 
       {/* HOW IT WORKS */}
       <section
+        id="qanday-ishlaydi"
         className="sec-x"
         style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 80, paddingBottom: 40 }}
       >
@@ -815,6 +851,7 @@ export default async function Home() {
 
       {/* POPULAR COURSES */}
       <section
+        id="kurslar"
         className="sec-x"
         style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 40, paddingBottom: 40 }}
       >
@@ -847,7 +884,7 @@ export default async function Home() {
           {featured.map((c) => (
             <Link
               key={c.id}
-              href="/signup"
+              href={c.slug ? `/courses/${c.slug}` : "/courses"}
               className="hover-lift"
               style={{
                 background: "var(--surface)",
@@ -916,6 +953,7 @@ export default async function Home() {
 
       {/* PARENT TRUST */}
       <section
+        id="ota-onalar"
         className="sec-x"
         style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 60, paddingBottom: 60 }}
       >
@@ -1200,6 +1238,7 @@ export default async function Home() {
 
       {/* TEAM */}
       <section
+        id="jamoa"
         className="sec-x"
         style={{ maxWidth: 1180, margin: "0 auto", paddingTop: 70, paddingBottom: 20 }}
       >
@@ -1344,7 +1383,7 @@ export default async function Home() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="sec-x" style={{ maxWidth: 1180, margin: "64px auto 40px" }}>
+      <section id="narxlar" className="sec-x" style={{ maxWidth: 1180, margin: "64px auto 40px" }}>
         <div
           className="cta-box"
           style={{
@@ -1368,6 +1407,20 @@ export default async function Home() {
               filter: "blur(14px)",
             }}
           />
+          {/* "Narxlar" havolasi shu bo'limga tushadi — hozircha platforma to'liq bepul */}
+          <div
+            style={{
+              position: "relative",
+              fontWeight: 700,
+              color: "#7fe3bb",
+              letterSpacing: ".1em",
+              fontSize: 13,
+              textTransform: "uppercase",
+              marginBottom: 12,
+            }}
+          >
+            Narxlar
+          </div>
           <h2
             className="font-display"
             style={{
@@ -1378,7 +1431,7 @@ export default async function Home() {
               margin: "0 0 14px",
             }}
           >
-            Bugun qurishni boshlang
+            Hamma narsa bepul
           </h2>
           <p
             style={{
@@ -1389,7 +1442,8 @@ export default async function Home() {
               maxWidth: 520,
             }}
           >
-            Bir necha daqiqada birinchi robotingizni yig&apos;ing. To&apos;lovsiz boshlang.
+            Barcha kurslar, laboratoriya va AI tutor hozircha bepul — karta talab qilinmaydi. Bir
+            necha daqiqada birinchi robotingizni yig&apos;ing.
           </p>
           <Link
             href="/signup"
@@ -1474,26 +1528,8 @@ export default async function Home() {
               Kelajak muhandislari uchun robototexnika, kod va STEM platformasi. O&apos;ynab, qurib,
               o&apos;rganib.
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              {["public", "play_circle", "mail"].map((ic) => (
-                <span
-                  key={ic}
-                  className="hover-white"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 11,
-                    background: "rgba(255,255,255,.06)",
-                    border: "1px solid rgba(255,255,255,.1)",
-                    display: "grid",
-                    placeItems: "center",
-                    cursor: "pointer",
-                  }}
-                >
-                  <Icon name={ic} size={20} color="#AEBBD4" />
-                </span>
-              ))}
-            </div>
+            {/* Ijtimoiy tarmoq ikonlari olib tashlandi: haqiqiy profil manzillari yo'q edi,
+                bosiladigan, lekin hech qayerga olib bormaydigan element qoldirmaymiz. */}
           </div>
           {footerCols.map((col) => (
             <div key={col.title}>
@@ -1509,19 +1545,22 @@ export default async function Home() {
                 {col.title}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                {col.links.map((lk) => (
-                  <span
-                    key={lk}
-                    className="hover-white"
-                    style={{
-                      fontSize: 14,
-                      color: "#AEBBD4",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {lk}
-                  </span>
-                ))}
+                {col.links
+                  .filter((lk) => footerHrefs[lk])
+                  .map((lk) => (
+                    <Link
+                      key={lk}
+                      href={footerHrefs[lk]}
+                      className="hover-white"
+                      style={{
+                        fontSize: 14,
+                        color: "#AEBBD4",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {lk}
+                    </Link>
+                  ))}
               </div>
             </div>
           ))}
@@ -1542,24 +1581,27 @@ export default async function Home() {
             © 2026 PilotKids · Bolalar uchun xavfsiz ta&apos;lim
           </span>
           <div style={{ display: "flex", gap: 24 }}>
-            <span
+            <Link
+              href="/maxfiylik"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", cursor: "pointer" }}
+              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
             >
               Maxfiylik
-            </span>
-            <span
+            </Link>
+            <Link
+              href="/shartlar"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", cursor: "pointer" }}
+              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
             >
               Shartlar
-            </span>
-            <span
+            </Link>
+            <Link
+              href="/maxfiylik#cookie"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", cursor: "pointer" }}
+              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
             >
               Cookie
-            </span>
+            </Link>
           </div>
         </div>
       </footer>

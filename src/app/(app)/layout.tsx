@@ -6,7 +6,6 @@ import { getUserStats, getNotifications, initials, firstName, formatXp } from "@
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const [stats, notifs] = await Promise.all([getUserStats(user.id), getNotifications(user.id)]);
-  const unread = notifs.filter((n) => !n.read).length;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -17,7 +16,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           initials={initials(user.name)}
           xp={formatXp(stats.xp)}
           streak={stats.streak}
-          hasUnread={unread > 0}
+          notifications={notifs.map((n) => ({
+            id: n.id,
+            message: n.message,
+            read: n.read,
+            createdAt: n.createdAt,
+          }))}
         />
         <main className="app-main" style={{ flex: 1 }}>
           {children}

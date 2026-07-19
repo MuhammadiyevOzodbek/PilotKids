@@ -223,10 +223,12 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Parol tiklash oqimi hali yo'q — foydalanuvchini bo'sh havolaga
+              yubormaymiz, o'rniga nima qilishni aniq aytamiz. */}
           <div style={{ textAlign: "right", marginBottom: 22 }}>
-            <Link href="/signup" className="tap" style={{ fontSize: 14, fontWeight: 600 }}>
-              Parolni unutdingizmi?
-            </Link>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-3)" }}>
+              Parolni unutdingizmi? Ota-onangizga murojaat qiling.
+            </span>
           </div>
 
           {error && (

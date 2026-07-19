@@ -1,12 +1,49 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
-import { profileMenu } from "@/lib/data";
 import { requireUser } from "@/lib/auth/session";
-import { getUserStats, initials, formatXp } from "@/lib/queries";
+import {
+  getUserStats,
+  getUserCourses,
+  getUserCertificates,
+  initials,
+  formatXp,
+} from "@/lib/queries";
+
+export const metadata = { title: "Profil — PilotKids" };
 
 export default async function ProfilePage() {
   const user = await requireUser();
-  const stats = await getUserStats(user.id);
+  const [stats, myCourses, certs] = await Promise.all([
+    getUserStats(user.id),
+    getUserCourses(user.id),
+    getUserCertificates(user.id),
+  ]);
+
+  // Menyu meta raqamlari real ma'lumotdan hisoblanadi.
+  const activeCourses = myCourses.filter((c) => c.progressPercent < 100).length;
+  const earnedCerts = certs.filter((c) => c.state === "done").length;
+  const menu = [
+    {
+      icon: "menu_book",
+      label: "Mening kurslarim",
+      meta: myCourses.length ? `${activeCourses} ta faol` : "hali yo'q",
+      href: "/courses",
+    },
+    {
+      icon: "workspace_premium",
+      label: "Sertifikatlar",
+      meta: earnedCerts ? `${earnedCerts} ta` : "hali yo'q",
+      href: "/certificates",
+    },
+    {
+      icon: "science",
+      label: "Laboratoriya",
+      meta: "",
+      href: "/lab",
+    },
+    { icon: "shield_person", label: "Ota-ona paneli", meta: "", href: "/parent" },
+    { icon: "settings", label: "Sozlamalar", meta: "", href: "/settings" },
+  ];
   const profileStats = [
     {
       icon: "bolt",
@@ -186,7 +223,7 @@ export default async function ProfilePage() {
           boxShadow: "var(--shadow-sm)",
         }}
       >
-        {profileMenu.map((m) => (
+        {menu.map((m) => (
           <Link
             key={m.label}
             href={m.href}

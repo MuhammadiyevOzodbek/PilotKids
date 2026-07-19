@@ -1,8 +1,13 @@
 import { Icon } from "@/components/icon";
-import { getLabProjects } from "@/lib/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getLabProjectsWithProgress } from "@/lib/queries";
+import { LabCardActions } from "./lab-card-actions";
+
+export const metadata = { title: "Laboratoriya — PilotKids" };
 
 export default async function LabPage() {
-  const projects = await getLabProjects();
+  const user = await requireUser();
+  const projects = await getLabProjectsWithProgress(user.id);
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <div
@@ -38,6 +43,21 @@ export default async function LabPage() {
       <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 28px" }}>
         Darslardagi bilimni haqiqiy qurilmalarga aylantiring
       </p>
+      {projects.length === 0 && (
+        <p
+          style={{
+            color: "var(--text-2)",
+            fontSize: 15,
+            padding: "40px 24px",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 18,
+            textAlign: "center",
+          }}
+        >
+          Loyihalar tayyorlanmoqda. Tez orada bu yerda amaliy ishlar paydo bo&apos;ladi!
+        </p>
+      )}
       <div className="grid-3" style={{ gap: 22 }}>
         {projects.map((p) => (
           <div
@@ -49,8 +69,9 @@ export default async function LabPage() {
               borderRadius: 22,
               overflow: "hidden",
               boxShadow: "var(--shadow-sm)",
-              cursor: "pointer",
               transition: "transform .25s ease,box-shadow .25s ease",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
@@ -78,6 +99,23 @@ export default async function LabPage() {
               >
                 {p.diff}
               </span>
+              {p.status && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 12,
+                    left: 12,
+                    padding: "5px 11px",
+                    borderRadius: 99,
+                    background: p.status === "done" ? "var(--success)" : "var(--primary)",
+                    color: "#fff",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {p.status === "done" ? "Tugallandi" : "Boshlandi"}
+                </span>
+              )}
             </div>
             <div style={{ padding: 20 }}>
               <h3
@@ -109,11 +147,13 @@ export default async function LabPage() {
                   color: "var(--text-3)",
                   fontSize: "12.5px",
                   fontWeight: 600,
+                  marginBottom: 16,
                 }}
               >
                 <Icon name="memory" size={16} />
                 {p.parts}
               </div>
+              <LabCardActions projectId={p.id} status={p.status} />
             </div>
           </div>
         ))}

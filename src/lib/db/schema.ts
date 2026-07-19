@@ -25,6 +25,10 @@ export const user = pgTable("user", {
   xp: integer("xp").default(0).notNull(),
   streak: integer("streak").default(0).notNull(),
   level: integer("level").default(1).notNull(),
+  /** Ota-ona roziligi (serverda tasdiqlanadi, klient checkbox'iga ishonilmaydi). */
+  parentConsent: boolean("parent_consent").default(false).notNull(),
+  /** Oxirgi faollik sanasi — streak hisoblash uchun. */
+  lastActiveAt: timestamp("last_active_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -111,6 +115,12 @@ export const lesson = pgTable(
     meta: text("meta").notNull(),
     type: text("type").default("video").notNull(), // video | code | quiz | lab
     durationMin: integer("duration_min").default(0).notNull(),
+    /** Dars matni (video ostidagi tavsif). */
+    content: text("content").default("").notNull(),
+    /** Video manbasi (bo'sh bo'lsa placeholder ko'rsatiladi). */
+    videoUrl: text("video_url"),
+    /** Darsni tugatganda beriladigan XP. */
+    xpReward: integer("xp_reward").default(40).notNull(),
   },
   (t) => [unique("lesson_course_order_uq").on(t.courseId, t.sortOrder)],
 );
@@ -249,6 +259,59 @@ export const chatMessage = pgTable("chat_message", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** Quiz javob urinishlari — natija va XP serverda hisoblanadi. */
+export const quizAttempt = pgTable(
+  "quiz_attempt",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => quizQuestion.id, { onDelete: "cascade" }),
+    selectedIndex: integer("selected_index").notNull(),
+    correct: boolean("correct").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique("quiz_attempt_user_question_uq").on(t.userId, t.questionId)],
+);
+
+/** Dars ichidagi shaxsiy eslatmalar. */
+export const lessonNote = pgTable(
+  "lesson_note",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lesson.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique("lesson_note_user_lesson_uq").on(t.userId, t.lessonId)],
+);
+
+/** Lab loyihasini boshlash/tugatish holati. */
+export const labProgress = pgTable(
+  "lab_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => labProject.id, { onDelete: "cascade" }),
+    status: text("status").default("started").notNull(), // started | done
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [unique("lab_progress_user_project_uq").on(t.userId, t.projectId)],
+);
+
 /** Foydalanuvchi sozlamalari. */
 export const userSettings = pgTable("user_settings", {
   userId: text("user_id")
@@ -256,6 +319,10 @@ export const userSettings = pgTable("user_settings", {
     .references(() => user.id, { onDelete: "cascade" }),
   notificationsEnabled: boolean("notifications_enabled").default(true).notNull(),
   theme: text("theme").default("light").notNull(),
+  /** Interfeys tili. */
+  language: text("language").default("uz").notNull(),
+  /** Kunlik ekran vaqti chegarasi (daqiqa) — ota-ona panelidan sozlanadi. */
+  dailyLimitMin: integer("daily_limit_min").default(90).notNull(),
 });
 
 /* ─────────────────────────── Relations ─────────────────────────── */
@@ -283,3 +350,7 @@ export type LabProject = typeof labProject.$inferSelect;
 export type Certificate = typeof certificate.$inferSelect;
 export type Notification = typeof notification.$inferSelect;
 export type Enrollment = typeof enrollment.$inferSelect;
+export type QuizQuestion = typeof quizQuestion.$inferSelect;
+export type QuizAttempt = typeof quizAttempt.$inferSelect;
+export type LessonNote = typeof lessonNote.$inferSelect;
+export type LabProgress = typeof labProgress.$inferSelect;

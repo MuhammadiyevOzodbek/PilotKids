@@ -7,8 +7,8 @@ import { Icon } from "@/components/icon";
 import { navItems } from "@/lib/data";
 import { useSidebar } from "@/lib/ui-store";
 
+/** Ichki sahifalar yon paneldagi qaysi bo'limni yoqishini belgilaydi. */
 const detailsParent: Record<string, string> = {
-  "/courses/details": "/courses",
   "/lesson": "/courses",
   "/quiz": "/courses",
 };

@@ -17,6 +17,9 @@ import {
   dailyActivity,
   userSettings,
   chatMessage,
+  quizAttempt,
+  lessonNote,
+  labProgress,
 } from "@/lib/db/schema";
 
 /* ─────────────────────────── Kontent (umumiy) ─────────────────────────── */
@@ -39,8 +42,217 @@ export async function getMainCourse() {
   return rows[0] ?? null;
 }
 
-export async function getQuizQuestion() {
-  const rows = await db.select().from(quizQuestion).orderBy(asc(quizQuestion.sortOrder)).limit(1);
+/** Kursni slug bo'yicha topish (kategoriya nomi bilan). */
+export async function getCourseBySlug(slug: string) {
+  const rows = await db
+    .select({
+      id: course.id,
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      icon: course.icon,
+      color: course.color,
+      soft: course.soft,
+      level: course.level,
+      totalLessons: course.totalLessons,
+      hours: course.hours,
+      categoryTitle: category.title,
+    })
+    .from(course)
+    .leftJoin(category, eq(course.categoryId, category.id))
+    .where(eq(course.slug, slug))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Barcha kurslar — kategoriya nomi va o'quvchilar soni bilan. */
+export async function getAllCourses() {
+  return db
+    .select({
+      id: course.id,
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      icon: course.icon,
+      color: course.color,
+      soft: course.soft,
+      level: course.level,
+      totalLessons: course.totalLessons,
+      hours: course.hours,
+      categorySlug: category.slug,
+      categoryTitle: category.title,
+      sortOrder: course.sortOrder,
+    })
+    .from(course)
+    .leftJoin(category, eq(course.categoryId, category.id))
+    .orderBy(asc(course.sortOrder));
+}
+
+/** Kursga yozilgan o'quvchilar soni. */
+export async function getCourseStudentCount(courseId: string) {
+  const [{ value }] = await db
+    .select({ value: count() })
+    .from(enrollment)
+    .where(eq(enrollment.courseId, courseId));
+  return value;
+}
+
+/** Bitta darsni kursi bilan birga olish. */
+export async function getLessonById(lessonId: string) {
+  const rows = await db
+    .select({
+      id: lesson.id,
+      courseId: lesson.courseId,
+      sortOrder: lesson.sortOrder,
+      title: lesson.title,
+      meta: lesson.meta,
+      type: lesson.type,
+      durationMin: lesson.durationMin,
+      content: lesson.content,
+      videoUrl: lesson.videoUrl,
+      xpReward: lesson.xpReward,
+      courseTitle: course.title,
+      courseSlug: course.slug,
+    })
+    .from(lesson)
+    .innerJoin(course, eq(lesson.courseId, course.id))
+    .where(eq(lesson.id, lessonId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Foydalanuvchining "davom ettirish" darsi — birinchi tugallanmagan dars. */
+export async function getCurrentLesson(userId: string) {
+  const rows = await db
+    .select({
+      id: lesson.id,
+      title: lesson.title,
+      sortOrder: lesson.sortOrder,
+      durationMin: lesson.durationMin,
+      courseId: course.id,
+      courseTitle: course.title,
+      courseSlug: course.slug,
+      totalLessons: course.totalLessons,
+      progressPercent: enrollment.progressPercent,
+      status: sql<string>`coalesce(${lessonProgress.status}, 'locked')`,
+    })
+    .from(enrollment)
+    .innerJoin(course, eq(enrollment.courseId, course.id))
+    .innerJoin(lesson, eq(lesson.courseId, course.id))
+    .leftJoin(
+      lessonProgress,
+      and(eq(lessonProgress.lessonId, lesson.id), eq(lessonProgress.userId, userId)),
+    )
+    .where(
+      and(
+        eq(enrollment.userId, userId),
+        sql`coalesce(${lessonProgress.status}, 'locked') <> 'done'`,
+      ),
+    )
+    .orderBy(asc(course.sortOrder), asc(lesson.sortOrder))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Darsdan keyingi dars (bir kurs ichida). */
+export async function getNextLesson(courseId: string, currentOrder: number) {
+  const rows = await db
+    .select({
+      id: lesson.id,
+      title: lesson.title,
+      sortOrder: lesson.sortOrder,
+      durationMin: lesson.durationMin,
+      type: lesson.type,
+    })
+    .from(lesson)
+    .where(and(eq(lesson.courseId, courseId), sql`${lesson.sortOrder} > ${currentOrder}`))
+    .orderBy(asc(lesson.sortOrder))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Foydalanuvchining dars bo'yicha shaxsiy eslatmasi. */
+export async function getLessonNote(userId: string, lessonId: string) {
+  const rows = await db
+    .select({ body: lessonNote.body })
+    .from(lessonNote)
+    .where(and(eq(lessonNote.userId, userId), eq(lessonNote.lessonId, lessonId)))
+    .limit(1);
+  return rows[0]?.body ?? "";
+}
+
+/**
+ * Kurs uchun quiz savollari — `correctIndex` QAYTARILMAYDI.
+ * To'g'ri javob faqat serverda, `submitQuizAnswer` ichida solishtiriladi.
+ */
+export async function getQuizQuestions(courseId?: string) {
+  const base = db
+    .select({
+      id: quizQuestion.id,
+      prompt: quizQuestion.prompt,
+      options: quizQuestion.options,
+      sortOrder: quizQuestion.sortOrder,
+    })
+    .from(quizQuestion);
+  const rows = courseId
+    ? await base.where(eq(quizQuestion.courseId, courseId)).orderBy(asc(quizQuestion.sortOrder))
+    : await base.orderBy(asc(quizQuestion.sortOrder));
+  return rows;
+}
+
+/** Foydalanuvchining quiz urinishlari (savol id → tanlangan javob, to'g'rimi). */
+export async function getQuizAttempts(userId: string) {
+  const rows = await db
+    .select({
+      questionId: quizAttempt.questionId,
+      selectedIndex: quizAttempt.selectedIndex,
+      correct: quizAttempt.correct,
+    })
+    .from(quizAttempt)
+    .where(eq(quizAttempt.userId, userId));
+  return rows;
+}
+
+/** Lab loyihalari + foydalanuvchi holati. */
+export async function getLabProjectsWithProgress(userId: string) {
+  return db
+    .select({
+      id: labProject.id,
+      slug: labProject.slug,
+      title: labProject.title,
+      description: labProject.description,
+      icon: labProject.icon,
+      color: labProject.color,
+      soft: labProject.soft,
+      diff: labProject.diff,
+      diffCol: labProject.diffCol,
+      diffBg: labProject.diffBg,
+      parts: labProject.parts,
+      status: sql<string | null>`${labProgress.status}`,
+    })
+    .from(labProject)
+    .leftJoin(
+      labProgress,
+      and(eq(labProgress.projectId, labProject.id), eq(labProgress.userId, userId)),
+    )
+    .orderBy(asc(labProject.sortOrder));
+}
+
+/** Oxirgi qo'lga kiritilgan nishon (ota-ona paneli uchun). */
+export async function getLatestBadge(userId: string) {
+  const rows = await db
+    .select({
+      name: badge.name,
+      icon: badge.icon,
+      color: badge.color,
+      soft: badge.soft,
+      earnedAt: userBadge.earnedAt,
+    })
+    .from(userBadge)
+    .innerJoin(badge, eq(userBadge.badgeId, badge.id))
+    .where(eq(userBadge.userId, userId))
+    .orderBy(desc(userBadge.earnedAt))
+    .limit(1);
   return rows[0] ?? null;
 }
 
@@ -116,21 +328,31 @@ export async function getCourseLessons(userId: string, courseId: string) {
     .orderBy(asc(lesson.sortOrder));
 }
 
-/** Reyting — XP bo'yicha tartiblangan barcha foydalanuvchilar. */
+/**
+ * Reyting — XP bo'yicha tartiblangan foydalanuvchilar.
+ *
+ * MAXFIYLIK: bu 8–15 yoshli bolalar platformasi, shuning uchun reytingda
+ * HECH KIMNING to'liq ismi (familiyasi) ko'rsatilmaydi — faqat ism.
+ * Foydalanuvchi `id` ham klientga chiqarilmaydi; "siz"ni belgilash uchun
+ * `you` bayrog'i yetarli.
+ */
 export async function getLeaderboard(currentUserId: string) {
   const rows = await db
     .select({ id: user.id, name: user.name, xp: user.xp })
     .from(user)
     .orderBy(desc(user.xp), asc(user.createdAt))
     .limit(12);
-  return rows.map((r, i) => ({
-    rank: i + 1,
-    id: r.id,
-    name: r.id === currentUserId ? `${firstName(r.name)} (Siz)` : r.name,
-    init: initials(r.name),
-    xp: formatXp(r.xp),
-    you: r.id === currentUserId,
-  }));
+  return rows.map((r, i) => {
+    const you = r.id === currentUserId;
+    const short = firstName(r.name);
+    return {
+      rank: i + 1,
+      name: you ? `${short} (Siz)` : short,
+      init: initials(r.name),
+      xp: formatXp(r.xp),
+      you,
+    };
+  });
 }
 
 export async function getUserBadges(userId: string) {

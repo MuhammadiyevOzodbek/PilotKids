@@ -4,15 +4,21 @@ import { requireUser } from "@/lib/auth/session";
 import {
   getUserStats,
   getUserCourses,
-  getFeaturedCourses,
+  getAllCourses,
+  getCurrentLesson,
   formatXp,
   firstName,
 } from "@/lib/queries";
 
+export const metadata = { title: "Boshqaruv paneli — PilotKids" };
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const stats = await getUserStats(user.id);
-  const courses = await getUserCourses(user.id);
+  const [stats, courses, current] = await Promise.all([
+    getUserStats(user.id),
+    getUserCourses(user.id),
+    getCurrentLesson(user.id),
+  ]);
   const homeStats = [
     {
       icon: "bolt",
@@ -36,10 +42,11 @@ export default async function DashboardPage() {
       label: "Nishonlar",
     },
   ];
+  // Yozilgan kurslar bo'lmasa — barcha kurslarni taklif qilamiz.
   const featured =
     courses.length > 0
       ? courses
-      : (await getFeaturedCourses()).map((c) => ({ ...c, progressPercent: 0 }));
+      : (await getAllCourses()).map((c) => ({ ...c, progressPercent: 0 }));
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <div
@@ -117,15 +124,22 @@ export default async function DashboardPage() {
                 color: "#8fb2ff",
               }}
             >
-              DAVOM ETTIRISH
+              {current ? "DAVOM ETTIRISH" : "BOSHLASH"}
             </div>
             <h2
-              style={{ fontFamily: "'Sora'", fontWeight: 700, fontSize: 26, margin: "16px 0 6px" }}
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: 26,
+                margin: "16px 0 6px",
+              }}
             >
-              Arduino: LEDni yoqish
+              {current ? current.title : "Birinchi kursingizni tanlang"}
             </h2>
             <p style={{ color: "#AEBBD4", fontSize: 14.5, margin: 0 }}>
-              3-dars · 8 daqiqa qoldi · Robototexnika 101
+              {current
+                ? `${current.sortOrder}-dars · ${current.durationMin} daqiqa · ${current.courseTitle}`
+                : "Robototexnika, Scratch, micro:bit va Python — qaysi biri qiziq?"}
             </p>
           </div>
           <div style={{ position: "relative", marginTop: 20 }}>
@@ -139,15 +153,16 @@ export default async function DashboardPage() {
             >
               <div
                 style={{
-                  width: "62%",
+                  width: `${current?.progressPercent ?? 0}%`,
                   height: "100%",
                   borderRadius: 99,
                   background: "linear-gradient(90deg,#2F6BF3,#5b8cff)",
+                  transition: "width .4s ease",
                 }}
               />
             </div>
             <Link
-              href="/lesson"
+              href={current ? `/lesson/${current.id}` : "/courses"}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -165,7 +180,7 @@ export default async function DashboardPage() {
               }}
             >
               <Icon name="play_arrow" size={20} />
-              Davom etish
+              {current ? "Davom etish" : "Kurslarni ko'rish"}
             </Link>
           </div>
         </div>
@@ -268,7 +283,7 @@ export default async function DashboardPage() {
         {featured.map((c) => (
           <Link
             key={c.id}
-            href="/courses/details"
+            href={`/courses/${c.slug}`}
             className="hover-lift"
             style={{
               background: "var(--surface)",

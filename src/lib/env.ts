@@ -10,6 +10,8 @@ const serverSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   GITHUB_CLIENT_ID: z.string().optional().default(""),
   GITHUB_CLIENT_SECRET: z.string().optional().default(""),
+  // Google AI Studio (Gemini). Bo'sh bo'lsa AI tutor oflayn javoblarga qaytadi.
+  GEMINI_API_KEY: z.string().optional().default(""),
 });
 
 const parsed = serverSchema.safeParse(process.env);
@@ -30,3 +32,6 @@ export const oauth = {
   google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   github: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
 };
+
+/** Gemini kaliti sozlanganmi. */
+export const aiEnabled = Boolean(env.GEMINI_API_KEY);
