@@ -1278,12 +1278,20 @@ export default async function Home() {
             kasblarini o&apos;ynab o&apos;rgatishga bag&apos;ishlangan.
           </p>
         </div>
-        <div className="grid-4" style={{ gap: 22 }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 22,
+          }}
+        >
           {team.map((t) => (
             <div
               key={t.name}
               className="hover-lift"
               style={{
+                flex: "0 1 260px",
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
                 borderRadius: 22,
@@ -1348,8 +1356,12 @@ export default async function Home() {
                   gap: 10,
                 }}
               >
-                <span
+                <a
+                  href={`https://t.me/${t.telegram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="hover-primary"
+                  aria-label={`${t.name} Telegram`}
                   style={{
                     width: 34,
                     height: 34,
@@ -1360,10 +1372,12 @@ export default async function Home() {
                     cursor: "pointer",
                   }}
                 >
-                  <Icon name="public" size={18} color="var(--text-2)" />
-                </span>
-                <span
+                  <Icon name="send" size={18} color="var(--text-2)" />
+                </a>
+                <a
+                  href={`mailto:${t.email}`}
                   className="hover-primary"
+                  aria-label={`${t.name} Email`}
                   style={{
                     width: 34,
                     height: 34,
@@ -1375,7 +1389,7 @@ export default async function Home() {
                   }}
                 >
                   <Icon name="mail" size={18} color="var(--text-2)" />
-                </span>
+                </a>
               </div>
             </div>
           ))}

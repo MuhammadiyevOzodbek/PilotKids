@@ -65,32 +65,22 @@ export const footerCols = [
 
 export const team = [
   {
-    name: "Sardor Aliyev",
+    name: "Ulug'bek Negmatov",
     role: "Asoschi va CEO",
-    bio: "Robototexnika muhandisi, 10+ yil STEM ta'limida.",
-    init: "SA",
+    bio: "IT mutaxasisi va IQtidor school akademiya direktori.",
+    init: "UN",
     color: "#2F6BF3",
+    email: "ulugbeknegmatov7@gmail.com",
+    telegram: "Negmatov_U",
   },
   {
-    name: "Kamola Yusupova",
-    role: "Ta'lim rahbari",
-    bio: "Pedagog, bolalar uchun o'quv dasturi muallifi.",
-    init: "KY",
+    name: "Muhammadiyev Ozodbek",
+    role: "IT mutaxasisi va Dasturchi",
+    bio: "Fullstack dasturchi, 2 yildan ortiq IT sohasida tajribaga ega.",
+    init: "MO",
     color: "#8B5CF6",
-  },
-  {
-    name: "Bekzod Rahimov",
-    role: "Bosh muhandis",
-    bio: "Arduino va IoT bo'yicha ekspert, kit dizayneri.",
-    init: "BR",
-    color: "#0FA46E",
-  },
-  {
-    name: "Nilufar Karimova",
-    role: "Mahsulot dizayneri",
-    bio: "Bolalarga mos, xavfsiz interfeys ustida ishlaydi.",
-    init: "NK",
-    color: "#EA9A0E",
+    email: "ozodbekmuhammadiyev2001@gmail.com",
+    telegram: "Muhammadiyev_Ozodbek",
   },
 ];
 
