@@ -63,7 +63,21 @@ export const footerCols = [
   { title: "Kompaniya", links: ["Biz haqimizda", "Jamoa", "Karyera", "Bog'lanish"] },
 ];
 
-export const team = [
+export type TeamMember = {
+  name: string;
+  role: string;
+  bio: string;
+  init: string;
+  color: string;
+  email: string;
+  telegram: string;
+  /** public/ ichidagi surat manzili. Bo'lmasa init harflari ko'rsatiladi. */
+  photo?: string;
+  /** To'liq GitHub profil havolasi. */
+  github?: string;
+};
+
+export const team: TeamMember[] = [
   {
     name: "Ulug'bek Negmatov",
     role: "Asoschi va CEO",
@@ -72,6 +86,17 @@ export const team = [
     color: "#2F6BF3",
     email: "ulugbeknegmatov7@gmail.com",
     telegram: "Negmatov_U",
+    photo: "/team/ulugbek-negmatov.jpg",
+  },
+  {
+    name: "Alisher Tojiyev",
+    role: "Founder va maslahatchi",
+    bio: "Ta'lim va biznes yo'nalishida strategik maslahatchi.",
+    init: "AT",
+    color: "#0FA46E",
+    email: "alishertojiyev@gmail.com",
+    telegram: "Akhmatovich",
+    photo: "/team/alisher-tojiyev.jpg",
   },
   {
     name: "Muhammadiyev Ozodbek",
@@ -81,6 +106,7 @@ export const team = [
     color: "#8B5CF6",
     email: "ozodbekmuhammadiyev2001@gmail.com",
     telegram: "Muhammadiyev_Ozodbek",
+    github: "https://github.com/MuhammadiyevOzodbek",
   },
 ];
 
