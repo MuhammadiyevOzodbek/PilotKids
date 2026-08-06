@@ -110,9 +110,11 @@ Panel bo'limlari:
 1. Repozitoriyani GitHub'ga push qiling.
 2. Vercel'da loyihani import qiling (Next.js avtomatik aniqlanadi).
 3. **Environment Variables** bo'limiga yuqoridagilarni qo'shing. `BETTER_AUTH_URL` va
-   `NEXT_PUBLIC_APP_URL` ni Vercel domeningizga tenglang.
+   `NEXT_PUBLIC_APP_URL` ni bitta canonical domeningizga tenglang. PilotKids production
+   uchun canonical qiymat: `https://pilotkids.uz`.
 4. OAuth ishlatilsa: Google/GitHub konsolida **Authorized redirect URI** sifatida
-   `https://<domen>/api/auth/callback/google` (va `/github`) ni qo'shing.
+   `https://<domen>/api/auth/callback/google` (va `/github`) ni qo'shing. Domen `www`
+   bilan va `www`siz yozilsa, Google ularni alohida URI deb hisoblaydi.
 5. Telegram ishlatilsa: BotFather'da `/setdomain` → Vercel domeni.
 
 ## Struktura

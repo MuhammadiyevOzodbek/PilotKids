@@ -25,6 +25,9 @@ const serverSchema = z.object({
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASSWORD: z.string().optional().default(""),
   SMTP_FROM: z.string().optional().default(""),
+  // Upstash Redis — server-side rate limiting uchun.
+  UPSTASH_REDIS_REST_URL: z.string().url().optional().or(z.literal("")).default(""),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(""),
 });
 
 const parsed = serverSchema.safeParse(process.env);

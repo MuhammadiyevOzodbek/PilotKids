@@ -13,11 +13,34 @@ import { sendSms } from "@/lib/notify/sms";
 import { otpEmailTemplate, sendEmail } from "@/lib/notify/email";
 import { firstError, signupSchema } from "@/lib/validation";
 
-const socialProviders: Record<string, { clientId: string; clientSecret: string }> = {};
+type SocialProviderConfig = {
+  clientId: string;
+  clientSecret: string;
+  redirectURI?: string;
+};
+
+function originOf(url: string) {
+  return new URL(url).origin;
+}
+
+function googleOAuthOrigin() {
+  const url = new URL(env.BETTER_AUTH_URL);
+  if (url.hostname === "www.pilotkids.uz") {
+    url.hostname = "pilotkids.uz";
+  }
+  return url.origin;
+}
+
+const authOrigin = originOf(env.BETTER_AUTH_URL);
+const appOrigin = originOf(publicEnv.appUrl);
+const googleRedirectURI = `${googleOAuthOrigin()}/api/auth/callback/google`;
+
+const socialProviders: Record<string, SocialProviderConfig> = {};
 if (oauth.google) {
   socialProviders.google = {
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
+    redirectURI: googleRedirectURI,
   };
 }
 if (oauth.github) {
@@ -46,7 +69,15 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
   },
   socialProviders,
-  trustedOrigins: [env.BETTER_AUTH_URL, publicEnv.appUrl],
+  trustedOrigins: Array.from(
+    new Set([
+      authOrigin,
+      appOrigin,
+      googleOAuthOrigin(),
+      "https://pilotkids.uz",
+      "https://www.pilotkids.uz",
+    ]),
+  ),
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== "/sign-up/email") return;
