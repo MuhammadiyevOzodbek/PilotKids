@@ -158,7 +158,7 @@ export function NotificationsMenu({ notifications }: { notifications: Notificati
                   border: "none",
                   background: "transparent",
                   color: "var(--primary)",
-                  fontSize: 13,
+                  fontSize: 14.5,
                   fontWeight: 600,
                   cursor: pending ? "default" : "pointer",
                   padding: 0,
@@ -176,7 +176,7 @@ export function NotificationsMenu({ notifications }: { notifications: Notificati
                   margin: 0,
                   padding: "26px 14px",
                   textAlign: "center",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   color: "var(--text-3)",
                 }}
               >
@@ -219,7 +219,7 @@ export function NotificationsMenu({ notifications }: { notifications: Notificati
                     <span
                       style={{
                         display: "block",
-                        fontSize: 13.5,
+                        fontSize: 15,
                         lineHeight: 1.45,
                         color: "var(--text)",
                         fontWeight: n.read ? 500 : 700,
@@ -230,7 +230,7 @@ export function NotificationsMenu({ notifications }: { notifications: Notificati
                     <span
                       style={{
                         display: "block",
-                        fontSize: 12,
+                        fontSize: 13.5,
                         color: "var(--text-3)",
                         marginTop: 3,
                       }}

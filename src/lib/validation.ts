@@ -8,6 +8,13 @@ import { z } from "zod";
 
 export const uuidSchema = z.string().uuid("Noto'g'ri identifikator");
 
+export const userIdSchema = z
+  .string()
+  .trim()
+  .min(1, "Noto'g'ri foydalanuvchi")
+  .max(128, "Noto'g'ri foydalanuvchi")
+  .regex(/^[A-Za-z0-9_-]+$/, "Noto'g'ri foydalanuvchi");
+
 export const nameSchema = z
   .string()
   .trim()
@@ -62,6 +69,41 @@ export const signupSchema = z.object({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Parolni kiriting").max(128),
+});
+
+/** O'zbekiston telefon raqami: +998 va 9 ta raqam. */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s()-]/g, ""))
+  .refine((v) => /^\+998\d{9}$/.test(v), "Raqamni +998 XX XXX XX XX ko'rinishida kiriting");
+
+/**
+ * Telefon bilan ro'yxatdan o'tish.
+ *
+ * `signupSchema` bilan bir xil, faqat email o'rniga raqam. Parol shu yerda ham
+ * majburiy: SMS kod hisobni ochadi, parol esa keyinchalik SMS'siz (raqam+parol)
+ * kirish imkonini beradi.
+ */
+export const phoneSignupSchema = z.object({
+  name: nameSchema,
+  phone: phoneSchema,
+  age: ageSchema,
+  password: passwordSchema,
+  consent: z.literal(true, { message: "Ota-ona roziligi talab qilinadi" }),
+});
+
+/** SMS/email orqali keladigan bir martalik kod. */
+export const otpSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, "Kod 6 ta raqamdan iborat");
+
+/** Onboarding — OAuth/telefon orqali kelgan foydalanuvchidan so'raladi. */
+export const onboardingSchema = z.object({
+  name: nameSchema,
+  age: ageSchema,
+  consent: z.literal(true, { message: "Ota-ona roziligi talab qilinadi" }),
 });
 
 /** AI chatga yuborilayotgan xabar. */

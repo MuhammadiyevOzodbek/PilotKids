@@ -57,7 +57,7 @@ export function SettingsClient({
     <div style={{ maxWidth: 720, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <h1
         style={{
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
           fontSize: 32,
           letterSpacing: "-.02em",
@@ -71,7 +71,7 @@ export function SettingsClient({
         style={{
           fontWeight: 700,
           color: "var(--text-3)",
-          fontSize: 12.5,
+          fontSize: 14,
           letterSpacing: ".08em",
           textTransform: "uppercase",
           marginBottom: 12,
@@ -113,7 +113,7 @@ export function SettingsClient({
           </span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>Til</div>
-            <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+            <div style={{ color: "var(--text-3)", fontSize: 14.5, fontWeight: 600 }}>
               Hozircha faqat o&apos;zbek tili
             </div>
           </div>
@@ -156,7 +156,7 @@ export function SettingsClient({
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
               Bildirishnomalar
             </div>
-            <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+            <div style={{ color: "var(--text-3)", fontSize: 14.5, fontWeight: 600 }}>
               Dars va yutuq eslatmalari
             </div>
           </div>
@@ -198,7 +198,7 @@ export function SettingsClient({
             role="alert"
             style={{
               color: "#E5484D",
-              fontSize: 13,
+              fontSize: 14.5,
               fontWeight: 600,
               margin: 0,
               padding: "0 22px 14px",
@@ -223,7 +223,7 @@ export function SettingsClient({
           </span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>Tungi rejim</div>
-            <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+            <div style={{ color: "var(--text-3)", fontSize: 14.5, fontWeight: 600 }}>
               Qorong&apos;u mavzu
             </div>
           </div>
@@ -265,7 +265,7 @@ export function SettingsClient({
         style={{
           fontWeight: 700,
           color: "var(--text-3)",
-          fontSize: 12.5,
+          fontSize: 14,
           letterSpacing: ".08em",
           textTransform: "uppercase",
           marginBottom: 12,
@@ -329,7 +329,7 @@ export function SettingsClient({
           border: "1px solid rgba(229,72,77,.3)",
           background: "rgba(229,72,77,.08)",
           color: "#E5484D",
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 700,
           fontSize: 15.5,
           cursor: "pointer",

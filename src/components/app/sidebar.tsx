@@ -13,7 +13,7 @@ const detailsParent: Record<string, string> = {
   "/quiz": "/courses",
 };
 
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const { open, close } = useSidebar();
 
@@ -100,6 +100,29 @@ export function Sidebar() {
 
         <div style={{ flex: 1 }} />
 
+        {/* Admin havolasi faqat admin rolida ko'rinadi. Ko'rinmasligi himoya
+            emas — `/admin` layout va har bir action `requireAdmin()` qiladi. */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "11px 14px",
+              borderRadius: 13,
+              marginBottom: 10,
+              background: "var(--fun-amber-soft)",
+              color: "var(--fun-amber)",
+              fontWeight: 700,
+              fontSize: 15,
+            }}
+          >
+            <Icon name="admin_panel_settings" size={21} />
+            Admin panel
+          </Link>
+        )}
+
         <div
           style={{
             background: "linear-gradient(135deg,#12203f,#0B1220)",
@@ -113,7 +136,7 @@ export function Sidebar() {
             <Icon name="shield_person" size={20} color="#38d39a" />
             <span style={{ fontWeight: 700, fontSize: 14 }}>Ota-ona rejimi</span>
           </div>
-          <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "#AEBBD4", lineHeight: 1.5 }}>
+          <p style={{ margin: "0 0 12px", fontSize: 14, color: "#AEBBD4", lineHeight: 1.5 }}>
             Farzandingiz progressi va ekran vaqtini kuzating.
           </p>
           <Link
@@ -128,7 +151,7 @@ export function Sidebar() {
               background: "rgba(255,255,255,.1)",
               color: "#fff",
               fontWeight: 600,
-              fontSize: 13,
+              fontSize: 14.5,
             }}
           >
             Ochish

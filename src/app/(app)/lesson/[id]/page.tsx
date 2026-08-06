@@ -297,7 +297,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
               <p
                 style={{
                   color: "var(--text-3)",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   fontWeight: 600,
                   margin: "0 0 12px",
                 }}
@@ -385,7 +385,7 @@ function Pill({
         background: bg,
         color,
         fontWeight: 700,
-        fontSize: 13,
+        fontSize: 14.5,
       }}
     >
       <Icon name={icon} size={17} color={color} />

@@ -12,6 +12,7 @@ import {
   enrollment,
   quizQuestion,
   quizAttempt,
+  labProject,
   labProgress,
   notification,
   certificate,
@@ -281,7 +282,8 @@ export async function completeLesson(lessonId: string) {
       .where(and(eq(enrollment.userId, u.id), eq(enrollment.courseId, l.courseId)));
     if (!enr) return fail("Avval kursga yoziling");
 
-    // Allaqachon tugallangan bo'lsa XP qayta berilmaydi.
+    // Faqat ochilgan dars bajariladi: route/action'ni qo'lda chaqirib keyingi
+    // darslarni sakrab o'tish mumkin bo'lmasin.
     const [existing] = await db
       .select({ status: lessonProgress.status })
       .from(lessonProgress)
@@ -289,14 +291,24 @@ export async function completeLesson(lessonId: string) {
     if (existing?.status === "done") {
       return { ok: true as const, alreadyDone: true, xpGained: 0, leveledUp: false };
     }
+    if (existing?.status !== "current") {
+      return fail("Bu dars hali ochilmagan");
+    }
 
-    await db
-      .insert(lessonProgress)
-      .values({ userId: u.id, lessonId: l.id, status: "done", completedAt: new Date() })
-      .onConflictDoUpdate({
-        target: [lessonProgress.userId, lessonProgress.lessonId],
-        set: { status: "done", completedAt: new Date() },
-      });
+    const completed = await db
+      .update(lessonProgress)
+      .set({ status: "done", completedAt: new Date() })
+      .where(
+        and(
+          eq(lessonProgress.userId, u.id),
+          eq(lessonProgress.lessonId, l.id),
+          eq(lessonProgress.status, "current"),
+        ),
+      )
+      .returning({ id: lessonProgress.id });
+    if (completed.length === 0) {
+      return { ok: true as const, alreadyDone: true, xpGained: 0, leveledUp: false };
+    }
 
     // Keyingi darsni "current" qilamiz.
     const [next] = await db
@@ -431,12 +443,21 @@ export async function saveLessonNote(lessonId: string, body: string) {
       .where(eq(lesson.id, id.data));
     if (!l) return fail("Dars topilmadi");
 
-    // `completeLesson` bilan bir xil qoida — faqat yozilgan kurs darsiga eslatma.
+    // `completeLesson` bilan bir xil qoida — faqat yozilgan va ochilgan/tugallangan darsga eslatma.
     const [enr] = await db
       .select({ id: enrollment.id })
       .from(enrollment)
       .where(and(eq(enrollment.userId, u.id), eq(enrollment.courseId, l.courseId)));
     if (!enr) return fail("Avval kursga yoziling");
+
+    const [progress] = await db
+      .select({ status: lessonProgress.status })
+      .from(lessonProgress)
+      .where(and(eq(lessonProgress.userId, u.id), eq(lessonProgress.lessonId, l.id)))
+      .limit(1);
+    if (progress?.status !== "current" && progress?.status !== "done") {
+      return fail("Bu dars hali ochilmagan");
+    }
 
     await db
       .insert(lessonNote)
@@ -462,39 +483,64 @@ export async function setLabProjectStatus(projectId: string, status: "started" |
     if (!id.success) return fail(firstError(id.error));
     if (!st.success) return fail("Noto'g'ri holat");
 
-    const [existing] = await db
-      .select({ status: labProgress.status })
-      .from(labProgress)
-      .where(and(eq(labProgress.userId, u.id), eq(labProgress.projectId, id.data)));
+    const [project] = await db
+      .select({ id: labProject.id })
+      .from(labProject)
+      .where(eq(labProject.id, id.data))
+      .limit(1);
+    if (!project) return fail("Loyiha topilmadi");
 
-    // Tugallangan loyihani "started"ga qaytarib bo'lmaydi — aks holda
-    // done → started → done sikli bilan XP cheksiz yig'ilardi.
-    if (existing?.status === "done") {
-      return { ok: true as const, status: "done" as const };
+    if (st.data === "started") {
+      await db
+        .insert(labProgress)
+        .values({
+          userId: u.id,
+          projectId: id.data,
+          status: "started",
+          completedAt: null,
+        })
+        .onConflictDoNothing();
+
+      revalidatePath("/lab");
+      return { ok: true as const, status: "started" as const };
     }
 
-    await db
+    const completedAt = new Date();
+    const inserted = await db
       .insert(labProgress)
       .values({
         userId: u.id,
         projectId: id.data,
-        status: st.data,
-        completedAt: st.data === "done" ? new Date() : null,
+        status: "done",
+        completedAt,
       })
-      .onConflictDoUpdate({
-        target: [labProgress.userId, labProgress.projectId],
-        set: { status: st.data, completedAt: st.data === "done" ? new Date() : null },
-      });
+      .onConflictDoNothing()
+      .returning({ id: labProgress.id });
 
-    // Loyiha birinchi marta tugallanganda XP (yuqoridagi qaytish sharti
-    // tufayli bu blok har loyiha uchun faqat bir marta ishlaydi).
-    if (st.data === "done") {
+    const updated =
+      inserted.length > 0
+        ? []
+        : await db
+            .update(labProgress)
+            .set({ status: "done", completedAt })
+            .where(
+              and(
+                eq(labProgress.userId, u.id),
+                eq(labProgress.projectId, id.data),
+                sql`${labProgress.status} <> 'done'`,
+              ),
+            )
+            .returning({ id: labProgress.id });
+
+    const firstCompletion = inserted.length > 0 || updated.length > 0;
+
+    if (firstCompletion) {
       await awardXp(u.id, 60, 20);
       await grantBadgeIfMissing(u.id, "kod-ustasi");
     }
 
     revalidatePath("/lab");
     revalidatePath("/dashboard");
-    return { ok: true as const, status: st.data };
+    return { ok: true as const, status: "done" as const };
   });
 }

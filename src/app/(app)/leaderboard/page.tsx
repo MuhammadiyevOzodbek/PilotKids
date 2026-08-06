@@ -31,7 +31,7 @@ export default async function LeaderboardPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <h1
         style={{
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
           fontSize: 32,
           letterSpacing: "-.02em",
@@ -67,7 +67,7 @@ export default async function LeaderboardPage() {
                   placeItems: "center",
                   background: "linear-gradient(135deg,#2F6BF3,#5b8cff)",
                   color: "#fff",
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 800,
                   fontSize: 22,
                   border: `4px solid ${p.ring}`,
@@ -89,9 +89,9 @@ export default async function LeaderboardPage() {
                   color: "#fff",
                   display: "grid",
                   placeItems: "center",
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 800,
-                  fontSize: 13,
+                  fontSize: 14.5,
                   border: "3px solid var(--bg)",
                 }}
               >
@@ -102,7 +102,7 @@ export default async function LeaderboardPage() {
             <div
               style={{
                 fontWeight: 700,
-                fontSize: 13,
+                fontSize: 14.5,
                 color: "var(--primary)",
                 marginBottom: 12,
               }}
@@ -154,7 +154,7 @@ export default async function LeaderboardPage() {
                 style={{
                   width: 26,
                   fontWeight: 800,
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   color: "var(--text-3)",
                   textAlign: "center",
                 }}
@@ -169,7 +169,7 @@ export default async function LeaderboardPage() {
                   background: "var(--surface-3)",
                   display: "grid",
                   placeItems: "center",
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: 14,
                   color: "var(--text-2)",
@@ -205,7 +205,7 @@ export default async function LeaderboardPage() {
           >
             <h3
               style={{
-                fontFamily: "'Sora'",
+                fontFamily: "var(--font-display)",
                 fontWeight: 700,
                 fontSize: 17,
                 margin: 0,
@@ -214,7 +214,7 @@ export default async function LeaderboardPage() {
             >
               Sizning nishonlar
             </h3>
-            <span style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: "var(--text-3)", fontSize: 14.5, fontWeight: 600 }}>
               {badges.filter((b) => b.earned).length}/{badges.length}
             </span>
           </div>
@@ -239,7 +239,7 @@ export default async function LeaderboardPage() {
                   <div
                     className="micro-label"
                     style={{
-                      fontSize: 10.5,
+                      fontSize: 12,
                       fontWeight: 600,
                       color: "var(--text-3)",
                       lineHeight: 1.2,

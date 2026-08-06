@@ -206,7 +206,7 @@ export function GlobalSearch() {
                     <span
                       style={{
                         display: "block",
-                        fontSize: 13.8,
+                        fontSize: 15,
                         fontWeight: 700,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -215,7 +215,7 @@ export function GlobalSearch() {
                     >
                       {hit.title}
                     </span>
-                    <span style={{ display: "block", fontSize: 12, color: "var(--text-3)" }}>
+                    <span style={{ display: "block", fontSize: 13.5, color: "var(--text-3)" }}>
                       {KIND_LABEL[hit.kind]} · {hit.subtitle}
                     </span>
                   </span>
@@ -232,7 +232,7 @@ export function GlobalSearch() {
                 margin: 0,
                 padding: "22px 14px",
                 textAlign: "center",
-                fontSize: 13.5,
+                fontSize: 15,
                 color: error ? "var(--danger, #e5484d)" : "var(--text-3)",
               }}
             >

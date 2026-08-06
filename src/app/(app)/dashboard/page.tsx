@@ -62,7 +62,11 @@ export default async function DashboardPage() {
         <div>
           <h1
             style={{
-              fontFamily: "'Sora'",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+              fontFamily: "var(--font-display)",
               fontWeight: 800,
               fontSize: 32,
               letterSpacing: "-.02em",
@@ -70,7 +74,8 @@ export default async function DashboardPage() {
               color: "var(--text)",
             }}
           >
-            Xush kelibsiz, {firstName(user.name)} 👋
+            Xush kelibsiz, {firstName(user.name)}
+            <Icon name="waving_hand" size={29} color="var(--fun-amber)" />
           </h1>
           <p style={{ color: "var(--text-2)", fontSize: 16, margin: 0 }}>
             Bugun nimani quramiz? {stats.level}-darajadasiz — davom eting.
@@ -118,7 +123,7 @@ export default async function DashboardPage() {
                 padding: "6px 12px",
                 borderRadius: 99,
                 background: "rgba(255,255,255,.1)",
-                fontSize: 12.5,
+                fontSize: 14,
                 fontWeight: 700,
                 letterSpacing: ".05em",
                 color: "#8fb2ff",
@@ -172,7 +177,7 @@ export default async function DashboardPage() {
                 border: "none",
                 background: "#fff",
                 color: "#0B1220",
-                fontFamily: "'Sora'",
+                fontFamily: "var(--font-display)",
                 fontWeight: 700,
                 fontSize: 15,
                 cursor: "pointer",
@@ -214,7 +219,7 @@ export default async function DashboardPage() {
               <div>
                 <div
                   style={{
-                    fontFamily: "'Sora'",
+                    fontFamily: "var(--font-display)",
                     fontWeight: 800,
                     fontSize: 24,
                     color: "var(--text)",
@@ -226,7 +231,7 @@ export default async function DashboardPage() {
                 <div
                   style={{
                     color: "var(--text-2)",
-                    fontSize: 13.5,
+                    fontSize: 15,
                     fontWeight: 600,
                     marginTop: 3,
                   }}
@@ -250,7 +255,7 @@ export default async function DashboardPage() {
       >
         <h2
           style={{
-            fontFamily: "'Sora'",
+            fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: 22,
             margin: 0,
@@ -316,7 +321,7 @@ export default async function DashboardPage() {
                   borderRadius: 99,
                   background: "var(--surface)",
                   color: "var(--text-2)",
-                  fontSize: 11.5,
+                  fontSize: 13,
                   fontWeight: 700,
                 }}
               >
@@ -326,7 +331,7 @@ export default async function DashboardPage() {
             <div style={{ padding: 18 }}>
               <h3
                 style={{
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: 16.5,
                   margin: "0 0 6px",
@@ -338,7 +343,7 @@ export default async function DashboardPage() {
               <p
                 style={{
                   color: "var(--text-3)",
-                  fontSize: 13,
+                  fontSize: 14.5,
                   margin: "0 0 14px",
                   fontWeight: 600,
                 }}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { sora, jakarta } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme-provider";
+import { InlineScript } from "@/components/inline-script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,7 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
         {/* FOUC'siz tema: DOM render'idan oldin <html> ga qo'llaymiz */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <InlineScript html={themeInitScript} />
       </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>

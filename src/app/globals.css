@@ -25,6 +25,21 @@
   --shadow-lg: 0 30px 60px -24px rgba(15, 23, 42, 0.28);
   --ring: rgba(47, 107, 243, 0.28);
 
+  /* Bolalarbop aksent palitrasi (7–16 yosh) — kartochka, nishon va
+     kategoriya ranglari shu yerdan olinadi, inline hex o'rniga. */
+  --fun-amber: #f5a524;
+  --fun-amber-soft: #fff3dd;
+  --fun-violet: #8b5cf6;
+  --fun-violet-soft: #f1ebff;
+  --fun-pink: #ec4899;
+  --fun-pink-soft: #fde8f3;
+  --fun-cyan: #06b6d4;
+  --fun-cyan-soft: #e0f7fb;
+  --fun-orange: #ea6a0e;
+  --fun-orange-soft: rgba(234, 106, 14, 0.13);
+  --danger: #e5484d;
+  --danger-soft: rgba(229, 72, 77, 0.1);
+
   color-scheme: light;
 }
 
@@ -46,6 +61,20 @@
   --shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 30px 64px -24px rgba(0, 0, 0, 0.65);
   --ring: rgba(76, 130, 247, 0.4);
+
+  /* Tungi rejimda aksentlar yorqinroq — quyuq fonda kontrast yetarli bo'lsin */
+  --fun-amber: #fbbf24;
+  --fun-amber-soft: rgba(251, 191, 36, 0.16);
+  --fun-violet: #a78bfa;
+  --fun-violet-soft: rgba(167, 139, 250, 0.16);
+  --fun-pink: #f472b6;
+  --fun-pink-soft: rgba(244, 114, 182, 0.16);
+  --fun-cyan: #22d3ee;
+  --fun-cyan-soft: rgba(34, 211, 238, 0.16);
+  --fun-orange: #fb923c;
+  --fun-orange-soft: rgba(251, 146, 60, 0.16);
+  --danger: #ff6b6f;
+  --danger-soft: rgba(255, 107, 111, 0.14);
 
   color-scheme: dark;
 }
@@ -829,7 +858,7 @@ input::placeholder {
    Desktop dizayni o'zgarmaydi. */
 @media (max-width: 900px) {
   .micro-label {
-    font-size: 12px !important;
+    font-size: 13px !important;
   }
 }
 

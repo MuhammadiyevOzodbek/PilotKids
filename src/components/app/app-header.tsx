@@ -113,7 +113,7 @@ export function AppHeader({
       >
         <span
           style={{
-            fontFamily: "'Sora'",
+            fontFamily: "var(--font-display)",
             width: 34,
             height: 34,
             borderRadius: "50%",

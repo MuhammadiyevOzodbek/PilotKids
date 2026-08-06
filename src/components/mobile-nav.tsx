@@ -140,7 +140,7 @@ export function MobileNav() {
               borderRadius: 12,
               background: "var(--success)",
               color: "#fff",
-              fontFamily: "'Sora'",
+              fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: 15,
             }}

@@ -41,7 +41,7 @@ export function LabCardActions({
           background: "var(--success-soft)",
           color: "var(--success)",
           fontWeight: 700,
-          fontSize: 13.5,
+          fontSize: 15,
           width: "100%",
           justifyContent: "center",
         }}
@@ -68,7 +68,7 @@ export function LabCardActions({
           background: started ? "var(--success)" : "var(--primary)",
           color: "#fff",
           fontWeight: 700,
-          fontSize: 13.5,
+          fontSize: 15,
           cursor: isPending ? "wait" : "pointer",
           display: "flex",
           alignItems: "center",
@@ -83,7 +83,7 @@ export function LabCardActions({
       {error && (
         <p
           role="alert"
-          style={{ color: "#E5484D", fontSize: 12.5, fontWeight: 600, margin: "8px 0 0" }}
+          style={{ color: "#E5484D", fontSize: 14, fontWeight: 600, margin: "8px 0 0" }}
         >
           {error}
         </p>

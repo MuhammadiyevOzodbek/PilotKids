@@ -107,7 +107,7 @@ export function ProfileEditor({
             <span
               style={{
                 display: "block",
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: 700,
                 color: "var(--text-2)",
                 marginBottom: 6,
@@ -128,7 +128,7 @@ export function ProfileEditor({
             <span
               style={{
                 display: "block",
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: 700,
                 color: "var(--text-2)",
                 marginBottom: 6,
@@ -151,7 +151,7 @@ export function ProfileEditor({
             <span
               style={{
                 display: "block",
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: 700,
                 color: "var(--text-2)",
                 marginBottom: 6,
@@ -171,16 +171,13 @@ export function ProfileEditor({
               <Icon name="lock" size={16} color="var(--text-3)" />
               {email}
             </div>
-            <p style={{ color: "var(--text-3)", fontSize: 12.5, margin: "6px 0 0" }}>
+            <p style={{ color: "var(--text-3)", fontSize: 14, margin: "6px 0 0" }}>
               Email manzilni o&apos;zgartirib bo&apos;lmaydi.
             </p>
           </div>
 
           {error && (
-            <p
-              role="alert"
-              style={{ color: "#E5484D", fontSize: 13.5, fontWeight: 600, margin: 0 }}
-            >
+            <p role="alert" style={{ color: "#E5484D", fontSize: 15, fontWeight: 600, margin: 0 }}>
               {error}
             </p>
           )}
@@ -208,7 +205,7 @@ export function ProfileEditor({
                 role="status"
                 style={{
                   color: "var(--success)",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   fontWeight: 700,
                   display: "inline-flex",
                   alignItems: "center",

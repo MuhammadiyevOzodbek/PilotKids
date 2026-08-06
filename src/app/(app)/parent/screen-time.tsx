@@ -57,7 +57,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
         </h3>
       </div>
 
-      <p style={{ color: "#AEBBD4", fontSize: 13, margin: "0 0 8px", lineHeight: 1.5 }}>
+      <p style={{ color: "#AEBBD4", fontSize: 14.5, margin: "0 0 8px", lineHeight: 1.5 }}>
         Kunlik chegara: <strong style={{ color: "#EAF0FB" }}>{label(limit)}</strong>
       </p>
 
@@ -83,7 +83,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
       <p
         style={{
           color: over ? "#ff9b9d" : "#8fa3c4",
-          fontSize: 12.5,
+          fontSize: 14,
           margin: "0 0 16px",
           fontWeight: 600,
         }}
@@ -115,7 +115,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
                     background: selected ? "rgba(56,211,154,.18)" : "rgba(255,255,255,.06)",
                     color: "#EAF0FB",
                     fontWeight: 700,
-                    fontSize: 13,
+                    fontSize: 14.5,
                     cursor: isPending ? "wait" : "pointer",
                   }}
                 >
@@ -132,7 +132,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
               style={{
                 display: "block",
                 color: "#AEBBD4",
-                fontSize: 12.5,
+                fontSize: 14,
                 fontWeight: 600,
                 marginBottom: 6,
               }}
@@ -172,7 +172,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
                 background: "#38d39a",
                 color: "#08281c",
                 fontWeight: 700,
-                fontSize: 13.5,
+                fontSize: 15,
                 cursor: isPending ? "wait" : "pointer",
               }}
             >
@@ -193,7 +193,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
                 background: "rgba(255,255,255,.08)",
                 color: "#AEBBD4",
                 fontWeight: 600,
-                fontSize: 13.5,
+                fontSize: 15,
                 cursor: "pointer",
               }}
             >
@@ -225,7 +225,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
       {error && (
         <p
           role="alert"
-          style={{ color: "#ff9b9d", fontSize: 12.5, fontWeight: 600, margin: "10px 0 0" }}
+          style={{ color: "#ff9b9d", fontSize: 14, fontWeight: 600, margin: "10px 0 0" }}
         >
           {error}
         </p>

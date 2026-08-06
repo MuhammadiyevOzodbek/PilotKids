@@ -12,7 +12,7 @@ export default async function CertificatesPage() {
     <div style={{ maxWidth: 1120, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <h1
         style={{
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
           fontSize: 32,
           letterSpacing: "-.02em",
@@ -140,7 +140,7 @@ export default async function CertificatesPage() {
                       borderRadius: 99,
                       background: badgeBg,
                       color: badgeCol,
-                      fontSize: 11,
+                      fontSize: 12.5,
                       fontWeight: 800,
                       letterSpacing: ".05em",
                       marginBottom: 8,
@@ -150,7 +150,7 @@ export default async function CertificatesPage() {
                   </div>
                   <h3
                     style={{
-                      fontFamily: "'Sora'",
+                      fontFamily: "var(--font-display)",
                       fontWeight: 700,
                       fontSize: 19,
                       margin: "0 0 4px",
@@ -162,7 +162,7 @@ export default async function CertificatesPage() {
                   <p
                     style={{
                       color: "var(--text-3)",
-                      fontSize: 13.5,
+                      fontSize: 15,
                       fontWeight: 600,
                       margin: "0 0 14px",
                     }}

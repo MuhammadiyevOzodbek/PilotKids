@@ -67,7 +67,7 @@ export function EnrollButton({
       {error && (
         <p
           role="alert"
-          style={{ color: "#E5484D", fontSize: 13.5, fontWeight: 600, margin: "0 0 12px" }}
+          style={{ color: "#E5484D", fontSize: 15, fontWeight: 600, margin: "0 0 12px" }}
         >
           {error}
         </p>
@@ -80,7 +80,7 @@ export function EnrollButton({
             justifyContent: "center",
             gap: 6,
             color: "var(--text-3)",
-            fontSize: 13,
+            fontSize: 14.5,
             fontWeight: 600,
             margin: 0,
           }}

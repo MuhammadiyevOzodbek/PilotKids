@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 const h2Style: React.CSSProperties = {
-  fontFamily: "'Sora'",
+  fontFamily: "var(--font-display)",
   fontWeight: 700,
   fontSize: 22,
   letterSpacing: "-.01em",
@@ -73,7 +73,7 @@ export default function MaxfiylikPage() {
             yig&apos;ishimizni, undan nima uchun foydalanishimizni va uni qanday himoya qilishimizni
             sodda til bilan tushuntiramiz.
           </p>
-          <p style={{ color: "#6f82a3", fontSize: 13, margin: "18px 0 0" }}>
+          <p style={{ color: "#6f82a3", fontSize: 14.5, margin: "18px 0 0" }}>
             Oxirgi yangilanish: 2026-yil 19-iyul
           </p>
         </div>

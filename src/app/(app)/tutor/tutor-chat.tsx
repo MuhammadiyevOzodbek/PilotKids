@@ -166,7 +166,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
               border: "1px solid rgba(229,72,77,.25)",
               borderRadius: 12,
               padding: "10px 14px",
-              fontSize: 13.5,
+              fontSize: 15,
               fontWeight: 600,
               margin: "0 0 12px",
             }}
@@ -197,7 +197,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
                 background: "var(--surface-2)",
                 color: "var(--text-2)",
                 fontWeight: 600,
-                fontSize: 13,
+                fontSize: 14.5,
                 cursor: "pointer",
                 flexShrink: 0,
                 whiteSpace: "nowrap",
@@ -226,6 +226,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
             className="field tap"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            aria-label="Robo'ga xabar yozing"
             placeholder="Robo'dan istalgan narsani so'rang…"
             style={{
               flex: 1,

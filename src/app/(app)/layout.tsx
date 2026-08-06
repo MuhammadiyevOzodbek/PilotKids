@@ -5,11 +5,13 @@ import { getUserStats, getNotifications, initials, firstName, formatXp } from "@
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // `getUserStats` rolni ham qaytaradi (DB'dan, sessiya keshidan emas) —
+  // shu bois admin havolasi uchun alohida so'rov kerak emas.
   const [stats, notifs] = await Promise.all([getUserStats(user.id), getNotifications(user.id)]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar />
+      <Sidebar isAdmin={stats.role === "admin"} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AppHeader
           name={firstName(user.name)}

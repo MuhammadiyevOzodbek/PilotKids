@@ -19,14 +19,27 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  /** Telefon raqami (phone-number plugin) — +998… formatida. */
+  phoneNumber: text("phone_number").unique(),
+  phoneNumberVerified: boolean("phone_number_verified").default(false).notNull(),
   // PilotKids profil maydonlari
   age: integer("age"),
-  role: text("role").default("student").notNull(), // student | parent
+  role: text("role").default("student").notNull(), // student | parent | admin
   xp: integer("xp").default(0).notNull(),
   streak: integer("streak").default(0).notNull(),
   level: integer("level").default(1).notNull(),
   /** Ota-ona roziligi (serverda tasdiqlanadi, klient checkbox'iga ishonilmaydi). */
   parentConsent: boolean("parent_consent").default(false).notNull(),
+  /**
+   * Onboarding tugallanganmi. OAuth/telefon/Telegram orqali kelgan foydalanuvchida
+   * yosh va ota-ona roziligi bo'lmaydi — ular `/welcome` sahifasida so'raladi.
+   * `false` bo'lsa ilova sahifalariga kirish yopiq.
+   */
+  onboarded: boolean("onboarded").default(false).notNull(),
+  /* admin plugin maydonlari */
+  banned: boolean("banned").default(false).notNull(),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   /** Oxirgi faollik sanasi — streak hisoblash uchun. */
   lastActiveAt: timestamp("last_active_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -44,6 +57,8 @@ export const session = pgTable("session", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  /** admin plugin — qaysi admin nomidan kirilgan (impersonation). */
+  impersonatedBy: text("impersonated_by"),
 });
 
 export const account = pgTable("account", {
@@ -209,20 +224,24 @@ export const userBadge = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.badgeId] })],
 );
 
-export const certificate = pgTable("certificate", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  courseId: uuid("course_id").references(() => course.id, { onDelete: "set null" }),
-  title: text("title").notNull(),
-  color: text("color").notNull(),
-  soft: text("soft").notNull(),
-  state: text("state").default("locked").notNull(), // done | progress | locked
-  issuedLabel: text("issued_label").notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const certificate = pgTable(
+  "certificate",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id").references(() => course.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    color: text("color").notNull(),
+    soft: text("soft").notNull(),
+    state: text("state").default("locked").notNull(), // done | progress | locked
+    issuedLabel: text("issued_label").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique("certificate_user_course_uq").on(t.userId, t.courseId)],
+);
 
 export const notification = pgTable("notification", {
   id: uuid("id").primaryKey().defaultRandom(),

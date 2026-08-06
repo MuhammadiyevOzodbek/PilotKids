@@ -48,7 +48,7 @@ export default async function TutorPage() {
           <h2
             style={{
               position: "relative",
-              fontFamily: "'Sora'",
+              fontFamily: "var(--font-display)",
               fontWeight: 800,
               fontSize: 24,
               margin: "6px 0 6px",
@@ -67,7 +67,7 @@ export default async function TutorPage() {
               background: "rgba(47,208,141,.16)",
               color: "#38d39a",
               fontWeight: 700,
-              fontSize: 12.5,
+              fontSize: 14,
               marginBottom: 18,
             }}
           >
@@ -78,7 +78,7 @@ export default async function TutorPage() {
             style={{
               position: "relative",
               color: "#AEBBD4",
-              fontSize: 13.5,
+              fontSize: 15,
               lineHeight: 1.6,
               margin: 0,
             }}

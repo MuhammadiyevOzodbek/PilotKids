@@ -76,7 +76,7 @@ export default async function ParentPage() {
           background: "var(--success-soft)",
           color: "var(--success)",
           fontWeight: 700,
-          fontSize: 12.5,
+          fontSize: 14,
           letterSpacing: ".06em",
           marginBottom: 14,
         }}
@@ -86,7 +86,7 @@ export default async function ParentPage() {
       </div>
       <h1
         style={{
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
           fontSize: 32,
           letterSpacing: "-.02em",
@@ -126,7 +126,7 @@ export default async function ParentPage() {
             </div>
             <div
               style={{
-                fontFamily: "'Sora'",
+                fontFamily: "var(--font-display)",
                 fontWeight: 800,
                 fontSize: 24,
                 color: "var(--text)",
@@ -134,7 +134,7 @@ export default async function ParentPage() {
             >
               {s.value}
             </div>
-            <div style={{ color: "var(--text-2)", fontSize: 13, fontWeight: 600 }}>{s.label}</div>
+            <div style={{ color: "var(--text-2)", fontSize: 14.5, fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -150,7 +150,7 @@ export default async function ParentPage() {
         >
           <h3
             style={{
-              fontFamily: "'Sora'",
+              fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: 18,
               margin: "0 0 24px",
@@ -191,9 +191,7 @@ export default async function ParentPage() {
                     minHeight: 8,
                   }}
                 />
-                <span style={{ color: "var(--text-3)", fontSize: 12.5, fontWeight: 700 }}>
-                  {w.d}
-                </span>
+                <span style={{ color: "var(--text-3)", fontSize: 14, fontWeight: 700 }}>{w.d}</span>
               </div>
             ))}
           </div>
@@ -210,7 +208,7 @@ export default async function ParentPage() {
           >
             <h3
               style={{
-                fontFamily: "'Sora'",
+                fontFamily: "var(--font-display)",
                 fontWeight: 700,
                 fontSize: 16,
                 margin: "0 0 14px",
@@ -238,13 +236,13 @@ export default async function ParentPage() {
                   <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
                     {latestBadge.name}
                   </div>
-                  <div style={{ color: "var(--text-3)", fontSize: 13, fontWeight: 600 }}>
+                  <div style={{ color: "var(--text-3)", fontSize: 14.5, fontWeight: 600 }}>
                     {timeAgo(latestBadge.earnedAt)}
                   </div>
                 </div>
               </div>
             ) : (
-              <p style={{ color: "var(--text-3)", fontSize: 13.5, fontWeight: 600, margin: 0 }}>
+              <p style={{ color: "var(--text-3)", fontSize: 15, fontWeight: 600, margin: 0 }}>
                 Hali nishon yo&apos;q — birinchi darsni tugatgach paydo bo&apos;ladi.
               </p>
             )}

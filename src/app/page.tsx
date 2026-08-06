@@ -293,7 +293,7 @@ export default async function Home() {
                   border: "none",
                   background: "var(--success)",
                   color: "#fff",
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: 16.5,
                   cursor: "pointer",
@@ -312,7 +312,7 @@ export default async function Home() {
                   border: "1px solid rgba(255,255,255,.18)",
                   background: "rgba(255,255,255,.05)",
                   color: "#EAF0FB",
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 600,
                   fontSize: 16.5,
                   cursor: "pointer",
@@ -330,7 +330,7 @@ export default async function Home() {
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26 }}>
                   120+
                 </div>
-                <div style={{ color: "#8496b5", fontSize: 13.5, fontWeight: 600 }}>
+                <div style={{ color: "#8496b5", fontSize: 15, fontWeight: 600 }}>
                   interaktiv dars
                 </div>
               </div>
@@ -338,15 +338,13 @@ export default async function Home() {
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26 }}>
                   14k
                 </div>
-                <div style={{ color: "#8496b5", fontSize: 13.5, fontWeight: 600 }}>
-                  yosh quruvchi
-                </div>
+                <div style={{ color: "#8496b5", fontSize: 15, fontWeight: 600 }}>yosh quruvchi</div>
               </div>
               <div>
                 <div className="font-display" style={{ fontWeight: 800, fontSize: 26 }}>
                   4.9★
                 </div>
-                <div style={{ color: "#8496b5", fontSize: 13.5, fontWeight: 600 }}>
+                <div style={{ color: "#8496b5", fontSize: 15, fontWeight: 600 }}>
                   ota-ona bahosi
                 </div>
               </div>
@@ -415,9 +413,7 @@ export default async function Home() {
                 >
                   +40 XP
                 </div>
-                <div style={{ fontSize: 11.5, color: "#8fb2ff", fontWeight: 600 }}>
-                  Dars tugadi!
-                </div>
+                <div style={{ fontSize: 13, color: "#8fb2ff", fontWeight: 600 }}>Dars tugadi!</div>
               </div>
             </div>
             <div
@@ -457,7 +453,7 @@ export default async function Home() {
                 >
                   Robot tayyor
                 </div>
-                <div style={{ fontSize: 11.5, color: "#8fb2ff", fontWeight: 600 }}>
+                <div style={{ fontSize: 13, color: "#8fb2ff", fontWeight: 600 }}>
                   Motorlar ulandi
                 </div>
               </div>
@@ -505,7 +501,7 @@ export default async function Home() {
             textAlign: "center",
             color: "var(--text-3)",
             fontWeight: 700,
-            fontSize: 12.5,
+            fontSize: 14,
             letterSpacing: ".14em",
             textTransform: "uppercase",
             margin: "0 0 26px",
@@ -567,7 +563,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "var(--primary)",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
             }}
           >
@@ -659,7 +655,7 @@ export default async function Home() {
                 fontWeight: 700,
                 color: "var(--primary)",
                 letterSpacing: ".1em",
-                fontSize: 13,
+                fontSize: 14.5,
                 textTransform: "uppercase",
               }}
             >
@@ -742,7 +738,7 @@ export default async function Home() {
                 <div
                   style={{
                     color: "var(--text-3)",
-                    fontSize: 12.5,
+                    fontSize: 14,
                     fontWeight: 600,
                   }}
                 >
@@ -766,7 +762,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "var(--primary)",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
             }}
           >
@@ -862,7 +858,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "var(--primary)",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
             }}
           >
@@ -917,7 +913,7 @@ export default async function Home() {
                     borderRadius: 99,
                     background: "var(--surface)",
                     color: "var(--text-2)",
-                    fontSize: 11.5,
+                    fontSize: 13,
                     fontWeight: 700,
                   }}
                 >
@@ -939,7 +935,7 @@ export default async function Home() {
                 <p
                   style={{
                     color: "var(--text-3)",
-                    fontSize: 13,
+                    fontSize: 14.5,
                     margin: 0,
                     fontWeight: 600,
                   }}
@@ -980,7 +976,7 @@ export default async function Home() {
                 background: "var(--success-soft)",
                 color: "var(--success)",
                 fontWeight: 700,
-                fontSize: 12.5,
+                fontSize: 14,
                 letterSpacing: ".06em",
                 marginBottom: 18,
               }}
@@ -1093,7 +1089,7 @@ export default async function Home() {
               <div
                 style={{
                   color: "var(--text-2)",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   fontWeight: 600,
                   marginTop: 4,
                 }}
@@ -1122,7 +1118,7 @@ export default async function Home() {
               <div
                 style={{
                   color: "var(--text-2)",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   fontWeight: 600,
                   marginTop: 4,
                 }}
@@ -1145,7 +1141,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "var(--primary)",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
             }}
           >
@@ -1224,7 +1220,7 @@ export default async function Home() {
                   <div
                     style={{
                       color: "var(--text-3)",
-                      fontSize: 12.5,
+                      fontSize: 14,
                       fontWeight: 600,
                     }}
                   >
@@ -1249,7 +1245,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "var(--primary)",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
             }}
           >
@@ -1346,7 +1342,7 @@ export default async function Home() {
                 style={{
                   color: "var(--primary)",
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: 14.5,
                   marginBottom: 12,
                 }}
               >
@@ -1355,7 +1351,7 @@ export default async function Home() {
               <p
                 style={{
                   color: "var(--text-2)",
-                  fontSize: 13.5,
+                  fontSize: 15,
                   lineHeight: 1.55,
                   margin: "0 0 16px",
                 }}
@@ -1470,7 +1466,7 @@ export default async function Home() {
               fontWeight: 700,
               color: "#7fe3bb",
               letterSpacing: ".1em",
-              fontSize: 13,
+              fontSize: 14.5,
               textTransform: "uppercase",
               marginBottom: 12,
             }}
@@ -1513,7 +1509,7 @@ export default async function Home() {
               border: "none",
               background: "var(--success)",
               color: "#fff",
-              fontFamily: "'Sora'",
+              fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: 17,
               cursor: "pointer",
@@ -1633,28 +1629,28 @@ export default async function Home() {
             justifyContent: "space-between",
           }}
         >
-          <span style={{ fontSize: 13, color: "#6f82a3" }}>
+          <span style={{ fontSize: 14.5, color: "#6f82a3" }}>
             © 2026 PilotKids · Bolalar uchun xavfsiz ta&apos;lim
           </span>
           <div style={{ display: "flex", gap: 24 }}>
             <Link
               href="/maxfiylik"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
+              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
             >
               Maxfiylik
             </Link>
             <Link
               href="/shartlar"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
+              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
             >
               Shartlar
             </Link>
             <Link
               href="/maxfiylik#cookie"
               className="nav-link"
-              style={{ fontSize: 13, color: "#6f82a3", textDecoration: "none" }}
+              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
             >
               Cookie
             </Link>

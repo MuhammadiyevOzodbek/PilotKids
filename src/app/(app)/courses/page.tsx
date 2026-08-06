@@ -86,7 +86,7 @@ export default async function CoursesPage({
               >
                 {c.title}
               </h3>
-              <p style={{ color: "var(--text-3)", fontSize: 13.5, margin: 0, fontWeight: 600 }}>
+              <p style={{ color: "var(--text-3)", fontSize: 15, margin: 0, fontWeight: 600 }}>
                 {isActive ? "Filtr yoqilgan · bekor qilish" : c.courseCount}
               </p>
             </Link>
@@ -188,7 +188,7 @@ export default async function CoursesPage({
                       borderRadius: 99,
                       background: "var(--surface)",
                       color: "var(--text-2)",
-                      fontSize: 11.5,
+                      fontSize: 13,
                       fontWeight: 700,
                     }}
                   >
@@ -204,7 +204,7 @@ export default async function CoursesPage({
                         borderRadius: 99,
                         background: "var(--success)",
                         color: "#fff",
-                        fontSize: 11.5,
+                        fontSize: 13,
                         fontWeight: 700,
                       }}
                     >
@@ -227,7 +227,7 @@ export default async function CoursesPage({
                   <p
                     style={{
                       color: "var(--text-3)",
-                      fontSize: 13,
+                      fontSize: 14.5,
                       margin: 0,
                       fontWeight: 600,
                     }}

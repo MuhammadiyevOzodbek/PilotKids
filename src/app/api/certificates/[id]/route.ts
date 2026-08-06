@@ -22,13 +22,13 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, ctx: RouteContext<"/api/certificates/[id]">) {
   const session = await getSession();
   if (!session) {
     return new Response("Avtorizatsiya talab qilinadi", { status: 401 });
   }
 
-  const { id } = await params;
+  const { id } = await ctx.params;
 
   // UUID bo'lmagan qiymat Postgres'da 22P02 xatosini bergani uchun oldindan tekshiramiz.
   const parsed = uuidSchema.safeParse(id);

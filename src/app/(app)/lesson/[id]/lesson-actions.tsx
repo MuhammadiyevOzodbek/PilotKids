@@ -195,7 +195,7 @@ export function LessonNote({ lessonId, initial }: { lessonId: string; initial: s
             background: dirty ? "var(--primary)" : "var(--surface-3)",
             color: dirty ? "#fff" : "var(--text-3)",
             fontWeight: 700,
-            fontSize: 13.5,
+            fontSize: 15,
             cursor: dirty && !isPending ? "pointer" : "default",
           }}
         >
@@ -206,7 +206,7 @@ export function LessonNote({ lessonId, initial }: { lessonId: string; initial: s
             role="status"
             style={{
               color: "var(--success)",
-              fontSize: 13,
+              fontSize: 14.5,
               fontWeight: 700,
               display: "inline-flex",
               alignItems: "center",
@@ -217,7 +217,9 @@ export function LessonNote({ lessonId, initial }: { lessonId: string; initial: s
             Saqlandi
           </span>
         )}
-        {error && <span style={{ color: "#E5484D", fontSize: 13, fontWeight: 600 }}>{error}</span>}
+        {error && (
+          <span style={{ color: "#E5484D", fontSize: 14.5, fontWeight: 600 }}>{error}</span>
+        )}
       </div>
     </div>
   );

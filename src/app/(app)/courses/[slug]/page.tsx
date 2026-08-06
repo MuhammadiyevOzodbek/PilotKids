@@ -106,7 +106,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
                     borderRadius: 99,
                     background: "rgba(99,102,241,.25)",
                     color: "#c3caff",
-                    fontSize: 12,
+                    fontSize: 13.5,
                     fontWeight: 700,
                     letterSpacing: ".05em",
                   }}
@@ -120,7 +120,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
                   borderRadius: 99,
                   background: "rgba(255,255,255,.1)",
                   color: "#c3cee2",
-                  fontSize: 12,
+                  fontSize: 13.5,
                   fontWeight: 700,
                 }}
               >
@@ -245,7 +245,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
                       <div
                         style={{
                           color: "var(--text-3)",
-                          fontSize: 13,
+                          fontSize: 14.5,
                           fontWeight: 600,
                           marginTop: 2,
                         }}
@@ -384,7 +384,7 @@ function SideStat({ icon, title, sub }: { icon: string; title: string; sub: stri
       </span>
       <div>
         <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>{title}</div>
-        <div style={{ color: "var(--text-3)", fontSize: 12.5, fontWeight: 600 }}>{sub}</div>
+        <div style={{ color: "var(--text-3)", fontSize: 14, fontWeight: 600 }}>{sub}</div>
       </div>
     </div>
   );

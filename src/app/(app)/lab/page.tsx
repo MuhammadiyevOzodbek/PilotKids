@@ -30,7 +30,7 @@ export default async function LabPage() {
       </div>
       <h1
         style={{
-          fontFamily: "'Sora'",
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
           fontSize: 32,
           letterSpacing: "-.02em",
@@ -120,7 +120,7 @@ export default async function LabPage() {
             <div style={{ padding: 20 }}>
               <h3
                 style={{
-                  fontFamily: "'Sora'",
+                  fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: "17.5px",
                   margin: "0 0 6px",

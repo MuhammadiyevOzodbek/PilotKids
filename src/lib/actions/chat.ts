@@ -10,7 +10,7 @@ import { askRobo } from "@/lib/ai/gemini";
 import { buildRoboContext } from "@/lib/ai/context";
 import { checkUserInput, INJECTION_REPLY } from "@/lib/ai/safety";
 import { checkLimit } from "@/lib/rate-limit";
-import { chatInputSchema, firstError } from "@/lib/validation";
+import { chatInputSchema, firstError, uuidSchema } from "@/lib/validation";
 
 /** Gemini ishlamasa ishlatiladigan zaxira javob — tashqi LLM'siz. */
 function roboReply(q: string, name: string): string {
@@ -82,7 +82,12 @@ export async function clearChatHistory() {
 /** Bitta xabarni o'chirish (faqat o'zinikini). */
 export async function deleteChatMessage(id: string) {
   const user = await requireUser();
-  await db.delete(chatMessage).where(and(eq(chatMessage.id, id), eq(chatMessage.userId, user.id)));
+  const parsed = uuidSchema.safeParse(id);
+  if (!parsed.success) return { ok: false as const, error: "Noto'g'ri identifikator" };
+
+  await db
+    .delete(chatMessage)
+    .where(and(eq(chatMessage.id, parsed.data), eq(chatMessage.userId, user.id)));
   revalidatePath("/tutor");
   return { ok: true as const };
 }

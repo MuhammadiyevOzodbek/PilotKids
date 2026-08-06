@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { eq, desc, asc, and, count, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -24,26 +25,26 @@ import {
 
 /* ─────────────────────────── Kontent (umumiy) ─────────────────────────── */
 
-export async function getFeaturedCourses() {
+async function getFeaturedCourses_impl() {
   return db.select().from(course).where(eq(course.featured, true)).orderBy(asc(course.sortOrder));
 }
 
-export async function getCategories() {
+async function getCategories_impl() {
   return db.select().from(category).orderBy(asc(category.sortOrder));
 }
 
-export async function getLabProjects() {
+async function getLabProjects_impl() {
   return db.select().from(labProject).orderBy(asc(labProject.sortOrder));
 }
 
 /** Asosiy kurs (birinchi featured) — kurs tafsilotlari sahifasi uchun. */
-export async function getMainCourse() {
+async function getMainCourse_impl() {
   const rows = await db.select().from(course).orderBy(asc(course.sortOrder)).limit(1);
   return rows[0] ?? null;
 }
 
 /** Kursni slug bo'yicha topish (kategoriya nomi bilan). */
-export async function getCourseBySlug(slug: string) {
+async function getCourseBySlug_impl(slug: string) {
   const rows = await db
     .select({
       id: course.id,
@@ -66,7 +67,7 @@ export async function getCourseBySlug(slug: string) {
 }
 
 /** Barcha kurslar — kategoriya nomi va o'quvchilar soni bilan. */
-export async function getAllCourses() {
+async function getAllCourses_impl() {
   return db
     .select({
       id: course.id,
@@ -89,7 +90,7 @@ export async function getAllCourses() {
 }
 
 /** Kursga yozilgan o'quvchilar soni. */
-export async function getCourseStudentCount(courseId: string) {
+async function getCourseStudentCount_impl(courseId: string) {
   const [{ value }] = await db
     .select({ value: count() })
     .from(enrollment)
@@ -98,7 +99,7 @@ export async function getCourseStudentCount(courseId: string) {
 }
 
 /** Bitta darsni kursi bilan birga olish. */
-export async function getLessonById(lessonId: string) {
+async function getLessonById_impl(lessonId: string) {
   const rows = await db
     .select({
       id: lesson.id,
@@ -122,7 +123,7 @@ export async function getLessonById(lessonId: string) {
 }
 
 /** Foydalanuvchining "davom ettirish" darsi — birinchi tugallanmagan dars. */
-export async function getCurrentLesson(userId: string) {
+async function getCurrentLesson_impl(userId: string) {
   const rows = await db
     .select({
       id: lesson.id,
@@ -155,7 +156,7 @@ export async function getCurrentLesson(userId: string) {
 }
 
 /** Darsdan keyingi dars (bir kurs ichida). */
-export async function getNextLesson(courseId: string, currentOrder: number) {
+async function getNextLesson_impl(courseId: string, currentOrder: number) {
   const rows = await db
     .select({
       id: lesson.id,
@@ -172,7 +173,7 @@ export async function getNextLesson(courseId: string, currentOrder: number) {
 }
 
 /** Foydalanuvchining dars bo'yicha shaxsiy eslatmasi. */
-export async function getLessonNote(userId: string, lessonId: string) {
+async function getLessonNote_impl(userId: string, lessonId: string) {
   const rows = await db
     .select({ body: lessonNote.body })
     .from(lessonNote)
@@ -185,7 +186,7 @@ export async function getLessonNote(userId: string, lessonId: string) {
  * Kurs uchun quiz savollari — `correctIndex` QAYTARILMAYDI.
  * To'g'ri javob faqat serverda, `submitQuizAnswer` ichida solishtiriladi.
  */
-export async function getQuizQuestions(courseId?: string) {
+async function getQuizQuestions_impl(courseId?: string) {
   const base = db
     .select({
       id: quizQuestion.id,
@@ -201,7 +202,7 @@ export async function getQuizQuestions(courseId?: string) {
 }
 
 /** Foydalanuvchining quiz urinishlari (savol id → tanlangan javob, to'g'rimi). */
-export async function getQuizAttempts(userId: string) {
+async function getQuizAttempts_impl(userId: string) {
   const rows = await db
     .select({
       questionId: quizAttempt.questionId,
@@ -214,7 +215,7 @@ export async function getQuizAttempts(userId: string) {
 }
 
 /** Lab loyihalari + foydalanuvchi holati. */
-export async function getLabProjectsWithProgress(userId: string) {
+async function getLabProjectsWithProgress_impl(userId: string) {
   return db
     .select({
       id: labProject.id,
@@ -239,7 +240,7 @@ export async function getLabProjectsWithProgress(userId: string) {
 }
 
 /** Oxirgi qo'lga kiritilgan nishon (ota-ona paneli uchun). */
-export async function getLatestBadge(userId: string) {
+async function getLatestBadge_impl(userId: string) {
   const rows = await db
     .select({
       name: badge.name,
@@ -258,36 +259,62 @@ export async function getLatestBadge(userId: string) {
 
 /* ─────────────────────────── Foydalanuvchi ─────────────────────────── */
 
-export async function getUserStats(userId: string) {
-  const [u] = await db
-    .select({ xp: user.xp, streak: user.streak, level: user.level, name: user.name })
+/**
+ * Foydalanuvchi ko'rsatkichlari — BITTA so'rovda.
+ *
+ * Ilgari bu to'rt alohida so'rov edi. Ma'lumotlar bazasi uzoqda (har so'rov
+ * ~240ms sof tarmoq vaqti), shuning uchun so'rovlar sonining o'zi asosiy
+ * xarajat. `Promise.all` bu yerda yordam bermaydi: neon-http har so'rov uchun
+ * alohida HTTPS ulanish ochadi, ya'ni parallel yuborish tezlashtirmaydi
+ * (o'lchovda hatto sekinlashtirdi). Yagona to'g'ri yo'l — bitta borishda
+ * hammasini olish: sanoqlar skalyar subquery sifatida yoziladi.
+ */
+async function getUserStats_impl(userId: string) {
+  const [row] = await db
+    .select({
+      xp: user.xp,
+      streak: user.streak,
+      level: user.level,
+      name: user.name,
+      // Rol shu yerda ham qaytariladi — sidebar'dagi admin havolasi uchun
+      // alohida so'rov yubormaslik kerak (bu ham DB'dan, ya'ni sessiya
+      // keshiga ishonilmaydi).
+      role: user.role,
+      // Diqqat: subquery ichida ${user.id} YOZIB BO'LMAYDI — drizzle uni
+      // jadval prefiksisiz (`"id"`) chiqaradi va Postgres uni tashqi `user`
+      // emas, subquery'ning o'z jadvalidagi `id` deb tushunadi. `enrollment`
+      // da `id` uuid, `user_id` esa text bo'lgani uchun bu
+      // `operator does not exist: text = uuid` xatosini bergan.
+      // Yechim: korrelyatsiya o'rniga `userId` parametrini bevosita berish.
+      badgeCount: sql<number>`(
+        select count(*)::int from ${userBadge} where ${userBadge.userId} = ${userId}
+      )`,
+      enrolledCount: sql<number>`(
+        select count(*)::int from ${enrollment} where ${enrollment.userId} = ${userId}
+      )`,
+      doneLessons: sql<number>`(
+        select count(*)::int from ${lessonProgress}
+        where ${lessonProgress.userId} = ${userId} and ${lessonProgress.status} = 'done'
+      )`,
+    })
     .from(user)
-    .where(eq(user.id, userId));
-  const [{ value: badgeCount }] = await db
-    .select({ value: count() })
-    .from(userBadge)
-    .where(eq(userBadge.userId, userId));
-  const [{ value: enrolledCount }] = await db
-    .select({ value: count() })
-    .from(enrollment)
-    .where(eq(enrollment.userId, userId));
-  const [{ value: doneLessons }] = await db
-    .select({ value: count() })
-    .from(lessonProgress)
-    .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.status, "done")));
+    .where(eq(user.id, userId))
+    .limit(1);
+
   return {
-    xp: u?.xp ?? 0,
-    streak: u?.streak ?? 0,
-    level: u?.level ?? 1,
-    name: u?.name ?? "",
-    badgeCount,
-    enrolledCount,
-    doneLessons,
+    xp: row?.xp ?? 0,
+    streak: row?.streak ?? 0,
+    level: row?.level ?? 1,
+    name: row?.name ?? "",
+    role: row?.role ?? "student",
+    badgeCount: row?.badgeCount ?? 0,
+    enrolledCount: row?.enrolledCount ?? 0,
+    doneLessons: row?.doneLessons ?? 0,
   };
 }
 
 /** Foydalanuvchi yozilgan kurslar + progress foizi. */
-export async function getUserCourses(userId: string) {
+async function getUserCourses_impl(userId: string) {
   return db
     .select({
       id: course.id,
@@ -309,7 +336,7 @@ export async function getUserCourses(userId: string) {
 }
 
 /** Kurs darslari + foydalanuvchi holati (done/current/locked). */
-export async function getCourseLessons(userId: string, courseId: string) {
+async function getCourseLessons_impl(userId: string, courseId: string) {
   return db
     .select({
       id: lesson.id,
@@ -336,7 +363,7 @@ export async function getCourseLessons(userId: string, courseId: string) {
  * Foydalanuvchi `id` ham klientga chiqarilmaydi; "siz"ni belgilash uchun
  * `you` bayrog'i yetarli.
  */
-export async function getLeaderboard(currentUserId: string) {
+async function getLeaderboard_impl(currentUserId: string) {
   const rows = await db
     .select({ id: user.id, name: user.name, xp: user.xp })
     .from(user)
@@ -355,17 +382,30 @@ export async function getLeaderboard(currentUserId: string) {
   });
 }
 
-export async function getUserBadges(userId: string) {
-  const earned = await db
-    .select({ badgeId: userBadge.badgeId })
-    .from(userBadge)
-    .where(eq(userBadge.userId, userId));
-  const earnedSet = new Set(earned.map((e) => e.badgeId));
-  const all = await db.select().from(badge).orderBy(asc(badge.sortOrder));
-  return all.map((b) => ({ ...b, earned: earnedSet.has(b.id) }));
+/**
+ * Barcha nishonlar + foydalanuvchi qaysilarini olganini belgilash.
+ * Ilgari ikki so'rov edi; `leftJoin` bilan bitta borishda hal bo'ladi.
+ */
+async function getUserBadges_impl(userId: string) {
+  const rows = await db
+    .select({
+      id: badge.id,
+      slug: badge.slug,
+      name: badge.name,
+      icon: badge.icon,
+      color: badge.color,
+      soft: badge.soft,
+      sortOrder: badge.sortOrder,
+      earnedAt: userBadge.earnedAt,
+    })
+    .from(badge)
+    .leftJoin(userBadge, and(eq(userBadge.badgeId, badge.id), eq(userBadge.userId, userId)))
+    .orderBy(asc(badge.sortOrder));
+
+  return rows.map(({ earnedAt, ...b }) => ({ ...b, earned: earnedAt !== null }));
 }
 
-export async function getUserCertificates(userId: string) {
+async function getUserCertificates_impl(userId: string) {
   return db
     .select()
     .from(certificate)
@@ -373,7 +413,7 @@ export async function getUserCertificates(userId: string) {
     .orderBy(asc(certificate.sortOrder));
 }
 
-export async function getWeekActivity(userId: string) {
+async function getWeekActivity_impl(userId: string) {
   const rows = await db
     .select()
     .from(dailyActivity)
@@ -387,7 +427,7 @@ export async function getWeekActivity(userId: string) {
   });
 }
 
-export async function getNotifications(userId: string) {
+async function getNotifications_impl(userId: string) {
   return db
     .select()
     .from(notification)
@@ -396,7 +436,7 @@ export async function getNotifications(userId: string) {
     .limit(20);
 }
 
-export async function getChatMessages(userId: string) {
+async function getChatMessages_impl(userId: string) {
   return db
     .select()
     .from(chatMessage)
@@ -404,10 +444,47 @@ export async function getChatMessages(userId: string) {
     .orderBy(asc(chatMessage.createdAt));
 }
 
-export async function getUserSettings(userId: string) {
+async function getUserSettings_impl(userId: string) {
   const rows = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
   return rows[0] ?? { userId, notificationsEnabled: true, theme: "light" };
 }
+
+/* ─────────────────────────── Keshlangan eksportlar ───────────────────────────
+   React `cache()` — BITTA so'rov ichida bir xil argument bilan ikkinchi marta
+   chaqirilsa DB'ga qayta bormaydi, birinchi natijani qaytaradi.
+
+   Bu shu yerda muhim: `(app)/layout.tsx` header uchun `getUserStats` chaqiradi,
+   sahifaning o'zi ham chaqiradi — kesh bo'lmasa bir xil so'rovlar ikki marta
+   ketardi. DB uzoq bo'lgani uchun har takror ~250ms yo'qotish edi.
+
+   Kesh faqat bitta so'rov (request) doirasida yashaydi — sahifa yangilanganda
+   ma'lumot baribir yangi olinadi, ya'ni eskirgan qiymat ko'rsatilmaydi. */
+
+export const getFeaturedCourses = cache(getFeaturedCourses_impl);
+export const getCategories = cache(getCategories_impl);
+export const getLabProjects = cache(getLabProjects_impl);
+export const getMainCourse = cache(getMainCourse_impl);
+export const getCourseBySlug = cache(getCourseBySlug_impl);
+export const getAllCourses = cache(getAllCourses_impl);
+export const getCourseStudentCount = cache(getCourseStudentCount_impl);
+export const getLessonById = cache(getLessonById_impl);
+export const getCurrentLesson = cache(getCurrentLesson_impl);
+export const getNextLesson = cache(getNextLesson_impl);
+export const getLessonNote = cache(getLessonNote_impl);
+export const getQuizQuestions = cache(getQuizQuestions_impl);
+export const getQuizAttempts = cache(getQuizAttempts_impl);
+export const getLabProjectsWithProgress = cache(getLabProjectsWithProgress_impl);
+export const getLatestBadge = cache(getLatestBadge_impl);
+export const getUserStats = cache(getUserStats_impl);
+export const getUserCourses = cache(getUserCourses_impl);
+export const getCourseLessons = cache(getCourseLessons_impl);
+export const getLeaderboard = cache(getLeaderboard_impl);
+export const getUserBadges = cache(getUserBadges_impl);
+export const getUserCertificates = cache(getUserCertificates_impl);
+export const getWeekActivity = cache(getWeekActivity_impl);
+export const getNotifications = cache(getNotifications_impl);
+export const getChatMessages = cache(getChatMessages_impl);
+export const getUserSettings = cache(getUserSettings_impl);
 
 /* ─────────────────────────── Yordamchilar ─────────────────────────── */
 

@@ -105,7 +105,7 @@ export default async function ProfilePage() {
             display: "grid",
             placeItems: "center",
             color: "#fff",
-            fontFamily: "'Sora'",
+            fontFamily: "var(--font-display)",
             fontWeight: 800,
             fontSize: 34,
             border: "4px solid rgba(255,255,255,.15)",
@@ -116,7 +116,7 @@ export default async function ProfilePage() {
         <div style={{ position: "relative", flex: 1 }}>
           <h1
             style={{
-              fontFamily: "'Sora'",
+              fontFamily: "var(--font-display)",
               fontWeight: 800,
               fontSize: 30,
               letterSpacing: "-.02em",
@@ -131,7 +131,7 @@ export default async function ProfilePage() {
                 padding: "5px 12px",
                 borderRadius: 99,
                 background: "rgba(255,255,255,.1)",
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: 700,
                 color: "#c3cee2",
               }}
@@ -143,7 +143,7 @@ export default async function ProfilePage() {
                 padding: "5px 12px",
                 borderRadius: 99,
                 background: "rgba(47,208,141,.18)",
-                fontSize: 13,
+                fontSize: 14.5,
                 fontWeight: 700,
                 color: "#38d39a",
               }}
@@ -202,7 +202,7 @@ export default async function ProfilePage() {
             </div>
             <div
               style={{
-                fontFamily: "'Sora'",
+                fontFamily: "var(--font-display)",
                 fontWeight: 800,
                 fontSize: 26,
                 color: "var(--text)",
@@ -210,7 +210,7 @@ export default async function ProfilePage() {
             >
               {s.value}
             </div>
-            <div style={{ color: "var(--text-2)", fontSize: 13.5, fontWeight: 600 }}>{s.label}</div>
+            <div style={{ color: "var(--text-2)", fontSize: 15, fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -258,9 +258,7 @@ export default async function ProfilePage() {
             <span style={{ flex: 1, fontWeight: 700, fontSize: 15.5, color: "var(--text)" }}>
               {m.label}
             </span>
-            <span style={{ color: "var(--text-3)", fontSize: 13.5, fontWeight: 600 }}>
-              {m.meta}
-            </span>
+            <span style={{ color: "var(--text-3)", fontSize: 15, fontWeight: 600 }}>{m.meta}</span>
             <Icon name="chevron_right" size={22} color="var(--text-3)" />
           </Link>
         ))}

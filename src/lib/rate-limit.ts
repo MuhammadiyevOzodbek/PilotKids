@@ -34,6 +34,8 @@ const limiters = {
   write: make(60, "1 m", "write"),
   /** Umumiy action oqimi. */
   action: make(120, "1 m", "action"),
+  /** Auth route'lari (Telegram kirish) — hisob yaratish oqimi ochiq qolmasin. */
+  auth: make(10, "10 m", "auth"),
 };
 
 export type LimitKind = keyof typeof limiters;
@@ -74,4 +76,18 @@ export class RateLimitError extends Error {
 /** Limitdan oshsa `RateLimitError` tashlaydi. */
 export async function enforceLimit(kind: LimitKind, identifier: string) {
   if (!(await checkLimit(kind, identifier))) throw new RateLimitError();
+}
+
+/**
+ * Route handler uchun IP bo'yicha cheklov. Limitdan oshsa 429 `Response`
+ * qaytaradi, aks holda `null` — chaqiruvchi shuni tekshirib davom etadi.
+ */
+export async function authRateLimit(request: Request): Promise<Response | null> {
+  const fwd = request.headers.get("x-forwarded-for");
+  const ip = fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "anon";
+  if (await checkLimit("auth", ip)) return null;
+  return Response.json(
+    { error: "Juda ko'p urinish. Biroz kutib, qayta urinib ko'ring." },
+    { status: 429 },
+  );
 }
