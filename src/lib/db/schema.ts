@@ -22,6 +22,12 @@ export const user = pgTable("user", {
   /** Telefon raqami (phone-number plugin) — +998… formatida. */
   phoneNumber: text("phone_number").unique(),
   phoneNumberVerified: boolean("phone_number_verified").default(false).notNull(),
+  /** Telegram Login Widget orqali tasdiqlangan identifikator. */
+  telegramId: text("telegram_id").unique(),
+  telegramUsername: text("telegram_username"),
+  telegramFirstName: text("telegram_first_name"),
+  telegramLastName: text("telegram_last_name"),
+  telegramPhotoUrl: text("telegram_photo_url"),
   // PilotKids profil maydonlari
   age: integer("age"),
   role: text("role").default("student").notNull(), // student | parent | admin
@@ -61,23 +67,27 @@ export const session = pgTable("session", {
   impersonatedBy: text("impersonated_by"),
 });
 
-export const account = pgTable("account", {
-  id: text("id").primaryKey(),
-  accountId: text("account_id").notNull(),
-  providerId: text("provider_id").notNull(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
-  scope: text("scope"),
-  password: text("password"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const account = pgTable(
+  "account",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("account_provider_account_uq").on(t.providerId, t.accountId)],
+);
 
 export const verification = pgTable("verification", {
   id: text("id").primaryKey(),

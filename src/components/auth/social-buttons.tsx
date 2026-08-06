@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth/client";
 
@@ -107,16 +107,18 @@ export function GoogleButton({
   label,
   onError,
   configured = true,
+  callbackURL = "/dashboard",
 }: {
   label: string;
   onError: (m: string) => void;
   configured?: boolean;
+  callbackURL?: string;
 }) {
   const [loading, setLoading] = useState(false);
 
   async function handle() {
     setLoading(true);
-    const { error } = await signIn.social({ provider: "google", callbackURL: "/dashboard" });
+    const { error } = await signIn.social({ provider: "google", callbackURL });
     if (error) {
       onError("Google bilan kirishda xatolik. Boshqa usulni sinab ko'ring.");
       setLoading(false);
@@ -148,14 +150,18 @@ export function TelegramButton({
   label,
   onError,
   configured = true,
+  callbackURL = "/dashboard",
 }: {
   botUsername: string;
   label: string;
   onError: (m: string) => void;
   configured?: boolean;
+  callbackURL?: string;
 }) {
   const router = useRouter();
   const holderRef = useRef<HTMLDivElement>(null);
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callbackName = `onTelegramAuth_${useId().replace(/\W/g, "_")}`;
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -165,8 +171,11 @@ export function TelegramButton({
     if (!holder || holder.childElementCount > 0) return;
 
     // Telegram skripti global callback nomini `data-onauth` dan o'qiydi.
-    const callbackName = "onTelegramAuth";
     (window as unknown as Record<string, unknown>)[callbackName] = async (user: unknown) => {
+      if (cancelTimerRef.current) {
+        clearTimeout(cancelTimerRef.current);
+        cancelTimerRef.current = null;
+      }
       setLoading(true);
       try {
         const res = await fetch("/api/auth/telegram", {
@@ -180,7 +189,7 @@ export function TelegramButton({
           setLoading(false);
           return;
         }
-        router.push("/dashboard");
+        router.push(callbackURL);
         router.refresh();
       } catch {
         onError("Serverga ulanib bo'lmadi");
@@ -199,16 +208,27 @@ export function TelegramButton({
     holder.appendChild(script);
 
     return () => {
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
       delete (window as unknown as Record<string, unknown>)[callbackName];
     };
-  }, [botUsername, onError, router, configured]);
+  }, [botUsername, onError, router, configured, callbackURL, callbackName]);
+
+  function handleTelegramOpen() {
+    if (loading) return;
+    setLoading(true);
+    if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
+    cancelTimerRef.current = setTimeout(() => {
+      setLoading(false);
+      onError("Telegram orqali kirish bekor qilindi yoki vaqt tugadi.");
+    }, 90_000);
+  }
 
   if (!configured) {
     return <NotConfiguredButton mark={<TelegramMark />} label={label} />;
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} onPointerDownCapture={handleTelegramOpen}>
       {/* Haqiqiy widget — ko'rinmas, lekin bosiladigan holatda turadi */}
       <div
         ref={holderRef}

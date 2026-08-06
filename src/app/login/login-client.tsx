@@ -119,7 +119,12 @@ export function LoginClient({ methods, telegramBot, devOtpHint }: Props) {
           o'zi ustma-ust tushadi. Media query kerak emas. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 22 }}>
         <div style={{ flex: "1 1 150px", minWidth: 0 }}>
-          <GoogleButton label="Google" onError={setError} configured={methods.google} />
+          <GoogleButton
+            label="Google"
+            onError={setError}
+            configured={methods.google}
+            callbackURL={next}
+          />
         </div>
         <div style={{ flex: "1 1 150px", minWidth: 0 }}>
           <TelegramButton
@@ -127,6 +132,7 @@ export function LoginClient({ methods, telegramBot, devOtpHint }: Props) {
             label="Telegram"
             onError={setError}
             configured={methods.telegram}
+            callbackURL={next}
           />
         </div>
       </div>

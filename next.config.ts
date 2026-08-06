@@ -10,10 +10,11 @@ const isDev = process.env.NODE_ENV === "development";
  */
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://telegram.org${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
+  "frame-src https://oauth.telegram.org https://telegram.org",
   `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",

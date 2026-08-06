@@ -13,8 +13,8 @@ export interface TelegramAuthData {
   hash: string;
 }
 
-/** Imzo 24 soatdan eski bo'lsa qayta ishlatilgan deb hisoblaymiz. */
-const MAX_AGE_SECONDS = 24 * 60 * 60;
+/** Imzo 10 daqiqadan eski bo'lsa qayta ishlatilgan deb hisoblaymiz. */
+const MAX_AGE_SECONDS = 10 * 60;
 
 /**
  * Telegram imzosini tekshiradi.

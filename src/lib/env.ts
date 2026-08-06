@@ -1,6 +1,25 @@
 import "server-only";
 import { z } from "zod";
 
+const telegramBotTokenSchema = z
+  .string()
+  .trim()
+  .optional()
+  .default("")
+  .refine((value) => value === "" || /^\d+:[A-Za-z0-9_-]{20,}$/.test(value), {
+    message: "TELEGRAM_BOT_TOKEN noto'g'ri ko'rinadi",
+  });
+
+const telegramBotUsernameSchema = z
+  .string()
+  .trim()
+  .optional()
+  .default("")
+  .refine((value) => value === "" || /^@?[A-Za-z][A-Za-z0-9_]{4,31}$/.test(value), {
+    message: "TELEGRAM_BOT_USERNAME noto'g'ri ko'rinadi",
+  })
+  .transform((value) => value.replace(/^@/, ""));
+
 /** Server muhit o'zgaruvchilari — faqat serverda o'qiladi. */
 const serverSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL noto'g'ri yoki yo'q"),
@@ -13,8 +32,8 @@ const serverSchema = z.object({
   // Google AI Studio (Gemini). Bo'sh bo'lsa AI tutor oflayn javoblarga qaytadi.
   GEMINI_API_KEY: z.string().optional().default(""),
   // Telegram Login Widget — bot tokeni bilan kirish ma'lumoti imzosi tekshiriladi.
-  TELEGRAM_BOT_TOKEN: z.string().optional().default(""),
-  TELEGRAM_BOT_USERNAME: z.string().optional().default(""),
+  TELEGRAM_BOT_TOKEN: telegramBotTokenSchema,
+  TELEGRAM_BOT_USERNAME: telegramBotUsernameSchema,
   // Eskiz.uz SMS gateway (O'zbekiston) — telefon OTP yuborish uchun.
   ESKIZ_EMAIL: z.string().optional().default(""),
   ESKIZ_PASSWORD: z.string().optional().default(""),
