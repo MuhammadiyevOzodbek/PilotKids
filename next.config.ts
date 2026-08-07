@@ -1,6 +1,15 @@
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
+
+/**
+ * Loyiha ildizi. Yuqoridagi papkada (`C:\Users\javoh`) begona `package-lock.json`
+ * bo'lgani uchun Turbopack ish maydoni ildizini noto'g'ri taxmin qilib
+ * ogohlantirardi. Ildizni aniq shu papkaga bog'laymiz.
+ */
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Content-Security-Policy.
@@ -50,6 +59,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Turbopack ish maydoni ildizini aniq belgilaymiz (yuqoridagi begona
+  // package-lock.json e'tiborga olinmasin).
+  turbopack: { root: projectRoot },
   // `X-Powered-By: Next.js` sarlavhasini yashiramiz.
   poweredByHeader: false,
   async headers() {

@@ -352,7 +352,8 @@ function RevenueChart({ data }: { data: RevenuePoint[] }) {
                 <div
                   key={s.key}
                   style={{
-                    height: `${(d[s.key] / totals[i]) * 100}%`,
+                    // Oy jami 0 bo'lsa nolga bo'lish `NaN` bermasin.
+                    height: `${totals[i] ? (d[s.key] / totals[i]!) * 100 : 0}%`,
                     background: s.color,
                     opacity: 0.88,
                   }}

@@ -6,8 +6,8 @@ import {
   isPowered,
   netFor,
   reachableNets,
+  resistanceToDrive,
   resistanceToGround,
-  resistanceToSource,
   supplyVoltage,
   type Netlist,
 } from "./netlist";
@@ -83,12 +83,54 @@ const MAX_OPS_PER_LOOP = 200_000;
 const MAX_CALL_DEPTH = 32;
 /** Serial monitorda saqlanadigan maksimal log soni. */
 const MAX_LOGS = 500;
+/** Massivning maksimal uzunligi — `int buf[999999]` xotirani yeb qo'ymasin. */
+const MAX_ARRAY_LENGTH = 4096;
+
+/** Qo'llab-quvvatlanadigan `String` metodlari. */
+const STRING_METHODS = new Set([
+  "length",
+  "trim",
+  "toInt",
+  "toFloat",
+  "equals",
+  "equalsIgnoreCase",
+  "indexOf",
+  "substring",
+  "startsWith",
+  "endsWith",
+  "toUpperCase",
+  "toLowerCase",
+]);
+
+/** Butun sonli turlar — bularga berilgan qiymatning kasr qismi qirqiladi. */
+const INTEGER_TYPES = new Set([
+  "int",
+  "long",
+  "short",
+  "byte",
+  "char",
+  "bool",
+  "boolean",
+  "unsigned",
+  "word",
+]);
 /**
  * Virtual soat siljimasdan necha kadr o'tsa — kod cheksiz aylanmoqda deb
  * hisoblanadi. Bir necha kadr beriladi: sekin, lekin haqiqiy ish qilayotgan
  * kod noto'g'ri ayblanmasin.
  */
 const MAX_STALLED_TICKS = 12;
+/**
+ * `loop()` ning bir bosqichi taxminan qancha virtual vaqt oladi (ms).
+ *
+ * `delay()` yozmagan `loop()` ham (masalan `digitalWrite(13, HIGH);` yoki
+ * `millis()` ga asoslangan bloklanmaydigan miltillash) haqiqiy platada vaqt
+ * o'tkazadi. Usiz virtual soat turib qolardi va soatni kuzatuvchi himoya
+ * (`MAX_STALLED_TICKS`) mutlaqo to'g'ri kodni "cheksiz sikl" deb o'ldirardi.
+ * Kichik qiymat: delay'li sxemalarga ta'siri sezilmaydi, delay'sizlariga esa
+ * `millis()` normal o'sadi.
+ */
+const LOOP_OVERHEAD_MS = 0.05;
 
 type Signal = { type: "delay"; ms: number } | { type: "op" };
 
@@ -100,7 +142,7 @@ class ReturnSignal extends Error {
 }
 class BreakSignal extends Error {
   constructor() {
-    super("`break` faqat `for` yoki `while` ichida ishlatiladi.");
+    super("`break` faqat `for`, `while` yoki `switch` ichida ishlatiladi.");
   }
 }
 class ContinueSignal extends Error {
@@ -121,12 +163,70 @@ const CONSTANTS: Record<string, number> = {
   LED_BUILTIN: 13,
   true: 1,
   false: 0,
+  // Serial.print() uchun sanoq tizimi bazalari.
+  DEC: 10,
+  HEX: 16,
+  OCT: 8,
+  BIN: 2,
   A0: ANALOG_PIN_BASE,
   A1: ANALOG_PIN_BASE + 1,
   A2: ANALOG_PIN_BASE + 2,
   A3: ANALOG_PIN_BASE + 3,
   A4: ANALOG_PIN_BASE + 4,
   A5: ANALOG_PIN_BASE + 5,
+};
+
+/**
+ * Analog sensorlar registri — `readAnalog` shu jadval orqali ishlaydi.
+ *
+ * Yangi analog sensor qo'shish uchun bitta yozuv yetarli: signal pini va
+ * sozlama/slayder qiymatini 0–1023 ADC qiymatiga aylantiruvchi funksiya.
+ * Har safar `readAnalog` ichiga yangi `if` qo'shish shart emas.
+ */
+const ANALOG_SENSORS: Record<
+  string,
+  {
+    signal: string;
+    toAdc: (settings: Record<string, string | number | boolean>, override?: number) => number;
+  }
+> = {
+  potentiometer: {
+    signal: "wiper",
+    toAdc: (s, o) => o ?? (typeof s.value === "number" ? s.value : 0),
+  },
+  ldr: {
+    signal: "signal",
+    toAdc: (s, o) => o ?? (typeof s.light === "number" ? s.light : 0),
+  },
+  tmp36: {
+    signal: "signal",
+    // TMP36: Vout(mV) = 10·T + 500; ADC = Vout / 5000 · 1023.
+    toAdc: (s, o) => {
+      const t = o ?? (typeof s.temperature === "number" ? s.temperature : 25);
+      return ((10 * t + 500) / 5000) * 1023;
+    },
+  },
+  "soil-moisture": {
+    signal: "signal",
+    toAdc: (s, o) => {
+      const pct = o ?? (typeof s.moisture === "number" ? s.moisture : 0);
+      return (pct / 100) * 1023;
+    },
+  },
+};
+
+/** Raqamli chiqishli sensorlar registri — `readDigital` shu jadvaldan foydalanadi. */
+const DIGITAL_OUTPUT_SENSORS: Record<
+  string,
+  {
+    out: string;
+    read: (settings: Record<string, string | number | boolean>, override?: number) => number;
+  }
+> = {
+  pir: {
+    out: "out",
+    read: (s, o) => (o !== undefined ? (o >= 0.5 ? 1 : 0) : s.motion === true ? 1 : 0),
+  },
 };
 
 export interface SimulatorOptions {
@@ -153,6 +253,8 @@ export class Simulator {
   private tonePins = new Set<number>();
   private servoPins = new Map<string, number>();
   private servoAngles = new Map<string, number>();
+  /** Massivlar: nom → elementlar. Blok qamrovi majburiy emas — global saqlanadi. */
+  private arrays = new Map<string, (number | string)[]>();
   private callDepth = 0;
 
   /** Virtual soat (ms). */
@@ -242,7 +344,18 @@ export class Simulator {
           return typeof v === "boolean" ? (v ? 1 : 0) : v;
         }
         const defined = this.options.sketch.defines[expr.name];
-        if (defined !== undefined) return defined;
+        if (defined !== undefined) {
+          // `#define SENSOR A0` — qiymat boshqa konstanta yoki define nomiga
+          // ishora qilishi mumkin, uni yechamiz. Aks holda `analogRead(SENSOR)`
+          // "A0" satrini raqamga aylantirib 0 ni o'qirdi.
+          if (typeof defined === "string") {
+            const asConst = CONSTANTS[defined];
+            if (asConst !== undefined) return asConst;
+            const asDefine = this.options.sketch.defines[defined];
+            if (typeof asDefine === "number") return asDefine;
+          }
+          return defined;
+        }
         const constant = CONSTANTS[expr.name];
         if (constant !== undefined) return constant;
         throw new RuntimeError(`"${expr.name}" o'zgaruvchisi e'lon qilinmagan`);
@@ -283,7 +396,9 @@ export class Simulator {
             return a * b;
           case "/":
             if (b === 0) throw new RuntimeError("Nolga bo'lish mumkin emas");
-            return a / b;
+            // C'da butun son / butun son = butun son (nolga qarab qirqiladi).
+            // Arduino'da `millis() / 1000` → 3, `7 / 2` → 3 bo'ladi.
+            return Number.isInteger(a) && Number.isInteger(b) ? Math.trunc(a / b) : a / b;
           case "%":
             if (b === 0) throw new RuntimeError("Nolga bo'lish mumkin emas");
             return a % b;
@@ -315,6 +430,19 @@ export class Simulator {
       case "call":
         if (this.options.sketch.functions[expr.callee]) return this.callUserFunctionSync(expr);
         return this.callFunction(expr);
+      case "conditional":
+        return this.toNumber(this.evaluate(expr.test)) !== 0
+          ? this.evaluate(expr.then)
+          : this.evaluate(expr.else);
+      case "index": {
+        const arr = this.arrays.get(expr.name);
+        if (!arr) throw new RuntimeError(`"${expr.name}" massivi e'lon qilinmagan`);
+        const idx = Math.trunc(this.toNumber(this.evaluate(expr.index)));
+        if (idx < 0 || idx >= arr.length) {
+          throw new RuntimeError(`"${expr.name}" massivida ${idx}-indeks chegaradan tashqarida`);
+        }
+        return arr[idx] ?? 0;
+      }
     }
   }
 
@@ -326,6 +454,12 @@ export class Simulator {
 
   private toText(v: number | string): string {
     return typeof v === "string" ? v : String(v);
+  }
+
+  /** E'lon qilingan turga qarab qiymatni moslaydi (butun sonlar qirqiladi). */
+  private coerceType(valueType: string, value: number | string): number | string {
+    if (typeof value === "number" && INTEGER_TYPES.has(valueType)) return Math.trunc(value);
+    return value;
   }
 
   private currentScope(): Scope {
@@ -415,12 +549,14 @@ export class Simulator {
 
       case "analogRead": {
         const pin = num(0);
+        this.assertPin(pin, "analogRead");
         return this.readAnalog(pin);
       }
 
       case "analogWrite": {
         const pin = num(0);
-        const value = Math.max(0, Math.min(255, num(1)));
+        // analogWrite butun son (0–255) kutadi — kasr qism qirqiladi.
+        const value = Math.max(0, Math.min(255, Math.trunc(num(1))));
         this.assertPin(pin, "analogWrite");
         if (!PWM_PINS.has(pin)) {
           this.log("warning", `${pin}-pin PWM emas. PWM pinlar: 3, 5, 6, 9, 10, 11.`);
@@ -437,12 +573,31 @@ export class Simulator {
         return 0;
 
       case "Serial.print":
-      case "Serial.println": {
+      case "Serial.println":
+      case "Serial.write": {
         if (!this.serialOpen) {
           this.log("warning", "Serial.begin() chaqirilmagan — setup() da qo'shing.");
           this.serialOpen = true;
         }
-        this.writeSerial(this.toText(args[0] ?? ""), name === "Serial.println");
+        const first = args[0] ?? "";
+        let text: string;
+        if (name === "Serial.write" && typeof first === "number") {
+          // write() bayt kodini belgi sifatida yuboradi.
+          text = String.fromCharCode(Math.trunc(first) & 0xff);
+        } else if (name !== "Serial.write" && args.length >= 2 && typeof first === "number") {
+          const spec = this.toNumber(args[1]);
+          if (Number.isInteger(first)) {
+            // Butun son: ikkinchi argument sanoq bazasi — (255, HEX) → "FF".
+            const radix = spec === 16 || spec === 2 || spec === 8 ? spec : 10;
+            text = first.toString(radix).toUpperCase();
+          } else {
+            // Kasr son: ikkinchi argument kasr xonalari soni — (3.14159, 2) → "3.14".
+            text = first.toFixed(Math.max(0, Math.min(20, Math.trunc(spec))));
+          }
+        } else {
+          text = this.toText(first);
+        }
+        this.writeSerial(text, name === "Serial.println");
         return 0;
       }
 
@@ -475,7 +630,8 @@ export class Simulator {
       case "map": {
         const [v, inMin, inMax, outMin, outMax] = [num(0), num(1), num(2), num(3), num(4)];
         if (inMax === inMin) return outMin;
-        return ((v - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+        // Arduino map() `long` qaytaradi — natija butun songa qirqiladi.
+        return Math.trunc(((v - inMin) * (outMax - outMin)) / (inMax - inMin)) + outMin;
       }
 
       case "constrain":
@@ -527,17 +683,58 @@ export class Simulator {
           ? Math.floor(Math.random() * (num(1) - num(0))) + num(0)
           : Math.floor(Math.random() * num(0));
 
-      default:
-        if (name.endsWith(".trim")) {
-          const instance = name.split(".")[0]!;
-          const scope = this.findScope(instance);
-          if (!scope) throw new RuntimeError(`"${instance}" o'zgaruvchisi e'lon qilinmagan`);
-          const value = scope.get(instance);
-          const trimmed = (
-            typeof value === "boolean" ? String(value) : this.toText(value ?? "")
-          ).trim();
-          scope.set(instance, trimmed);
-          return trimmed;
+      default: {
+        // String metodlari: `s.length()`, `s.equals("x")`, `s.substring(1,3)`…
+        const dot = name.indexOf(".");
+        const instance = dot > 0 ? name.slice(0, dot) : "";
+        const method = dot > 0 ? name.slice(dot + 1) : "";
+        const scope = instance ? this.findScope(instance) : null;
+        if (scope && STRING_METHODS.has(method)) {
+          const raw = scope.get(instance);
+          const str = typeof raw === "string" ? raw : typeof raw === "number" ? String(raw) : "";
+          const arg = (i: number) => this.toText(args[i] ?? "");
+          switch (method) {
+            case "length":
+              return str.length;
+            case "trim": {
+              const t = str.trim();
+              scope.set(instance, t);
+              return t;
+            }
+            case "toInt": {
+              const m = str.trim().match(/^[+-]?\d+/);
+              return m ? Number(m[0]) : 0;
+            }
+            case "toFloat": {
+              const f = parseFloat(str.trim());
+              return Number.isFinite(f) ? f : 0;
+            }
+            case "equals":
+              return str === arg(0) ? 1 : 0;
+            case "equalsIgnoreCase":
+              return str.toLowerCase() === arg(0).toLowerCase() ? 1 : 0;
+            case "indexOf":
+              return str.indexOf(arg(0));
+            case "substring": {
+              const s = this.toNumber(args[0] ?? 0);
+              const e = args.length > 1 ? this.toNumber(args[1]!) : undefined;
+              return str.substring(s, e);
+            }
+            case "startsWith":
+              return str.startsWith(arg(0)) ? 1 : 0;
+            case "endsWith":
+              return str.endsWith(arg(0)) ? 1 : 0;
+            case "toUpperCase": {
+              const u = str.toUpperCase();
+              scope.set(instance, u);
+              return u;
+            }
+            case "toLowerCase": {
+              const l = str.toLowerCase();
+              scope.set(instance, l);
+              return l;
+            }
+          }
         }
         // `servo.attach(9)` / `servo.write(90)` kabi chaqiruvlar.
         if (name.endsWith(".attach")) {
@@ -559,6 +756,7 @@ export class Simulator {
           return 0;
         }
         throw new RuntimeError(`"${name}" funksiyasi qo'llab-quvvatlanmaydi`);
+      }
     }
   }
 
@@ -590,6 +788,17 @@ export class Simulator {
   /* ─────────────── Sxemadan o'qish ─────────────── */
 
   private readDigital(pin: number): number {
+    // Raqamli chiqishli sensor (PIR va h.k.) shu pinga ulanganmi.
+    for (const node of this.options.circuit.nodes) {
+      const spec = DIGITAL_OUTPUT_SENSORS[node.type];
+      if (!spec) continue;
+      if (boardPinFor(this.netlist, node.id, spec.out) !== pin) continue;
+      if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
+        continue;
+      }
+      return spec.read(node.settings, this.options.sensors[node.id]);
+    }
+
     // Pinga tugma ulangan bo'lsa — uning holatiga qaraymiz.
     for (const node of this.options.circuit.nodes) {
       if (node.type !== "push-button") continue;
@@ -626,20 +835,16 @@ export class Simulator {
   }
 
   private readAnalog(pin: number): number {
-    // Analog pinga ulangan potensiometr yoki LDR qiymatini qaytaramiz.
+    // Analog pinga ulangan sensor qiymatini registr orqali qaytaramiz.
     for (const node of this.options.circuit.nodes) {
-      if (node.type !== "potentiometer" && node.type !== "ldr") continue;
-      const signalPin = node.type === "potentiometer" ? "wiper" : "signal";
-      if (boardPinFor(this.netlist, node.id, signalPin) !== pin) continue;
+      const spec = ANALOG_SENSORS[node.type];
+      if (!spec) continue;
+      if (boardPinFor(this.netlist, node.id, spec.signal) !== pin) continue;
       if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
         return 0;
       }
-
-      const override = this.options.sensors[node.id];
-      if (override !== undefined) return Math.max(0, Math.min(1023, Math.round(override)));
-
-      const fallback = node.type === "potentiometer" ? node.settings.value : node.settings.light;
-      return typeof fallback === "number" ? fallback : 0;
+      const adc = spec.toAdc(node.settings, this.options.sensors[node.id]);
+      return Math.max(0, Math.min(1023, Math.round(adc)));
     }
     return 0;
   }
@@ -672,7 +877,7 @@ export class Simulator {
    * ikkalasi ham tokni bir xil cheklaydi, shuning uchun qo'shiladi.
    */
   private seriesOhms(nodeId: string): number {
-    const toSource = resistanceToSource(this.netlist, nodeId, "anode") ?? 0;
+    const toSource = resistanceToDrive(this.netlist, nodeId, "anode") ?? 0;
     const toGround = resistanceToGround(this.netlist, nodeId, "cathode") ?? 0;
     return toSource + toGround;
   }
@@ -847,6 +1052,20 @@ export class Simulator {
         continue;
       }
 
+      if (node.type === "dc-motor") {
+        // Ikki terminal orasidagi kuchlanish farqiga qarab aylanadi.
+        const v1 = this.voltageOfNet(netFor(this.netlist, node.id, "t1"));
+        const v2 = this.voltageOfNet(netFor(this.netlist, node.id, "t2"));
+        const diff = (v1 ?? 0) - (v2 ?? 0);
+        const speed = Math.max(0, Math.min(1, Math.abs(diff) / 5));
+        out[node.id] = {
+          active: speed > 0.02,
+          speed,
+          direction: diff >= 0 ? 1 : -1,
+        };
+        continue;
+      }
+
       if (node.type === "multimeter") {
         out[node.id] = { voltage: this.measuredVoltage(node.id) };
         continue;
@@ -866,9 +1085,28 @@ export class Simulator {
     yield { type: "op" };
 
     switch (stmt.kind) {
-      case "declare":
-        this.currentScope().set(stmt.name, stmt.value ? this.evaluate(stmt.value) : 0);
+      case "declare": {
+        const value = stmt.value ? this.evaluate(stmt.value) : 0;
+        this.currentScope().set(stmt.name, this.coerceType(stmt.valueType, value));
         return;
+      }
+
+      case "declareArray": {
+        const elements = stmt.elements ? stmt.elements.map((e) => this.evaluate(e)) : [];
+        let size = elements.length;
+        if (stmt.sizeExpr) {
+          const declared = Math.trunc(this.toNumber(this.evaluate(stmt.sizeExpr)));
+          if (declared > size) size = declared;
+        }
+        if (size < 0) size = 0;
+        if (size > MAX_ARRAY_LENGTH) {
+          throw new RuntimeError(`Massiv juda katta (${size}) — eng ko'pi ${MAX_ARRAY_LENGTH}.`);
+        }
+        const arr: (number | string)[] = [];
+        for (let i = 0; i < size; i++) arr.push(elements[i] ?? 0);
+        this.arrays.set(stmt.name, arr);
+        return;
+      }
 
       case "assign": {
         const scope = this.findScope(stmt.name);
@@ -876,6 +1114,17 @@ export class Simulator {
           throw new RuntimeError(`"${stmt.name}" o'zgaruvchisi e'lon qilinmagan`);
         }
         scope.set(stmt.name, this.evaluate(stmt.value));
+        return;
+      }
+
+      case "assignIndex": {
+        const arr = this.arrays.get(stmt.name);
+        if (!arr) throw new RuntimeError(`"${stmt.name}" massivi e'lon qilinmagan`);
+        const idx = Math.trunc(this.toNumber(this.evaluate(stmt.index)));
+        if (idx < 0 || idx >= arr.length) {
+          throw new RuntimeError(`"${stmt.name}" massivida ${idx}-indeks chegaradan tashqarida`);
+        }
+        arr[idx] = this.evaluate(stmt.value);
         return;
       }
 
@@ -965,6 +1214,29 @@ export class Simulator {
         }
         return;
       }
+
+      case "switch": {
+        const value = this.evaluate(stmt.discriminant);
+        const matches = (test: Expression): boolean => {
+          const cv = this.evaluate(test);
+          return typeof value === "string" || typeof cv === "string"
+            ? this.toText(value) === this.toText(cv)
+            : this.toNumber(value) === this.toNumber(cv);
+        };
+        // Mos keladigan `case`, aks holda `default` dan boshlaymiz.
+        let start = stmt.cases.findIndex((c) => c.test !== null && matches(c.test));
+        if (start === -1) start = stmt.cases.findIndex((c) => c.test === null);
+        if (start === -1) return;
+        try {
+          // C'dagidek `break` gacha keyingi `case` larga ham "tushib" o'tadi.
+          for (let i = start; i < stmt.cases.length; i++) {
+            yield* this.execBlock(stmt.cases[i]!.body);
+          }
+        } catch (err) {
+          if (!(err instanceof BreakSignal)) throw err;
+        }
+        return;
+      }
     }
   }
 
@@ -987,8 +1259,10 @@ export class Simulator {
         if (!(err instanceof ReturnSignal)) throw err;
       }
       // Har `loop()` oxirida boshqaruvni qaytaramiz — bo'sh loop ham
-      // brauzerni qotirmasin.
-      yield { type: "delay", ms: 0 };
+      // brauzerni qotirmasin. Kichik vaqt o'tkazamiz: delay'siz loop ham
+      // virtual soatni suradi, shunda soat kuzatuvchi himoya to'g'ri kodni
+      // noto'g'ri "cheksiz sikl" deb ayblamaydi.
+      yield { type: "delay", ms: LOOP_OVERHEAD_MS };
     }
   }
 
@@ -1008,6 +1282,7 @@ export class Simulator {
     this.tonePins.clear();
     this.servoPins.clear();
     this.servoAngles.clear();
+    this.arrays.clear();
     this.callDepth = 0;
     this.lastLedOn = null;
     this.observed.pinsDrivenHigh = [];

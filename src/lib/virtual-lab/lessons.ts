@@ -18,6 +18,7 @@ function flatten(stmts: Statement[]): Statement[] {
     out.push(s);
     if (s.kind === "if") out.push(...flatten(s.then), ...flatten(s.else));
     if (s.kind === "while" || s.kind === "for") out.push(...flatten(s.body));
+    if (s.kind === "switch") for (const c of s.cases) out.push(...flatten(c.body));
   }
   return out;
 }

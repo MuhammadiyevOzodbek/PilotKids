@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { userSettings } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireRole } from "@/lib/auth/session";
-import { enforceLimit } from "@/lib/rate-limit";
+import { limitGuard } from "@/lib/rate-limit";
 import { firstError } from "@/lib/validation";
 
 /** Kunlik ekran vaqti chegarasi — 15 daqiqadan 4 soatgacha. */
@@ -30,7 +30,8 @@ const schema = z.object({
 export async function setDailyLimit(minutes: number, password: string) {
   const user = await requireRole("parent");
   // Parolni taxmin qilishga urinishni cheklaymiz.
-  await enforceLimit("action", `parent:${user.id}`);
+  const limited = await limitGuard("action", `parent:${user.id}`);
+  if (limited) return limited;
 
   const parsed = schema.safeParse({ minutes, password });
   if (!parsed.success) return { ok: false as const, error: firstError(parsed.error) };

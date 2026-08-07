@@ -447,11 +447,16 @@ export async function moveLesson(
   const b = rows[target]!;
 
   // `unique(courseId, sortOrder)` bor, shuning uchun to'g'ridan-to'g'ri
-  // almashtirib bo'lmaydi — vaqtincha bo'sh o'ringa chiqaramiz.
+  // almashtirib bo'lmaydi — vaqtincha bo'sh o'ringa chiqaramiz. Uch qadam bitta
+  // atomik `batch`da (neon-http interaktiv tranzaksiyani qo'llamaydi, lekin
+  // batch bitta HTTP tranzaksiyada bajariladi): o'rtada uzilib qolsa manfiy
+  // `sortOrder` qolib ketmasin.
   const temp = -Date.now();
-  await db.update(lesson).set({ sortOrder: temp }).where(eq(lesson.id, a.id));
-  await db.update(lesson).set({ sortOrder: a.sortOrder }).where(eq(lesson.id, b.id));
-  await db.update(lesson).set({ sortOrder: b.sortOrder }).where(eq(lesson.id, a.id));
+  await db.batch([
+    db.update(lesson).set({ sortOrder: temp }).where(eq(lesson.id, a.id)),
+    db.update(lesson).set({ sortOrder: a.sortOrder }).where(eq(lesson.id, b.id)),
+    db.update(lesson).set({ sortOrder: b.sortOrder }).where(eq(lesson.id, a.id)),
+  ]);
 
   revalidatePath(`/admin/courses/${parsedCourseId.data}`);
   return ok;

@@ -23,7 +23,8 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const percent = Math.min(100, Math.round((usedToday / limit) * 100));
+  // `limit` 0 bo'lsa nolga bo'lish `NaN` bermasin.
+  const percent = limit > 0 ? Math.min(100, Math.round((usedToday / limit) * 100)) : 0;
   const over = usedToday > limit;
 
   function save(e: React.FormEvent) {

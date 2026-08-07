@@ -2693,6 +2693,599 @@ describe("Rezistor qarshiligi", () => {
   });
 });
 
+/* ─────────────────── Audit tuzatishlari (regressiya) ─────────────────── */
+
+describe("audit tuzatishlari", () => {
+  /** blinkCircuit'ni berilgan rezistor bilan qaytaradi. */
+  function circuitOhms(ohms: number): Circuit {
+    const circuit = blinkCircuit();
+    const r = circuit.nodes.find((n) => n.id === "r1");
+    if (r) r.settings = { ohms };
+    return circuit;
+  }
+
+  /** D13 HIGH bo'lganda Arduino boshqargan LED yorqinligi. */
+  function drivenBrightness(ohms: number): number {
+    const parsed = parseSketch(
+      `void setup(){ pinMode(13, OUTPUT); digitalWrite(13, HIGH); } void loop(){ delay(100); }`,
+    );
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: circuitOhms(ohms), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    return sim.getRuntimeState().led1?.brightness ?? 0;
+  }
+
+  it("Arduino boshqargan LEDda rezistor qiymati yorqinlikka ta'sir qiladi", () => {
+    // Ilgari 220 Ω ham, 10 kΩ ham bir xil to'liq yorqinlik berardi — rezistor
+    // darsining butun mazmuni yo'qolardi.
+    expect(drivenBrightness(220)).toBe(1);
+    const dim = drivenBrightness(10000);
+    expect(dim).toBeGreaterThan(0);
+    expect(dim).toBeLessThan(0.05);
+    expect(drivenBrightness(1000)).toBeLessThan(drivenBrightness(220));
+  });
+
+  it("delay'siz loop cheksiz sikl deb noto'g'ri o'ldirilmaydi", () => {
+    const parsed = parseSketch(
+      `void setup(){ pinMode(13, OUTPUT); } void loop(){ digitalWrite(13, HIGH); }`,
+    );
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    for (let i = 0; i < 20 && !sim.fatal; i++) sim.advance(16);
+    expect(sim.fatal).toBeNull();
+    expect(sim.getRuntimeState().led1?.brightness).toBe(1);
+    // Virtual soat delay'siz loop'da ham oldinga siljiydi.
+    expect(sim.time).toBeGreaterThan(0);
+  });
+
+  it("delay'siz millis() asosidagi bloklanmaydigan miltillash ishlaydi", () => {
+    const parsed = parseSketch(`
+      unsigned long oxirgi = 0;
+      int holat = 0;
+      void setup(){ pinMode(13, OUTPUT); }
+      void loop(){
+        if (millis() - oxirgi >= 200) {
+          oxirgi = millis();
+          holat = holat == 0 ? 1 : 0;
+          digitalWrite(13, holat);
+        }
+      }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    for (let i = 0; i < 200 && !sim.fatal; i++) sim.advance(16);
+    expect(sim.fatal).toBeNull();
+    // Bir necha marta yonib-o'chgan bo'lishi kerak.
+    expect(sim.observed.ledToggles).toBeGreaterThanOrEqual(2);
+  });
+
+  it("butun sonli bo'lish C kabi qirqiladi", () => {
+    const parsed = parseSketch(`
+      void setup(){
+        Serial.begin(9600);
+        Serial.println(7 / 2);
+        Serial.println(9 / 2);
+        Serial.println(7 / 2.5);
+      }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(texts).toContain("3"); // 7/2 → 3, not 3.5
+    expect(texts).toContain("4"); // 9/2 → 4
+    expect(texts).toContain("2.8"); // kasr bo'luvchi bilan haqiqiy bo'lish
+  });
+
+  it("map() butun son qaytaradi", () => {
+    const parsed = parseSketch(`
+      void setup(){ Serial.begin(9600); Serial.println(map(512, 0, 1023, 0, 255)); }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "127")).toBe(true);
+  });
+
+  it("uchlik operator (?:) ni qo'llab-quvvatlaydi", () => {
+    const parsed = parseSketch(`
+      void setup(){ Serial.begin(9600); Serial.println(1 ? 10 : 20); Serial.println(0 ? 10 : 20); }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(texts).toContain("10");
+    expect(texts).toContain("20");
+  });
+
+  it("sonli qo'shimchalar (L, UL, f) qabul qilinadi", () => {
+    expect(parseSketch(`void setup(){ delay(1000L); } void loop(){}`).ok).toBe(true);
+    expect(parseSketch(`unsigned long t = 60000UL; void setup(){} void loop(){}`).ok).toBe(true);
+    expect(parseSketch(`void setup(){ float k = 1.5f; } void loop(){}`).ok).toBe(true);
+  });
+
+  it("#define konstantaga (A0) ishora qilsa yechiladi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "pot", type: "potentiometer", x: 300, y: 0, rotation: 0, settings: { value: 512 } },
+      ],
+      wires: [
+        {
+          id: "w0",
+          from: { nodeId: "pot", pinId: "vcc" },
+          to: { nodeId: "uno", pinId: "5V" },
+          color: "red",
+        },
+        {
+          id: "wg",
+          from: { nodeId: "pot", pinId: "gnd" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+        {
+          id: "w1",
+          from: { nodeId: "pot", pinId: "wiper" },
+          to: { nodeId: "uno", pinId: "A0" },
+          color: "blue",
+        },
+      ],
+    };
+    const parsed = parseSketch(`
+      #define SENSOR A0
+      void setup(){ Serial.begin(9600); Serial.println(analogRead(SENSOR)); }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: { pot: 750 } });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "750")).toBe(true);
+  });
+
+  it("#define qavs ichidagi sonni (13) o'qiydi", () => {
+    const parsed = parseSketch(`
+      #define LED_PIN (13)
+      void setup(){ pinMode(LED_PIN, OUTPUT); digitalWrite(LED_PIN, HIGH); }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    expect(sim.fatal).toBeNull();
+    expect(sim.getRuntimeState().led1?.brightness).toBe(1);
+  });
+
+  it("noto'g'ri analog pin uchun aniq xato beradi", () => {
+    const parsed = parseSketch(`void setup(){ analogRead(999); } void loop(){ delay(100); }`);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    expect(sim.fatal).toContain("noto'g'ri pin");
+  });
+
+  it("qochirish belgisi \\r matnda saqlanadi", () => {
+    const code =
+      'void setup(){ Serial.begin(9600); Serial.print("A\\rB"); } void loop(){ delay(100); }';
+    const parsed = parseSketch(code);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "A\rB")).toBe(true);
+  });
+
+  it("batareya + Arduino sxemasida soxta 3V3 xatosi bo'lmaydi", () => {
+    // Batareya plataga UMUMAN ulanmagan — yonida turibdi.
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        {
+          id: "bat",
+          type: "battery",
+          x: 0,
+          y: 300,
+          rotation: 0,
+          settings: { voltage: 9, enabled: true, polarity: "normal" },
+        },
+        { id: "r1", type: "resistor", x: 200, y: 300, rotation: 0, settings: { ohms: 470 } },
+        { id: "led", type: "led", x: 400, y: 300, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "bat", pinId: "plus" },
+          to: { nodeId: "r1", pinId: "a" },
+          color: "red",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "r1", pinId: "b" },
+          to: { nodeId: "led", pinId: "anode" },
+          color: "blue",
+        },
+        {
+          id: "w3",
+          from: { nodeId: "led", pinId: "cathode" },
+          to: { nodeId: "bat", pinId: "minus" },
+          color: "black",
+        },
+      ],
+    };
+    const issues = validateCircuit(circuit);
+    expect(issues.some((i) => i.message.includes("3V3"))).toBe(false);
+    expect(issues.some((i) => i.severity === "error")).toBe(false);
+  });
+
+  it("batareya haqiqatan 3V3 ga ulansa xato beradi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        {
+          id: "bat",
+          type: "battery",
+          x: 0,
+          y: 300,
+          rotation: 0,
+          settings: { voltage: 9, enabled: true, polarity: "normal" },
+        },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "bat", pinId: "plus" },
+          to: { nodeId: "uno", pinId: "3V3" },
+          color: "red",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "bat", pinId: "minus" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+      ],
+    };
+    const issues = validateCircuit(circuit);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("3V3"))).toBe(true);
+  });
+
+  it("rezistor katod tomonida bo'lsa ham 'rezistor yo'q' ogohlantirishi bermaydi", () => {
+    // D13 → anod; katod → rezistor → GND (rezistor katod tomonida).
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "led", type: "led", x: 300, y: 0, rotation: 0, settings: { color: "red" } },
+        { id: "r1", type: "resistor", x: 450, y: 0, rotation: 0, settings: { ohms: 220 } },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "uno", pinId: "D13" },
+          to: { nodeId: "led", pinId: "anode" },
+          color: "blue",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "led", pinId: "cathode" },
+          to: { nodeId: "r1", pinId: "a" },
+          color: "blue",
+        },
+        {
+          id: "w3",
+          from: { nodeId: "r1", pinId: "b" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+      ],
+    };
+    const issues = validateCircuit(circuit);
+    expect(issues.some((i) => i.message.includes("rezistor ulanmagan"))).toBe(false);
+  });
+
+  it("massivlarni e'lon qiladi, o'qiydi va yozadi", () => {
+    const parsed = parseSketch(`
+      int leds[] = {13, 12, 11};
+      int buf[3];
+      void setup(){
+        Serial.begin(9600);
+        for (int i = 0; i < 3; i++) { pinMode(leds[i], OUTPUT); }
+        Serial.println(leds[0]);
+        Serial.println(leds[2]);
+        buf[0] = 5;
+        buf[1] = buf[0] * 2;
+        Serial.println(buf[1]);
+      }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error(parsed.ok ? "" : parsed.errors[0]?.message);
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(sim.fatal).toBeNull();
+    expect(texts).toContain("13");
+    expect(texts).toContain("11");
+    expect(texts).toContain("10");
+  });
+
+  it("massiv chegarasidan tashqari indeks uchun aniq xato beradi", () => {
+    const parsed = parseSketch(`
+      int a[2];
+      void setup(){ a[5] = 1; }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    expect(sim.fatal).toContain("chegaradan tashqarida");
+  });
+
+  it("Serial.print sanoq tizimi (HEX/BIN) va Serial.write bilan ishlaydi", () => {
+    const parsed = parseSketch(`
+      void setup(){
+        Serial.begin(9600);
+        Serial.println(255, HEX);
+        Serial.println(5, BIN);
+        Serial.println(3.14159, 2);
+        Serial.write(65);
+        Serial.println("");
+      }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(texts).toContain("FF");
+    expect(texts).toContain("101");
+    expect(texts).toContain("3.14");
+    expect(texts.some((t) => t.includes("A"))).toBe(true);
+  });
+
+  it("switch/case ni fallthrough bilan qo'llab-quvvatlaydi", () => {
+    const parsed = parseSketch(`
+      void setup(){
+        Serial.begin(9600);
+        int mode = 2;
+        switch (mode) {
+          case 1: Serial.println("bir"); break;
+          case 2: Serial.println("ikki"); break;
+          case 3: Serial.println("uch"); break;
+          default: Serial.println("boshqa");
+        }
+        int x = 1;
+        switch (x) {
+          case 1:
+          case 2:
+            Serial.println("bir-yoki-ikki");
+            break;
+          default:
+            Serial.println("yoq");
+        }
+      }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error(parsed.ok ? "" : parsed.errors[0]?.message);
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(sim.fatal).toBeNull();
+    expect(texts).toContain("ikki");
+    expect(texts).toContain("bir-yoki-ikki");
+    expect(texts).not.toContain("bir");
+    expect(texts).not.toContain("uch");
+    expect(texts).not.toContain("boshqa");
+    expect(texts).not.toContain("yoq");
+  });
+
+  it("String metodlarini qo'llab-quvvatlaydi", () => {
+    const parsed = parseSketch(`
+      void setup(){
+        Serial.begin(9600);
+        String s = "  Salom  ";
+        s.trim();
+        Serial.println(s.length());
+        Serial.println(s.equals("Salom"));
+        String n = "42";
+        Serial.println(n.toInt() + 8);
+      }
+      void loop(){ delay(100); }
+    `);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit: blinkCircuit(), sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const texts = sim.getLogs().map((l) => l.text);
+    expect(texts).toContain("5");
+    expect(texts).toContain("1");
+    expect(texts).toContain("50");
+  });
+});
+
+/* ─────────────────── Yangi komponentlar ─────────────────── */
+
+describe("yangi komponentlar", () => {
+  function analogSensorCircuit(type: string): Circuit {
+    return {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "s", type, x: 300, y: 0, rotation: 0, settings: {} },
+      ],
+      wires: [
+        {
+          id: "w0",
+          from: { nodeId: "s", pinId: "vcc" },
+          to: { nodeId: "uno", pinId: "5V" },
+          color: "red",
+        },
+        {
+          id: "wg",
+          from: { nodeId: "s", pinId: "gnd" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+        {
+          id: "w1",
+          from: { nodeId: "s", pinId: "signal" },
+          to: { nodeId: "uno", pinId: "A0" },
+          color: "blue",
+        },
+      ],
+    };
+  }
+
+  const readA0 = `
+    void setup(){ Serial.begin(9600); Serial.println(analogRead(A0)); }
+    void loop(){ delay(100); }
+  `;
+
+  it("TMP36 haroratni analog qiymatga aylantiradi", () => {
+    const parsed = parseSketch(readA0);
+    if (!parsed.ok) throw new Error("parse xato");
+    // 25°C → (10·25+500)/5000·1023 ≈ 153
+    const sim = new Simulator({
+      circuit: analogSensorCircuit("tmp36"),
+      sketch: parsed.sketch,
+      sensors: { s: 25 },
+    });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "153")).toBe(true);
+  });
+
+  it("Tuproq namligi sensori foizni analog qiymatga aylantiradi", () => {
+    const parsed = parseSketch(readA0);
+    if (!parsed.ok) throw new Error("parse xato");
+    // 60% → 60/100·1023 ≈ 614
+    const sim = new Simulator({
+      circuit: analogSensorCircuit("soil-moisture"),
+      sketch: parsed.sketch,
+      sensors: { s: 60 },
+    });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "614")).toBe(true);
+  });
+
+  it("quvvatlanmagan analog sensor 0 qaytaradi", () => {
+    const circuit = analogSensorCircuit("tmp36");
+    circuit.wires = circuit.wires.filter((w) => w.id === "w1"); // faqat signal, vcc/gnd yo'q
+    const parsed = parseSketch(readA0);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: { s: 25 } });
+    sim.start();
+    sim.advance(20);
+    expect(sim.getLogs().some((l) => l.text === "0")).toBe(true);
+  });
+
+  it("PIR harakat sensori digitalRead orqali holatini beradi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "p", type: "pir", x: 300, y: 0, rotation: 0, settings: {} },
+      ],
+      wires: [
+        {
+          id: "w0",
+          from: { nodeId: "p", pinId: "vcc" },
+          to: { nodeId: "uno", pinId: "5V" },
+          color: "red",
+        },
+        {
+          id: "wg",
+          from: { nodeId: "p", pinId: "gnd" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+        {
+          id: "w1",
+          from: { nodeId: "p", pinId: "out" },
+          to: { nodeId: "uno", pinId: "D2" },
+          color: "blue",
+        },
+      ],
+    };
+    const code = `
+      void setup(){ Serial.begin(9600); pinMode(2, INPUT); Serial.println(digitalRead(2)); }
+      void loop(){ delay(100); }
+    `;
+    const on = parseSketch(code);
+    if (!on.ok) throw new Error("parse xato");
+    const simOn = new Simulator({ circuit, sketch: on.sketch, sensors: { p: 1 } });
+    simOn.start();
+    simOn.advance(20);
+    expect(simOn.getLogs().some((l) => l.text === "1")).toBe(true);
+
+    const simOff = new Simulator({ circuit, sketch: on.sketch, sensors: { p: 0 } });
+    simOff.start();
+    simOff.advance(20);
+    expect(simOff.getLogs().some((l) => l.text === "0")).toBe(true);
+  });
+
+  it("DC motor haydalganda aylanadi va driver ogohlantirishi chiqadi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "mot", type: "dc-motor", x: 300, y: 0, rotation: 0, settings: {} },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "uno", pinId: "D9" },
+          to: { nodeId: "mot", pinId: "t1" },
+          color: "red",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "mot", pinId: "t2" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+      ],
+    };
+    const code = `
+      void setup(){ pinMode(9, OUTPUT); digitalWrite(9, HIGH); }
+      void loop(){ delay(100); }
+    `;
+    const parsed = parseSketch(code);
+    if (!parsed.ok) throw new Error("parse xato");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const motor = sim.getRuntimeState().mot;
+    expect(motor?.active).toBe(true);
+    expect(motor?.speed).toBeGreaterThan(0.9);
+
+    const issues = validateCircuit(circuit);
+    expect(
+      issues.some(
+        (i) => i.message.includes("motor drayveri") || i.message.includes("Arduino piniga ulangan"),
+      ),
+    ).toBe(true);
+  });
+
+  it("barcha yangi komponentlar katalogda va simvol tizimida bor", () => {
+    for (const type of ["tmp36", "soil-moisture", "pir", "dc-motor"]) {
+      expect(CATALOG.some((c) => c.type === type)).toBe(true);
+    }
+  });
+});
+
 describe("canvas geometriyasi", () => {
   it("aylantirilgan komponent pin nuqtasini markaz atrofida hisoblaydi", () => {
     const led = CATALOG.find((c) => c.type === "led");

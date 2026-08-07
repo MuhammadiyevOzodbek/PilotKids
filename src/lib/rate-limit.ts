@@ -114,6 +114,21 @@ export async function enforceLimit(kind: LimitKind, identifier: string) {
 }
 
 /**
+ * Limitni tekshiradi va oshib ketilgan bo'lsa foydalanuvchiga ko'rsatiladigan
+ * `{ ok: false, error }` qaytaradi, aks holda `null`.
+ *
+ * `enforceLimit`dan farqi — xato TASHLAMAYDI. Umumiy `try/catch` bilan
+ * o'ralmagan action'lar uchun qulay: `const l = await limitGuard(...); if (l) return l;`
+ */
+export async function limitGuard(
+  kind: LimitKind,
+  identifier: string,
+): Promise<{ ok: false; error: string } | null> {
+  if (await checkLimit(kind, identifier)) return null;
+  return { ok: false, error: new RateLimitError().message };
+}
+
+/**
  * Route handler uchun IP bo'yicha cheklov. Limitdan oshsa 429 `Response`
  * qaytaradi, aks holda `null` — chaqiruvchi shuni tekshirib davom etadi.
  */

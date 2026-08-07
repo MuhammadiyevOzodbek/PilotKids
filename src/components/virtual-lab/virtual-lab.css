@@ -27,6 +27,18 @@
 }
 
 /*
+ * To'liq ekran rejimi: ish stoli butun ekranni egallaydi. Fon aniq
+ * belgilanadi — brauzer to'liq ekran elementiga sukut bo'yicha qora fon
+ * beradi, biz uni ilova foniga qaytaramiz.
+ */
+.vlab-root:fullscreen,
+.vlab-root:-webkit-full-screen {
+  height: 100dvh;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/*
  * Laboratoriya ilova qobig'i (`app-main`) ichida ochiladi, lekin unga
  * maksimal joy kerak. Shuning uchun `app-main` ning ichki bo'shlig'ini
  * manfiy chekka bilan bekor qilamiz.

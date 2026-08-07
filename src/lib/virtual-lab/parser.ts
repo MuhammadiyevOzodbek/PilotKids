@@ -72,10 +72,14 @@ const OPERATORS = [
   ")",
   "{",
   "}",
+  "[",
+  "]",
   ",",
   ";",
   ".",
   "#",
+  "?",
+  ":",
 ];
 
 class Tokenizer {
@@ -134,6 +138,27 @@ class Tokenizer {
     }
   }
 
+  /** Sonli qo'shimchalar: `1000L`, `60000UL`, `1.5f` — Arduino'da ruxsat, e'tiborsiz. */
+  private skipNumberSuffix() {
+    while (this.pos < this.src.length && /[uUlLfF]/.test(this.src[this.pos]!)) this.advance();
+  }
+
+  /** `\n`, `\t`, `\r`, `\0`, `\\`, `\"`, `\'` kabi qochirish belgilari. */
+  private escapeChar(next: string | undefined): string {
+    switch (next) {
+      case "n":
+        return "\n";
+      case "t":
+        return "\t";
+      case "r":
+        return "\r";
+      case "0":
+        return "\0";
+      default:
+        return next ?? "";
+    }
+  }
+
   tokenize(): Token[] {
     const out: Token[] = [];
 
@@ -155,6 +180,7 @@ class Tokenizer {
             this.advance();
           }
           if (!raw) this.error("Noto'g'ri hex son", "`0x` dan keyin hex raqam yozing.");
+          this.skipNumberSuffix();
           out.push({
             type: "number",
             value: String(parseInt(raw.replace(/_/g, ""), 16)),
@@ -172,6 +198,7 @@ class Tokenizer {
             this.advance();
           }
           if (!raw) this.error("Noto'g'ri binary son", "`0b` dan keyin 0 yoki 1 yozing.");
+          this.skipNumberSuffix();
           out.push({
             type: "number",
             value: String(parseInt(raw.replace(/_/g, ""), 2)),
@@ -186,6 +213,7 @@ class Tokenizer {
           raw += this.src[this.pos];
           this.advance();
         }
+        this.skipNumberSuffix();
         out.push({ type: "number", value: raw.replace(/_/g, ""), line, column });
         continue;
       }
@@ -200,8 +228,7 @@ class Tokenizer {
             this.error("Qo'shtirnoq yopilmagan", 'Matnni `"` bilan yoping.');
           }
           if (c === "\\") {
-            const next = this.src[this.pos + 1];
-            raw += next === "n" ? "\n" : next === "t" ? "\t" : (next ?? "");
+            raw += this.escapeChar(this.src[this.pos + 1]);
             this.advance(2);
             continue;
           }
@@ -226,8 +253,7 @@ class Tokenizer {
 
         let value: string;
         if (c === "\\") {
-          const next = this.src[this.pos + 1];
-          value = next === "n" ? "\n" : next === "t" ? "\t" : (next ?? "");
+          value = this.escapeChar(this.src[this.pos + 1]);
           this.advance(2);
         } else {
           value = c;
@@ -413,6 +439,14 @@ class Parser {
         return { kind: "call", callee: name, args };
       }
 
+      // Massiv indeksi: `leds[i]`.
+      if (this.at("[")) {
+        this.next();
+        const index = this.parseExpression();
+        this.expect("]", "Massiv indeksini `]` bilan yoping.");
+        return { kind: "index", name, index };
+      }
+
       return { kind: "identifier", name };
     }
 
@@ -435,7 +469,16 @@ class Parser {
   }
 
   private parseExpression(): Expression {
-    return this.parseBinary(1);
+    const test = this.parseBinary(1);
+    // Uchlik operator: `shart ? a : b` (o'ngga bog'lanadi).
+    if (this.at("?")) {
+      this.next();
+      const then = this.parseExpression();
+      this.expect(":", "Uchlik operatorda `?` dan keyin `:` qo'ying — `shart ? a : b`.");
+      const otherwise = this.parseExpression();
+      return { kind: "conditional", test, then, else: otherwise };
+    }
+    return test;
   }
 
   /* ── Buyruqlar ── */
@@ -502,6 +545,42 @@ class Parser {
       return { kind: "while", test, body: this.parseBody(), line };
     }
 
+    if (t.value === "switch") {
+      this.next();
+      this.expect("(", "`switch` dan keyin `(` qo'ying.");
+      const discriminant = this.parseExpression();
+      this.expect(")", "`switch` ifodasini `)` bilan yoping.");
+      this.expect("{", "`switch` bloki `{` bilan boshlanadi.");
+      const cases: { test: Expression | null; body: Statement[] }[] = [];
+      while (!this.at("}")) {
+        if (this.peek().type === "eof") {
+          this.fail(this.peek(), "`switch` bloki yopilmagan", "Ochilgan `{` uchun `}` qo'ying.");
+        }
+        if (this.at("case")) {
+          this.next();
+          const test = this.parseExpression();
+          this.expect(":", "`case` qiymatidan keyin `:` qo'ying.");
+          cases.push({ test, body: [] });
+        } else if (this.at("default")) {
+          this.next();
+          this.expect(":", "`default` dan keyin `:` qo'ying.");
+          cases.push({ test: null, body: [] });
+        } else {
+          const current = cases[cases.length - 1];
+          if (!current) {
+            this.fail(
+              this.peek(),
+              "`case` yoki `default` kutilgan",
+              "`switch` ichi `case` bilan boshlanadi.",
+            );
+          }
+          current.body.push(...this.asStatements(this.parseStatement()));
+        }
+      }
+      this.expect("}", "`switch` blokini `}` bilan yoping.");
+      return { kind: "switch", discriminant, cases, line };
+    }
+
     if (t.value === "for") {
       this.next();
       this.expect("(", "`for` dan keyin `(` qo'ying.");
@@ -552,6 +631,22 @@ class Parser {
       };
     }
 
+    // Massiv katakchasiga qiymat berish: `leds[i] = HIGH`.
+    if (this.peek().type === "identifier" && this.peek(1).value === "[") {
+      const save = this.i;
+      const name = this.next().value;
+      this.next(); // [
+      const index = this.parseExpression();
+      this.expect("]", "Massiv indeksini `]` bilan yoping.");
+      if (this.at("=")) {
+        this.next();
+        return { kind: "assignIndex", name, index, value: this.parseExpression(), line };
+      }
+      // Qiymat berish emas — indeks ifodasi (masalan `digitalWrite(leds[i], HIGH)`).
+      // Orqaga qaytamiz va umumiy ifoda sifatida o'qiymiz.
+      this.i = save;
+    }
+
     // E'lon: [const] <tur> <nom> [= ifoda]
     let offset = 0;
     if (this.peek(offset).value === "const") offset += 1;
@@ -571,6 +666,32 @@ class Parser {
         const name = this.next();
         if (name.type !== "identifier") {
           this.fail(name, "O'zgaruvchi nomi kutilgan", "Masalan: `int count = 0;`.");
+        }
+
+        // Massiv e'loni: `int leds[] = {2, 3, 4};` yoki `int buf[8];`.
+        if (this.at("[")) {
+          this.next();
+          const sizeExpr = this.at("]") ? null : this.parseExpression();
+          this.expect("]", "Massiv o'lchamini `]` bilan yoping.");
+          let elements: Expression[] | null = null;
+          if (this.at("=")) {
+            this.next();
+            this.expect("{", "Massiv qiymatlarini `{` bilan boshlang.");
+            elements = [];
+            if (!this.at("}")) {
+              for (;;) {
+                elements.push(this.parseExpression());
+                if (this.at(",")) {
+                  this.next();
+                  if (this.at("}")) break; // oxirgi vergul
+                  continue;
+                }
+                break;
+              }
+            }
+            this.expect("}", "Massiv qiymatlarini `}` bilan yoping.");
+          }
+          return { kind: "declareArray", name: name.value, valueType, elements, sizeExpr, line };
         }
 
         let value: Expression | null = null;
@@ -660,7 +781,13 @@ class Parser {
         const directive = this.next();
         if (directive.value === "define") {
           const name = this.next();
-          const value = this.next();
+          let value = this.next();
+          // `#define LED_PIN (13)` — qavs ichidagi bitta qiymatni ochamiz.
+          if (value.value === "(") {
+            const inner = this.next();
+            if (this.peek().value === ")") this.next();
+            value = inner;
+          }
           if (name.type === "identifier") {
             if (value.type === "number") defines[name.value] = Number(value.value);
             else if (value.type === "string") defines[name.value] = value.value;

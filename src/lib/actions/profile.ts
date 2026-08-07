@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { enforceLimit } from "@/lib/rate-limit";
+import { limitGuard } from "@/lib/rate-limit";
 import { nameSchema, ageSchema, firstError } from "@/lib/validation";
 import { z } from "zod";
 
@@ -20,7 +20,8 @@ const profileSchema = z.object({
  */
 export async function updateProfile(input: { name: string; age: number }) {
   const u = await requireUser();
-  await enforceLimit("action", u.id);
+  const limited = await limitGuard("action", u.id);
+  if (limited) return limited;
 
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: firstError(parsed.error) };

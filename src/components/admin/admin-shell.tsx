@@ -9,7 +9,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/admin", icon: "monitoring", label: "Umumiy" },
-  { href: "/admin/users", icon: "group", label: "Foydalanuvchilar" },
+  // Foydalanuvchilar bo'limi PII ko'rsatadi — faqat superadmin uchun.
+  { href: "/admin/users", icon: "group", label: "Foydalanuvchilar", superadminOnly: true },
   { href: "/admin/courses", icon: "school", label: "Kurslar" },
   { href: "/admin/quiz", icon: "quiz", label: "Testlar" },
 ];
@@ -101,7 +102,9 @@ export function AdminShell({
         </Link>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {NAV.map((n) => {
+          {NAV.filter(
+            (n) => !("superadminOnly" in n && n.superadminOnly) || role === "superadmin",
+          ).map((n) => {
             const active = isActive(n.href);
             return (
               <Link

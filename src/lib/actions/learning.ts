@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, count, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   user,
@@ -162,6 +162,10 @@ async function recalcCourseProgress(userId: string, courseId: string) {
       message: `"${c?.title ?? "Kurs"}" kursini tamomladingiz! Sertifikatingiz tayyor 🏆`,
     });
   } else {
+    // Yorliq har darsda yangilanadi. Ilgari `state = "locked"` filtri faqat
+    // BIRINCHI yangilanishga mos kelib, foiz "20%"da muzlab qolardi. `ne("done")`
+    // — tugallanmagan (locked/progress) sertifikat yorlig'ini har safar yangilaydi,
+    // "done" holatini esa tegmaydi.
     await db
       .update(certificate)
       .set({ state: "progress", issuedLabel: `${percent}% tugallandi` })
@@ -169,7 +173,7 @@ async function recalcCourseProgress(userId: string, courseId: string) {
         and(
           eq(certificate.userId, userId),
           eq(certificate.courseId, courseId),
-          eq(certificate.state, "locked"),
+          ne(certificate.state, "done"),
         ),
       );
   }

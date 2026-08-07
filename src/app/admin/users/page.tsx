@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { Card } from "@/components/admin/ui";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireSuperAdmin } from "@/lib/auth/session";
 import { getAdminUsers, PAGE_SIZE } from "@/lib/admin/queries";
 import { UsersTable } from "./users-table";
 
@@ -20,7 +20,9 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<{ q?: string; role?: string; page?: string }>;
 }) {
-  const me = await requireAdmin();
+  // Foydalanuvchilar ro'yxati barcha PII'ni (email, telefon, yosh) ko'rsatadi —
+  // bu faqat SUPERADMIN uchun. Oddiy `admin` kontent roli, unga bu ochilmasin.
+  const me = await requireSuperAdmin();
   const sp = await searchParams;
 
   const q = sp.q?.trim() ?? "";

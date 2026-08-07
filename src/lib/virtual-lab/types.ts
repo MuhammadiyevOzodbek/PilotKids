@@ -156,7 +156,9 @@ export type Expression =
   | { kind: "identifier"; name: string }
   | { kind: "call"; callee: string; args: Expression[] }
   | { kind: "binary"; op: BinaryOp; left: Expression; right: Expression }
-  | { kind: "unary"; op: "-" | "!" | "~"; operand: Expression };
+  | { kind: "unary"; op: "-" | "!" | "~"; operand: Expression }
+  | { kind: "conditional"; test: Expression; then: Expression; else: Expression }
+  | { kind: "index"; name: string; index: Expression };
 
 export type BinaryOp =
   | "+"
@@ -181,7 +183,16 @@ export type BinaryOp =
 export type Statement =
   | { kind: "expression"; expression: Expression; line: number }
   | { kind: "declare"; name: string; valueType: string; value: Expression | null; line: number }
+  | {
+      kind: "declareArray";
+      name: string;
+      valueType: string;
+      elements: Expression[] | null;
+      sizeExpr: Expression | null;
+      line: number;
+    }
   | { kind: "assign"; name: string; value: Expression; line: number }
+  | { kind: "assignIndex"; name: string; index: Expression; value: Expression; line: number }
   | { kind: "return"; value: Expression | null; line: number }
   | { kind: "break"; line: number }
   | { kind: "continue"; line: number }
@@ -193,6 +204,12 @@ export type Statement =
       test: Expression | null;
       update: Statement | null;
       body: Statement[];
+      line: number;
+    }
+  | {
+      kind: "switch";
+      discriminant: Expression;
+      cases: { test: Expression | null; body: Statement[] }[];
       line: number;
     };
 
@@ -256,6 +273,10 @@ export interface ComponentRuntimeState {
   buzzing?: boolean;
   /** Servo burchagi 0–180. */
   angle?: number;
+  /** DC motor tezligi 0–1. */
+  speed?: number;
+  /** DC motor aylanish yo'nalishi: 1 (soat yo'nalishi) yoki -1. */
+  direction?: number;
   /** Multimetr o'lchagan kuchlanish (V). */
   voltage?: number;
   /**

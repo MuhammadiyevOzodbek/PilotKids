@@ -240,7 +240,9 @@ export function QuizClient({
             <Icon name={result.correct ? "celebration" : "school"} size={20} />
             {result.correct
               ? `To'g'ri javob!${result.xpGained > 0 ? ` +${result.xpGained} XP` : ""}`
-              : "Bu safar to'g'ri kelmadi — to'g'ri javob yuqorida belgilangan."}
+              : result.correctIndex >= 0
+                ? "Bu safar to'g'ri kelmadi — to'g'ri javob yuqorida belgilangan."
+                : "Bu safar to'g'ri kelmadi."}
           </div>
         )}
       </div>

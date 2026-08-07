@@ -27,6 +27,8 @@ const SENSOR_CONTROL: Record<
   potentiometer: { key: "value", label: "Buralish", min: 0, max: 1023 },
   ldr: { key: "light", label: "Yorug'lik", min: 0, max: 1023 },
   ultrasonic: { key: "distance", label: "Masofa", min: 2, max: 400, unit: "sm" },
+  tmp36: { key: "temperature", label: "Harorat", min: -40, max: 125, unit: "°C" },
+  "soil-moisture": { key: "moisture", label: "Namlik", min: 0, max: 100, unit: "%" },
 };
 
 const WIRE_OPTIONS: Array<{ color: WireColor; label: string; value: string }> = [
@@ -233,7 +235,11 @@ export function Inspector({ issues }: { issues: CircuitIssue[] }) {
                       checked={node.settings[setting.key] === true}
                       onChange={(e) => {
                         updateSetting(node.id, setting.key, e.target.checked);
-                        if (node.type === "push-button" && setting.key === "pressed") {
+                        // Tugma va PIR — simulyatsiya paytida jonli o'zgartiriladi.
+                        if (
+                          (node.type === "push-button" && setting.key === "pressed") ||
+                          (node.type === "pir" && setting.key === "motion")
+                        ) {
                           setSensor(node.id, e.target.checked ? 1 : 0);
                         }
                       }}

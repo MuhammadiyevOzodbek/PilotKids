@@ -320,6 +320,122 @@ function Ultrasonic({ width, height }: SymbolProps) {
   );
 }
 
+/* ─────────────────────────── TMP36 harorat ─────────────────────────── */
+
+function Tmp36({ width, height, settings, showDetail = true }: SymbolProps) {
+  const t = typeof settings.temperature === "number" ? settings.temperature : 25;
+  return (
+    <svg width={width} height={height} viewBox="0 0 70 70" aria-hidden>
+      {/* TO-92 korpus: yassi old tomonli qora yarim-doira */}
+      <path d="M18 46 L18 26 A17 17 0 0 1 52 26 L52 46 Z" fill="#1c1c1e" />
+      <rect x="18" y="24" width="34" height="4" fill="#2b3444" />
+      {/* Oyoqlar */}
+      <rect x="22" y="46" width="3" height="16" fill="#9aa4b2" />
+      <rect x="33" y="46" width="3" height="18" fill="#9aa4b2" />
+      <rect x="45" y="46" width="3" height="16" fill="#9aa4b2" />
+      {showDetail && (
+        <text
+          x="35"
+          y="40"
+          textAnchor="middle"
+          fontFamily="ui-monospace, monospace"
+          fontSize="11"
+          fontWeight="700"
+          fill="#e8c33a"
+        >
+          {Math.round(t)}°
+        </text>
+      )}
+    </svg>
+  );
+}
+
+/* ─────────────────────────── Tuproq namligi ─────────────────────────── */
+
+function SoilMoisture({ width, height, settings }: SymbolProps) {
+  const pct = typeof settings.moisture === "number" ? settings.moisture : 0;
+  // Namlik ortgan sari pronglar ko'kroq.
+  const wet = `color-mix(in srgb, #2f6bf3 ${pct}%, #8a7355)`;
+  return (
+    <svg width={width} height={height} viewBox="0 0 70 80" aria-hidden>
+      {/* Ulanish taxtasi */}
+      <rect x="16" y="6" width="38" height="16" rx="3" fill="#1d3a6b" />
+      <rect x="20" y="4" width="3" height="8" fill="#9aa4b2" />
+      <rect x="33" y="4" width="3" height="8" fill="#9aa4b2" />
+      <rect x="46" y="4" width="3" height="8" fill="#9aa4b2" />
+      {/* Ikki tishli prob */}
+      <rect x="24" y="24" width="8" height="50" rx="2" fill={wet} />
+      <rect x="38" y="24" width="8" height="50" rx="2" fill={wet} />
+      <path d="M24 74 L28 80 L32 74 Z" fill={wet} />
+      <path d="M38 74 L42 80 L46 74 Z" fill={wet} />
+    </svg>
+  );
+}
+
+/* ─────────────────────────── PIR harakat ─────────────────────────── */
+
+function Pir({ width, height, settings, runtime }: SymbolProps) {
+  const motion = settings.motion === true || (runtime?.pins?.out ?? 0) === 1;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 80" aria-hidden>
+      <rect x="10" y="12" width="60" height="48" rx="6" fill="#0f7a3a" />
+      {motion && <circle cx="40" cy="32" r="26" fill="#3ddc84" opacity="0.25" />}
+      {/* Fresnel gumbaz */}
+      <circle cx="40" cy="32" r="18" fill="#f2f4f7" />
+      <circle cx="40" cy="32" r="18" fill="none" stroke="#c8cdd4" strokeWidth="1" />
+      <path
+        d="M28 32 h24 M40 20 v24 M31 23 l18 18 M49 23 l-18 18"
+        stroke="#c8cdd4"
+        strokeWidth="0.8"
+      />
+      {/* Oyoqlar */}
+      <rect x="22" y="60" width="4" height="14" fill="#9aa4b2" />
+      <rect x="38" y="60" width="4" height="14" fill="#9aa4b2" />
+      <rect x="54" y="60" width="4" height="14" fill="#9aa4b2" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────── DC motor ─────────────────────────── */
+
+function DcMotor({ width, height, runtime }: SymbolProps) {
+  const speed = runtime?.speed ?? 0;
+  const direction = runtime?.direction ?? 1;
+  const spinning = (runtime?.active ?? false) && speed > 0.02;
+  // Tezroq → aylanish davri kichik (0.25–1.2 s).
+  const dur = 0.25 + (1 - Math.min(1, speed)) * 1.2;
+
+  return (
+    <svg width={width} height={height} viewBox="0 0 90 80" aria-hidden>
+      {/* Korpus */}
+      <rect x="10" y="14" width="60" height="44" rx="10" fill="#3a4658" />
+      <rect x="10" y="14" width="60" height="12" rx="6" fill="#4a5a6a" />
+      {/* Val va rotor */}
+      <circle cx="40" cy="36" r="15" fill="#2b3444" />
+      <g>
+        {spinning && (
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from={`0 40 36`}
+            to={`${direction * 360} 40 36`}
+            dur={`${dur}s`}
+            repeatCount="indefinite"
+          />
+        )}
+        <rect x="38.5" y="22" width="3" height="28" rx="1.5" fill="#f5f7fa" />
+        <rect x="26" y="34.5" width="28" height="3" rx="1.5" fill="#f5f7fa" opacity="0.5" />
+      </g>
+      <circle cx="40" cy="36" r="3.5" fill="#0b1220" />
+      {/* Chiquvchi val */}
+      <rect x="70" y="33" width="12" height="6" rx="2" fill="#9aa4b2" />
+      {/* Terminallar */}
+      <rect x="23" y="58" width="4" height="16" fill="#e5484d" />
+      <rect x="59" y="58" width="4" height="16" fill="#1d2b3a" />
+    </svg>
+  );
+}
+
 /* ─────────────────────────── Breadboard ─────────────────────────── */
 
 function Breadboard({ width, height }: SymbolProps) {
@@ -457,7 +573,11 @@ const SYMBOLS: Record<string, (p: SymbolProps) => React.ReactElement> = {
   potentiometer: Potentiometer,
   ldr: Ldr,
   ultrasonic: Ultrasonic,
+  tmp36: Tmp36,
+  "soil-moisture": SoilMoisture,
+  pir: Pir,
   servo: Servo,
+  "dc-motor": DcMotor,
   battery: Battery,
   "power-5v": Power5V,
   ground: Ground,

@@ -54,8 +54,6 @@ export const savedProjectSchema = z.object({
   sensors: z.record(z.string().max(64), z.number().finite()),
 });
 
-const projectListSchema = z.array(savedProjectSchema).max(100);
-
 const WIRE_COLORS = new Set<WireColor>(["red", "black", "blue", "green", "yellow", "orange"]);
 
 function normalizePinId(pinId: string): string {
@@ -179,9 +177,21 @@ export function loadProjects(): SavedProject[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = projectListSchema.safeParse(JSON.parse(raw));
-    // Buzuq ma'lumot bo'lsa — bo'sh ro'yxat, ilova yiqilmaydi.
-    return parsed.success ? sanitizeProjectList(parsed.data) : [];
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return [];
+    /*
+     * HAR BIR loyihani alohida tekshiramiz. Ilgari butun ro'yxat bitta sxema
+     * bilan tekshirilardi: bitta buzuq yozuv (masalan eski versiyada `sensors`
+     * yo'q loyiha) butun ro'yxatni yiqitardi va keyingi saqlash bo'sh ro'yxatni
+     * yozib, barcha to'g'ri loyihalarni butunlay yo'qotardi. Endi zarar
+     * faqat buzuq yozuv bilan cheklanadi.
+     */
+    const valid: SavedProject[] = [];
+    for (const item of data.slice(0, 100)) {
+      const parsed = savedProjectSchema.safeParse(item);
+      if (parsed.success) valid.push(parsed.data);
+    }
+    return sanitizeProjectList(valid);
   } catch {
     return [];
   }

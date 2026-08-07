@@ -7,6 +7,8 @@ import {
   Download,
   FileCode2,
   FilePlus2,
+  Maximize,
+  Minimize,
   Pause,
   PanelLeftClose,
   PanelLeftOpen,
@@ -56,6 +58,9 @@ const LIVE_SETTING_KEYS: Record<string, string> = {
   ldr: "light",
   ultrasonic: "distance",
   "push-button": "pressed",
+  tmp36: "temperature",
+  "soil-moisture": "moisture",
+  pir: "motion",
 };
 
 /** Tor ekranda bir vaqtda ko'rinadigan bo'lim. */
@@ -171,7 +176,10 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   const [serialOpen, setSerialOpen] = useState(true);
   // Tor ekranda uch ustun sig'maydi: bir vaqtda bittasi ko'rsatiladi.
   const [mobileView, setMobileView] = useState<MobileView>("canvas");
+  // Ish stolini butun ekranga ochish.
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const simRef = useRef<Simulator | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastFrame = useRef(0);
@@ -217,6 +225,39 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   const showToast = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 2600);
+  }, []);
+
+  /* ── To'liq ekran ── */
+  // Vendor prefikslari (Safari) uchun standart API'ni kengaytiramiz.
+  const toggleFullscreen = useCallback(() => {
+    const el = rootRef.current as
+      (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null;
+    if (!el) return;
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void;
+      webkitFullscreenElement?: Element | null;
+    };
+    const active = document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+    const run = active
+      ? (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+      : (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
+    if (run && typeof (run as Promise<void>).catch === "function") {
+      (run as Promise<void>).catch(() => showToast("To'liq ekran rejimini ochib bo'lmadi"));
+    }
+  }, [showToast]);
+
+  // Brauzer holatiga moslashamiz (Esc bilan chiqish yoki tashqi o'zgarish).
+  useEffect(() => {
+    const sync = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen((document.fullscreenElement ?? doc.webkitFullscreenElement ?? null) !== null);
+    };
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
+    };
   }, []);
 
   /* ── Simulyatsiya sikli ── */
@@ -505,6 +546,12 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
         else startSimulation();
         return;
       }
+      // `F` — to'liq ekranni ochish/yopish (Ctrl+F brauzer qidiruviga tegmaydi).
+      if (!mod && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
       if (e.key === "Escape") setSelection([]);
     };
 
@@ -521,13 +568,14 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     status,
     startSimulation,
     pauseSimulation,
+    toggleFullscreen,
   ]);
 
   const errorCount = issues.filter((i) => i.severity === "error").length;
   const warnCount = issues.filter((i) => i.severity === "warning").length;
 
   return (
-    <div className="vlab-root">
+    <div className="vlab-root" ref={rootRef}>
       {/* ───────── Yuqori panel ───────── */}
       <header className="vlab-toolbar">
         <div className="vlab-brand">
@@ -596,6 +644,15 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
             onClick={() => fileInput.current?.click()}
           />
           <ToolButton icon={<Download size={16} />} label="Faylga saqlash" onClick={handleExport} />
+        </div>
+
+        <div className="vlab-tool-group">
+          <ToolButton
+            icon={isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            label={isFullscreen ? "To'liq ekrandan chiqish" : "To'liq ekranni ochish"}
+            pressed={isFullscreen}
+            onClick={toggleFullscreen}
+          />
         </div>
 
         <div className="vlab-sep" />

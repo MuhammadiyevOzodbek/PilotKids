@@ -13,6 +13,7 @@ import {
   certificate,
 } from "@/lib/db/schema";
 import { USER_ROLES } from "@/lib/auth/roles";
+import { requireSuperAdmin } from "@/lib/auth/session";
 
 /** Admin ro'yxatlarida bir sahifadagi qatorlar soni. */
 export const PAGE_SIZE = 20;
@@ -101,6 +102,8 @@ export interface UserFilter {
 }
 
 export async function getAdminUsers({ q, role, page = 1 }: UserFilter) {
+  // Ichki himoya: bu query PII qaytaradi, faqat superadmin chaqira oladi.
+  await requireSuperAdmin();
   const safeQ = q?.trim().slice(0, 80) ?? "";
   const safeRole = USER_ROLES.includes(role as (typeof USER_ROLES)[number]) ? role : "all";
   const safePage = Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1;

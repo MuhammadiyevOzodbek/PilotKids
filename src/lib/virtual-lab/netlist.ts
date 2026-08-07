@@ -299,6 +299,26 @@ export function resistanceToSource(net: Netlist, nodeId: string, pinId: string):
   return resistanceToward(net, start, (id) => net.sourceNets.has(id) || net.powerNets.has(id));
 }
 
+/**
+ * Pindan uni HARAKATLANTIRAYOTGAN nuqtagacha bo'lgan ketma-ket qarshilik (Ω).
+ *
+ * `resistanceToSource` faqat doimiy relslarni (batareya, 5V) manba deb biladi.
+ * Arduino chiqish pini ham manba: `D13 → rezistor → LED` ulanmasida tokni
+ * cheklayotgan rezistor aynan plata pini bilan LED orasida turadi. Bu funksiya
+ * plata pinlarini ham qidiradi, shuning uchun LED yorqinligi va tok
+ * hisoblanishida rezistor qiymati Arduino bilan ham hisobga olinadi.
+ */
+export function resistanceToDrive(net: Netlist, nodeId: string, pinId: string): number | null {
+  const start = netFor(net, nodeId, pinId);
+  if (start === null) return null;
+  const boardNets = new Set(net.boardPinNets.values());
+  return resistanceToward(
+    net,
+    start,
+    (id) => net.sourceNets.has(id) || net.powerNets.has(id) || boardNets.has(id),
+  );
+}
+
 /** Pindan yergacha bo'lgan ketma-ket qarshilik (Ω). */
 export function resistanceToGround(net: Netlist, nodeId: string, pinId: string): number | null {
   const start = netFor(net, nodeId, pinId);

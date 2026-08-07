@@ -7,8 +7,8 @@ import {
   netFor,
   pinKey,
   reachableNets,
+  resistanceToDrive,
   resistanceToGround,
-  resistanceToSource,
   splitPinKey,
   supplyVoltage,
   type Netlist,
@@ -146,7 +146,16 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
   const board = circuit.nodes.find((n) => getDefinition(n.type)?.isBoard) ?? null;
   if (!board) {
     const needsArduino = circuit.nodes.some((n) =>
-      ["servo", "potentiometer", "ldr", "rgb-led", "ultrasonic"].includes(n.type),
+      [
+        "servo",
+        "potentiometer",
+        "ldr",
+        "rgb-led",
+        "ultrasonic",
+        "tmp36",
+        "soil-moisture",
+        "pir",
+      ].includes(n.type),
     );
     if (needsArduino) {
       issues.push(
@@ -173,9 +182,18 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
     });
     const needsGround = circuit.nodes.some((n) => {
       if (
-        !["led", "buzzer", "servo", "potentiometer", "ldr", "rgb-led", "ultrasonic"].includes(
-          n.type,
-        )
+        ![
+          "led",
+          "buzzer",
+          "servo",
+          "potentiometer",
+          "ldr",
+          "rgb-led",
+          "ultrasonic",
+          "tmp36",
+          "soil-moisture",
+          "pir",
+        ].includes(n.type)
       ) {
         return false;
       }
@@ -220,15 +238,18 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
       const anodePin = boardPinFor(net, node.id, "anode");
       const cathodePin = boardPinFor(net, node.id, "cathode");
 
-      // Rezistor zanjirda bormi.
+      // Rezistor zanjirda bormi — anod TOMONIDA ham, katod tomonida ham
+      // bo'lishi mumkin (ikkalasi ham tokni bir xil cheklaydi).
       const anodeNet = netFor(net, node.id, "anode");
-      const hasResistor =
-        anodeNet !== null &&
-        [...reachableNets(net, anodeNet)].some((netId) =>
+      const cathodeNet = netFor(net, node.id, "cathode");
+      const reachesResistor = (start: string | null) =>
+        start !== null &&
+        [...reachableNets(net, start)].some((netId) =>
           (net.pinsOf.get(netId) ?? []).some(
             (k) => circuit.nodes.find((n) => n.id === splitPinKey(k).nodeId)?.type === "resistor",
           ),
         );
+      const hasResistor = reachesResistor(anodeNet) || reachesResistor(cathodeNet);
 
       if (!hasResistor) {
         issues.push(
@@ -249,7 +270,7 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
        */
       const supply = supplyVoltage(net, node.id, "anode") ?? (anodePin !== null ? 5 : null);
       const seriesOhms =
-        (resistanceToSource(net, node.id, "anode") ?? 0) +
+        (resistanceToDrive(net, node.id, "anode") ?? 0) +
         (resistanceToGround(net, node.id, "cathode") ?? 0);
 
       if (supply !== null && supply > LED_FORWARD_VOLTAGE && seriesOhms > 0) {
@@ -319,8 +340,16 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
       }
     }
 
-    if (board && (node.type === "servo" || node.type === "potentiometer" || node.type === "ldr")) {
-      const signal = node.type === "potentiometer" ? "wiper" : "signal";
+    const signalPinOf: Record<string, string> = {
+      servo: "signal",
+      potentiometer: "wiper",
+      ldr: "signal",
+      tmp36: "signal",
+      "soil-moisture": "signal",
+      pir: "out",
+    };
+    if (board && signalPinOf[node.type]) {
+      const signal = signalPinOf[node.type]!;
       if (boardPinFor(net, node.id, signal) === null) {
         issues.push(
           issue(
@@ -378,7 +407,27 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
       }
     }
 
-    if (["servo", "potentiometer", "ldr", "ultrasonic"].includes(node.type)) {
+    if (node.type === "dc-motor") {
+      // Motorni to'g'ridan-to'g'ri Arduino pinidan quvvatlantirish tavsiya etilmaydi.
+      const onBoard =
+        boardPinFor(net, node.id, "t1") !== null || boardPinFor(net, node.id, "t2") !== null;
+      if (onBoard) {
+        issues.push(
+          issue(
+            "warning",
+            "DC motor to'g'ridan-to'g'ri Arduino piniga ulangan.",
+            "Arduino pini motorni tortolmaydi va shikastlanishi mumkin — tranzistor yoki motor drayveri (L293D) ishlating.",
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (
+      ["servo", "potentiometer", "ldr", "ultrasonic", "tmp36", "soil-moisture", "pir"].includes(
+        node.type,
+      )
+    ) {
       if (!isPowered(net, node.id, "vcc")) {
         issues.push(
           issue(
@@ -517,7 +566,20 @@ function batteryIssues(circuit: Circuit, net: Netlist): CircuitIssue[] {
   if (board) {
     for (const pinId of ["5V", "3V3"]) {
       const limit = pinId === "5V" ? 5 : 3.3;
-      const supply = supplyVoltage(net, board.id, pinId);
+      const start = netFor(net, board.id, pinId);
+      if (start === null) continue;
+      /*
+       * Faqat ANIQ tashqi manba kuchlanishlarini (batareya, 5V element)
+       * hisobga olamiz. Plata pinining o'zi ichki "quvvat relsi" deb
+       * belgilangani (`powerNets`) buni qo'zg'atmasligi kerak — aks holda
+       * hech narsa ulanmagan 3V3 pini ham 5 V ko'rinib, batareya bor har
+       * qanday sxemada soxta "ortiqcha kuchlanish" xatosi chiqardi.
+       */
+      let supply: number | null = null;
+      for (const id of reachableNets(net, start)) {
+        const source = net.sourceNets.get(id);
+        if (source !== undefined) supply = supply === null ? source : Math.max(supply, source);
+      }
       if (supply === null || supply <= limit + 0.25) continue;
       found.push(
         issue(

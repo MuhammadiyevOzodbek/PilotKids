@@ -5,13 +5,14 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notification } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { enforceLimit } from "@/lib/rate-limit";
+import { limitGuard } from "@/lib/rate-limit";
 import { uuidSchema } from "@/lib/validation";
 
 /** Bitta bildirishnomani o'qilgan deb belgilash. */
 export async function markNotificationRead(id: string) {
   const u = await requireUser();
-  await enforceLimit("action", u.id);
+  const limited = await limitGuard("action", u.id);
+  if (limited) return limited;
 
   const parsed = uuidSchema.safeParse(id);
   if (!parsed.success) return { ok: false as const, error: "Noto'g'ri identifikator" };
@@ -30,7 +31,8 @@ export async function markNotificationRead(id: string) {
 /** Barcha bildirishnomalarni o'qilgan deb belgilash. */
 export async function markAllNotificationsRead() {
   const u = await requireUser();
-  await enforceLimit("action", u.id);
+  const limited = await limitGuard("action", u.id);
+  if (limited) return limited;
 
   await db
     .update(notification)

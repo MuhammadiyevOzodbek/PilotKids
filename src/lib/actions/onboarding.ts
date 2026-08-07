@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserRaw } from "@/lib/auth/session";
-import { enforceLimit } from "@/lib/rate-limit";
+import { limitGuard } from "@/lib/rate-limit";
 import { onboardingSchema, passwordSchema, firstError } from "@/lib/validation";
 
 /**
@@ -20,7 +20,8 @@ import { onboardingSchema, passwordSchema, firstError } from "@/lib/validation";
  */
 export async function completeOnboarding(input: { name: string; age: number; consent: boolean }) {
   const u = await requireUserRaw();
-  await enforceLimit("action", u.id);
+  const limited = await limitGuard("action", u.id);
+  if (limited) return limited;
 
   const parsed = onboardingSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: firstError(parsed.error) };
@@ -58,7 +59,8 @@ export async function completePhoneSignup(input: {
   password: string;
 }) {
   const u = await requireUserRaw();
-  await enforceLimit("action", u.id);
+  const limited = await limitGuard("action", u.id);
+  if (limited) return limited;
 
   const parsed = onboardingSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: firstError(parsed.error) };
