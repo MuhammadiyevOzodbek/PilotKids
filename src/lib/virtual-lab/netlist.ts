@@ -1,4 +1,4 @@
-import { batteryVoltage, getDefinition, pinIdToNumber } from "./catalog";
+import { batteryVoltage, getDefinition, pinIdToNumber, resistorOhms } from "./catalog";
 import type { Circuit, CircuitNode } from "./types";
 
 /**
@@ -86,6 +86,14 @@ class DisjointSet {
   }
 }
 
+/** Ikki tugunni bog'lovchi passiv element (hozircha faqat rezistor). */
+export interface PassiveLink {
+  a: string;
+  b: string;
+  nodeId: string;
+  ohms: number;
+}
+
 export interface Netlist {
   /** Pin → tugun identifikatori. */
   netOf: Map<PinKey, string>;
@@ -105,8 +113,13 @@ export interface Netlist {
   sourceNets: Map<string, number>;
   /** Arduino pin raqami → tugun. */
   boardPinNets: Map<number, string>;
-  /** Rezistor kabi passiv element orqali bog'langan net juftliklari. */
-  passiveLinks: Array<[string, string]>;
+  /**
+   * Rezistor orqali bog'langan tugunlar.
+   *
+   * Qarshilik ham shu yerda saqlanadi: usiz "220 Ω" va "10 kΩ" bir xil
+   * ko'rinardi va sozlama hech narsaga ta'sir qilmasdi.
+   */
+  passiveLinks: PassiveLink[];
 }
 
 export function buildNetlist(circuit: Circuit): Netlist {
@@ -138,7 +151,7 @@ export function buildNetlist(circuit: Circuit): Netlist {
   const powerNets = new Set<string>();
   const sourceNets = new Map<string, number>();
   const boardPinNets = new Map<number, string>();
-  const passiveLinks: Array<[string, string]> = [];
+  const passiveLinks: PassiveLink[] = [];
 
   for (const node of circuit.nodes) {
     const def = getDefinition(node.type);
@@ -203,7 +216,9 @@ export function buildNetlist(circuit: Circuit): Netlist {
     if (node.type !== "resistor") continue;
     const a = netOf.get(pinKey(node.id, "a"));
     const b = netOf.get(pinKey(node.id, "b"));
-    if (a && b && a !== b) passiveLinks.push([a, b]);
+    if (a && b && a !== b) {
+      passiveLinks.push({ a, b, nodeId: node.id, ohms: resistorOhms(node.settings) });
+    }
   }
 
   void nodeById;
@@ -222,7 +237,7 @@ export function reachableNets(net: Netlist, start: string): Set<string> {
 
   for (let i = 0; i < queue.length; i++) {
     const current = queue[i]!;
-    for (const [a, b] of net.passiveLinks) {
+    for (const { a, b } of net.passiveLinks) {
       const next = a === current ? b : b === current ? a : null;
       if (next === null || reachable.has(next)) continue;
       reachable.add(next);
@@ -231,6 +246,64 @@ export function reachableNets(net: Netlist, start: string): Set<string> {
   }
 
   return reachable;
+}
+
+/**
+ * Tugundan shartga mos birinchi tugungacha bo'lgan ENG KICHIK umumiy
+ * qarshilik (Ω). Yo'l topilmasa `null`, bevosita ulangan bo'lsa 0.
+ *
+ * Bu Dijkstra: rezistorlar ketma-ket ulansa qarshiliklar qo'shiladi, bir
+ * nechta yo'l bo'lsa eng kam qarshiligi olinadi (parallel ulanish taxminan
+ * shunday ishlaydi va o'quv maqsadi uchun yetarli).
+ */
+export function resistanceToward(
+  net: Netlist,
+  startNet: string,
+  matches: (netId: string) => boolean,
+): number | null {
+  const best = new Map<string, number>([[startNet, 0]]);
+  const pending = [startNet];
+  let answer: number | null = null;
+
+  while (pending.length > 0) {
+    // Eng kam qarshilikdagi tugunni tanlaymiz.
+    let index = 0;
+    for (let i = 1; i < pending.length; i++) {
+      if ((best.get(pending[i]!) ?? Infinity) < (best.get(pending[index]!) ?? Infinity)) index = i;
+    }
+    const current = pending.splice(index, 1)[0]!;
+    const cost = best.get(current) ?? Infinity;
+
+    if (matches(current)) {
+      answer = answer === null ? cost : Math.min(answer, cost);
+      continue;
+    }
+
+    for (const link of net.passiveLinks) {
+      const next = link.a === current ? link.b : link.b === current ? link.a : null;
+      if (next === null) continue;
+      const nextCost = cost + link.ohms;
+      if (nextCost >= (best.get(next) ?? Infinity)) continue;
+      best.set(next, nextCost);
+      pending.push(next);
+    }
+  }
+
+  return answer;
+}
+
+/** Pindan quvvat manbaigacha bo'lgan ketma-ket qarshilik (Ω). */
+export function resistanceToSource(net: Netlist, nodeId: string, pinId: string): number | null {
+  const start = netFor(net, nodeId, pinId);
+  if (start === null) return null;
+  return resistanceToward(net, start, (id) => net.sourceNets.has(id) || net.powerNets.has(id));
+}
+
+/** Pindan yergacha bo'lgan ketma-ket qarshilik (Ω). */
+export function resistanceToGround(net: Netlist, nodeId: string, pinId: string): number | null {
+  const start = netFor(net, nodeId, pinId);
+  if (start === null) return null;
+  return resistanceToward(net, start, (id) => net.groundNets.has(id));
 }
 
 /** Pin GND tugunidami? */

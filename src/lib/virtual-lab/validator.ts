@@ -1,4 +1,4 @@
-import { batteryVoltage, getDefinition, getPin } from "./catalog";
+import { batteryVoltage, formatOhms, getDefinition, getPin } from "./catalog";
 import {
   boardPinFor,
   buildNetlist,
@@ -7,10 +7,13 @@ import {
   netFor,
   pinKey,
   reachableNets,
+  resistanceToGround,
+  resistanceToSource,
   splitPinKey,
   supplyVoltage,
   type Netlist,
 } from "./netlist";
+import { LED_FORWARD_VOLTAGE, ledCurrentMa } from "./simulator";
 import type { Circuit, CircuitIssue, WireConnection } from "./types";
 
 /**
@@ -238,6 +241,44 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
         );
       }
 
+      /*
+       * Qarshilik to'g'ri tanlanganmi. Bu — rezistor darsining butun mag'zi:
+       * juda kichigi LEDni kuydiradi, juda kattasi esa uni deyarli
+       * yoqmaydi. Kuchlanish batareyadan yoki 5V relsdan olinadi; Arduino
+       * chiqishi doim 5 V beradi.
+       */
+      const supply = supplyVoltage(net, node.id, "anode") ?? (anodePin !== null ? 5 : null);
+      const seriesOhms =
+        (resistanceToSource(net, node.id, "anode") ?? 0) +
+        (resistanceToGround(net, node.id, "cathode") ?? 0);
+
+      if (supply !== null && supply > LED_FORWARD_VOLTAGE && seriesOhms > 0) {
+        const currentMa = ledCurrentMa(supply, seriesOhms);
+        if (currentMa > LED_MAX_CURRENT_MA) {
+          issues.push(
+            issue(
+              "warning",
+              `Rezistor juda kichik — LED orqali ~${Math.round(currentMa)} mA tok o'tadi.`,
+              `${supply} V uchun kamida ${formatOhms(
+                recommendedOhms(supply),
+              )} qo'ying, aks holda LED kuyadi.`,
+              [node.id],
+            ),
+          );
+        } else if (currentMa < LED_MIN_VISIBLE_MA) {
+          issues.push(
+            issue(
+              "warning",
+              `Rezistor juda katta — LED deyarli yonmaydi (~${currentMa.toFixed(1)} mA).`,
+              `Qarshilikni kamaytiring: ${supply} V uchun ${formatOhms(
+                recommendedOhms(supply),
+              )} atrofida bo'lsa yaxshi.`,
+              [node.id],
+            ),
+          );
+        }
+      }
+
       // Teskari polarite: katod Arduino chiqishida, anod GND'da.
       const cathodeGrounded = netFor(net, node.id, "cathode");
       const anodeGrounded = netFor(net, node.id, "anode");
@@ -386,6 +427,18 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
   }
 
   return issues;
+}
+
+/** LED uchun xavfsiz tok chegaralari (mA). */
+const LED_MAX_CURRENT_MA = 25;
+const LED_MIN_VISIBLE_MA = 1;
+
+/** Berilgan kuchlanish uchun ~15 mA beradigan qarshilik. */
+function recommendedOhms(volts: number): number {
+  const ohms = (volts - LED_FORWARD_VOLTAGE) / 0.015;
+  // Eng yaqin standart nominalga yaxlitlaymiz.
+  const standard = [100, 150, 220, 330, 470, 680, 1000];
+  return standard.reduce((best, s) => (Math.abs(s - ohms) < Math.abs(best - ohms) ? s : best), 220);
 }
 
 /**

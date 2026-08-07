@@ -1,3 +1,4 @@
+import { formatOhms, resistorOhms } from "@/lib/virtual-lab/catalog";
 import type { ComponentRuntimeState } from "@/lib/virtual-lab/types";
 import { BatterySymbol } from "./battery";
 import { ArduinoBoardSvg, type BoardDetail, type BoardPinState } from "./uno";
@@ -107,29 +108,80 @@ function Led({ width, height, settings, runtime }: SymbolProps) {
 
 /* ─────────────────────────── Rezistor ─────────────────────────── */
 
-function Resistor({ width, height, settings }: SymbolProps) {
-  const ohms = typeof settings.ohms === "number" ? settings.ohms : 220;
+/**
+ * Qarshilik rang kodi — haqiqiy rezistordagi bilan bir xil.
+ * Indeks = raqam: 0 qora, 1 jigarrang, 2 qizil …
+ */
+const BAND_COLORS = [
+  "#1c1c1e",
+  "#7b4a12",
+  "#d64541",
+  "#e07a1f",
+  "#e8c33a",
+  "#3f9d54",
+  "#3a6fd8",
+  "#8b5cf6",
+  "#9aa4b2",
+  "#f2f4f7",
+] as const;
+
+/**
+ * Qarshilikni uchta rang halqasiga aylantiradi: birinchi raqam, ikkinchi
+ * raqam va ko'paytiruvchi. Ilgari halqalar qotirilgan edi — 220 Ω ham,
+ * 10 kΩ ham bir xil ko'rinardi va sozlama o'zgarganini bilib bo'lmasdi.
+ */
+function resistorBands(ohms: number): string[] {
+  let value = Math.max(10, Math.round(ohms));
+  let exponent = 0;
+  while (value >= 100) {
+    value = Math.round(value / 10);
+    exponent += 1;
+  }
+  const first = Math.floor(value / 10);
+  const second = value % 10;
+  return [
+    BAND_COLORS[first] ?? BAND_COLORS[0]!,
+    BAND_COLORS[second] ?? BAND_COLORS[0]!,
+    BAND_COLORS[Math.min(exponent, 9)] ?? BAND_COLORS[0]!,
+  ];
+}
+
+function Resistor({ width, height, settings, showDetail = true }: SymbolProps) {
+  const ohms = resistorOhms(settings);
+  const bands = resistorBands(ohms);
+
   return (
-    <svg width={width} height={height} viewBox="0 0 90 40" aria-hidden>
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 90 40"
+      aria-label={`Rezistor ${formatOhms(ohms)}`}
+    >
+      {/* Oyoqlari */}
       <rect x="2" y="18" width="20" height="4" fill="#9aa4b2" />
       <rect x="68" y="18" width="20" height="4" fill="#9aa4b2" />
+      {/* Korpus */}
       <rect x="22" y="10" width="46" height="20" rx="7" fill="#d8b98a" />
-      {/* Rang halqalari */}
-      <rect x="29" y="10" width="5" height="20" fill="#e5484d" />
-      <rect x="38" y="10" width="5" height="20" fill="#e5484d" />
-      <rect x="47" y="10" width="5" height="20" fill="#2f6bf3" />
-      <rect x="58" y="10" width="4" height="20" fill="#d4af37" />
-      <text
-        x="45"
-        y="38"
-        textAnchor="middle"
-        fontFamily="system-ui, sans-serif"
-        fontSize="9"
-        fill="currentColor"
-        opacity="0.75"
-      >
-        {ohms}Ω
-      </text>
+      <rect x="22" y="10" width="46" height="5" rx="4" fill="#e8cda6" opacity="0.7" />
+      {/* Qiymatni bildiruvchi uchta halqa + oltin dopusk halqasi */}
+      {bands.map((color, i) => (
+        <rect key={i} x={29 + i * 9} y="10" width="5" height="20" fill={color} />
+      ))}
+      <rect x="60" y="10" width="4" height="20" fill="#d4af37" />
+      {showDetail && (
+        <text
+          x="45"
+          y="38"
+          textAnchor="middle"
+          fontFamily="var(--font-sans), system-ui, sans-serif"
+          fontSize="9"
+          fontWeight="600"
+          fill="currentColor"
+          opacity="0.8"
+        >
+          {formatOhms(ohms)}
+        </text>
+      )}
     </svg>
   );
 }

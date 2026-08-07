@@ -89,6 +89,36 @@ const PIN_ROLE_OF: Record<UnoPinKind, PinRole> = {
 };
 
 /**
+ * Rezistor qarshiligi uchun oraliq.
+ *
+ * Pastki chegara 10 Ω: shunda "rezistor juda kichik — LED kuyadi" darsini
+ * amalda ko'rsatish mumkin. Yuqorisi 100 kΩ — undan kattasi o'quv
+ * sxemalarida uchramaydi.
+ */
+export const RESISTOR_RANGE = { min: 10, max: 100000, step: 10 } as const;
+
+/** Ko'p ishlatiladigan nominal qiymatlar — inspektorda bir bosishda tanlanadi. */
+export const RESISTOR_PRESETS = [100, 220, 330, 470, 1000, 4700, 10000] as const;
+
+export const RESISTOR_DEFAULT_OHMS = 220;
+
+/** Sxemadagi rezistorning qarshiligi (Ω), chegaralar ichida. */
+export function resistorOhms(settings: Record<string, string | number | boolean>): number {
+  const raw = typeof settings.ohms === "number" ? settings.ohms : RESISTOR_DEFAULT_OHMS;
+  if (!Number.isFinite(raw)) return RESISTOR_DEFAULT_OHMS;
+  return Math.max(RESISTOR_RANGE.min, Math.min(RESISTOR_RANGE.max, raw));
+}
+
+/** Qarshilikni o'qishga qulay ko'rinishda yozadi: 220 Ω, 4.7 kΩ, 10 kΩ. */
+export function formatOhms(ohms: number): string {
+  if (ohms >= 1000) {
+    const k = ohms / 1000;
+    return `${Number.isInteger(k) ? k : Number(k.toFixed(1))} kΩ`;
+  }
+  return `${ohms} Ω`;
+}
+
+/**
  * Batareya kuchlanishi uchun ruxsat etilgan oraliq.
  * 24 V — o'quv sxemalari uchun xavfsiz yuqori chegara.
  */
@@ -206,15 +236,15 @@ export const CATALOG: ComponentDefinition[] = [
     description: "Tokni cheklaydi. LED uchun odatda 220 Ω.",
     width: 90,
     height: 40,
-    defaults: { ohms: 220 },
+    defaults: { ohms: RESISTOR_DEFAULT_OHMS },
     settings: [
       {
         key: "ohms",
         label: "Qarshilik",
         kind: "number",
-        min: 100,
-        max: 10000,
-        step: 10,
+        min: RESISTOR_RANGE.min,
+        max: RESISTOR_RANGE.max,
+        step: RESISTOR_RANGE.step,
         unit: "Ω",
       },
     ],

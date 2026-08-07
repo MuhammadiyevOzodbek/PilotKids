@@ -1,7 +1,13 @@
 "use client";
 
 import { MousePointerClick, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
-import { BATTERY_PRESETS, getDefinition, getPin } from "@/lib/virtual-lab/catalog";
+import {
+  BATTERY_PRESETS,
+  RESISTOR_PRESETS,
+  formatOhms,
+  getDefinition,
+  getPin,
+} from "@/lib/virtual-lab/catalog";
 import type { CircuitIssue, WireColor, WireEndpoint } from "@/lib/virtual-lab/types";
 import { useCircuitStore, useSimulationStore } from "@/stores/virtual-lab";
 import { PIN_COLOR } from "./component-node";
@@ -160,6 +166,26 @@ export function Inspector({ issues }: { issues: CircuitIssue[] }) {
                       onClick={() => updateSetting(node.id, "voltage", volts)}
                     >
                       {volts}V
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rezistor uchun standart nominal qiymatlar. */}
+            {node.type === "resistor" && (
+              <div>
+                <div className="vlab-sub">Standart nominal</div>
+                <div className="vlab-volt-presets">
+                  {RESISTOR_PRESETS.map((ohms) => (
+                    <button
+                      key={ohms}
+                      type="button"
+                      className="vlab-volt-preset"
+                      aria-pressed={Number(node.settings.ohms) === ohms}
+                      onClick={() => updateSetting(node.id, "ohms", ohms)}
+                    >
+                      {formatOhms(ohms)}
                     </button>
                   ))}
                 </div>

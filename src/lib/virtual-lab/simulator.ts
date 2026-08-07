@@ -6,6 +6,8 @@ import {
   isPowered,
   netFor,
   reachableNets,
+  resistanceToGround,
+  resistanceToSource,
   supplyVoltage,
   type Netlist,
 } from "./netlist";
@@ -27,14 +29,39 @@ import type {
  * 1.5 V batareya LEDni yoqmaydi — bu haqiqiy hayotdagi hol va bola shuni
  * o'z ko'zi bilan ko'rishi kerak.
  */
-const LED_FORWARD_VOLTAGE = 1.8;
-const LED_FULL_VOLTAGE = 2.6;
+export const LED_FORWARD_VOLTAGE = 1.8;
 
-/** Manba kuchlanishidan LED yorqinligini (0–1) hisoblaydi. */
-export function ledOutputFor(volts: number): number {
+/**
+ * Rezistorsiz ulanganda ham qarshilik nol bo'lmasin: LEDning o'zi va simlar
+ * ozgina qarshilikka ega. Aks holda tok cheksizga aylanardi.
+ */
+const CIRCUIT_STRAY_OHMS = 20;
+
+/**
+ * To'liq yorqinlikka mos tok.
+ *
+ * Darsliklardagi standart juftlik — 5 V va 220 Ω — 100% yorqinlik deb
+ * olinadi. Shu tufayli mavjud sxemalar avvalgidek ishlaydi, kattaroq
+ * qarshilik esa LEDni ko'rinarli darajada xiralashtiradi.
+ */
+const LED_NOMINAL_CURRENT = (5 - LED_FORWARD_VOLTAGE) / 220;
+
+/**
+ * LED yorqinligi (0–1) — Om qonuni bo'yicha.
+ *
+ * `I = (U − U_ochilish) / R`, so'ng nominal tokka nisbatan olinadi:
+ * 220 Ω → to'liq, 1 kΩ → ancha xira, 10 kΩ → deyarli ko'rinmaydi.
+ */
+export function ledOutputFor(volts: number, ohms: number): number {
   if (volts <= LED_FORWARD_VOLTAGE) return 0;
-  if (volts >= LED_FULL_VOLTAGE) return 1;
-  return (volts - LED_FORWARD_VOLTAGE) / (LED_FULL_VOLTAGE - LED_FORWARD_VOLTAGE);
+  const current = (volts - LED_FORWARD_VOLTAGE) / Math.max(ohms, CIRCUIT_STRAY_OHMS);
+  return Math.max(0, Math.min(1, current / LED_NOMINAL_CURRENT));
+}
+
+/** LED orqali oqayotgan taxminiy tok (mA) — ogohlantirishlar uchun. */
+export function ledCurrentMa(volts: number, ohms: number): number {
+  if (volts <= LED_FORWARD_VOLTAGE) return 0;
+  return ((volts - LED_FORWARD_VOLTAGE) / Math.max(ohms, CIRCUIT_STRAY_OHMS)) * 1000;
 }
 
 /**
@@ -638,19 +665,38 @@ export class Simulator {
     return 0;
   }
 
+  /**
+   * Zanjirdagi ketma-ket qarshilik (Ω).
+   *
+   * Rezistor anod tomonida ham, katod tomonida ham turishi mumkin —
+   * ikkalasi ham tokni bir xil cheklaydi, shuning uchun qo'shiladi.
+   */
+  private seriesOhms(nodeId: string): number {
+    const toSource = resistanceToSource(this.netlist, nodeId, "anode") ?? 0;
+    const toGround = resistanceToGround(this.netlist, nodeId, "cathode") ?? 0;
+    return toSource + toGround;
+  }
+
   /** LED yorqinligi 0–1: anodi quvvatga, katodi GND'ga ulangan bo'lsa yonadi. */
   private ledBrightness(nodeId: string): number {
-    const anodePin = boardPinFor(this.netlist, nodeId, "anode");
     const cathodeGrounded = isGrounded(this.netlist, nodeId, "cathode");
     if (!cathodeGrounded) return 0;
 
+    const ohms = this.seriesOhms(nodeId);
+
+    // Doimiy manba (batareya yoki 5V relsi).
     if (isPowered(this.netlist, nodeId, "anode")) {
-      const volts = supplyVoltage(this.netlist, nodeId, "anode");
-      return volts === null ? 1 : ledOutputFor(volts);
+      const volts = supplyVoltage(this.netlist, nodeId, "anode") ?? 5;
+      return ledOutputFor(volts, ohms);
     }
 
+    // Arduino chiqishi. PWM to'liq 5 V ni o'chirib-yoqadi, shuning uchun
+    // kuchlanish doim 5 V, o'rtacha tok esa to'ldirish koeffitsiyentiga
+    // proporsional — xiralashtirishni qarshilik va PWM birgalikda beradi.
+    const anodePin = boardPinFor(this.netlist, nodeId, "anode");
     if (anodePin === null || this.board.modes[anodePin] !== "output") return 0;
-    return (this.board.pwm[anodePin] ?? 0) / 255;
+    const duty = (this.board.pwm[anodePin] ?? 0) / 255;
+    return duty * ledOutputFor(5, ohms);
   }
 
   private outputLevel(pinId: string, nodeId: string): number {

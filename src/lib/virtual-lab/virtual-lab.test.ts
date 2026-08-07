@@ -4,8 +4,16 @@ import { Simulator } from "./simulator";
 import { canConnect, validateCircuit } from "./validator";
 import { checkLesson, getLesson } from "./lessons";
 import { exportProject, importProject, sanitizeCircuit } from "./storage";
-import { BATTERY_DEFAULT_VOLTAGE, BATTERY_PRESETS, CATALOG, batteryVoltage } from "./catalog";
-import { boardPinFor, buildNetlist, netFor, supplyVoltage } from "./netlist";
+import {
+  BATTERY_DEFAULT_VOLTAGE,
+  BATTERY_PRESETS,
+  CATALOG,
+  RESISTOR_PRESETS,
+  batteryVoltage,
+  formatOhms,
+  resistorOhms,
+} from "./catalog";
+import { boardPinFor, buildNetlist, netFor, resistanceToSource, supplyVoltage } from "./netlist";
 import { pinPoint } from "./geometry";
 import {
   UNO_BOARD,
@@ -2529,6 +2537,159 @@ describe("Batareya", () => {
     const battery = circuit.nodes.find((n) => n.id === "bat")!;
     expect(battery.settings.voltage).toBe(24);
     expect(battery.settings.polarity).toBe("normal");
+  });
+});
+
+/* ─────────────────── Rezistor qarshiligi ─────────────────── */
+
+/**
+ * Ilgari `ohms` sozlamasi faqat yozuv sifatida ishlatilardi: elektr modelga
+ * ham, chizmadagi rang halqalariga ham ta'sir qilmasdi. Ya'ni 220 Ω va
+ * 10 kΩ bir xil natija berardi. Quyidagi testlar aynan shuni qo'riqlaydi.
+ */
+describe("Rezistor qarshiligi", () => {
+  /** Batareya → rezistor → LED → batareya. */
+  function circuitWith(ohms: number, voltage = 5): Circuit {
+    return {
+      nodes: [
+        {
+          id: "bat",
+          type: "battery",
+          x: 0,
+          y: 0,
+          rotation: 0,
+          settings: { voltage, enabled: true, polarity: "normal" },
+        },
+        { id: "r1", type: "resistor", x: 200, y: 0, rotation: 0, settings: { ohms } },
+        { id: "led", type: "led", x: 400, y: 0, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "bat", pinId: "plus" },
+          to: { nodeId: "r1", pinId: "a" },
+          color: "red",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "r1", pinId: "b" },
+          to: { nodeId: "led", pinId: "anode" },
+          color: "blue",
+        },
+        {
+          id: "w3",
+          from: { nodeId: "led", pinId: "cathode" },
+          to: { nodeId: "bat", pinId: "minus" },
+          color: "black",
+        },
+      ],
+    };
+  }
+
+  const brightness = (ohms: number, voltage = 5): number => {
+    const parsed = parseSketch("void setup() {} void loop() {}");
+    if (!parsed.ok) throw new Error("bo'sh eskiz tahlil qilinmadi");
+    const sim = new Simulator({
+      circuit: circuitWith(ohms, voltage),
+      sketch: parsed.sketch,
+      sensors: {},
+    });
+    return sim.getRuntimeState().led?.brightness ?? 0;
+  };
+
+  it("qiymat chegaralarga tushiriladi", () => {
+    expect(resistorOhms({ ohms: 270 })).toBe(270);
+    expect(resistorOhms({ ohms: 1 })).toBe(10);
+    expect(resistorOhms({ ohms: 999999 })).toBe(100000);
+    expect(resistorOhms({})).toBe(220);
+  });
+
+  it("qiymat o'qishga qulay yoziladi", () => {
+    expect(formatOhms(220)).toBe("220 Ω");
+    expect(formatOhms(1000)).toBe("1 kΩ");
+    expect(formatOhms(4700)).toBe("4.7 kΩ");
+  });
+
+  it("netlistda qarshilik saqlanadi va yig'iladi", () => {
+    const net = buildNetlist(circuitWith(470));
+    expect(net.passiveLinks[0]?.ohms).toBe(470);
+    // LED anodidan manbagacha aynan shu rezistor turadi.
+    expect(resistanceToSource(net, "led", "anode")).toBe(470);
+  });
+
+  it("ketma-ket ikki rezistorning qarshiligi qo'shiladi", () => {
+    const circuit = circuitWith(220);
+    circuit.nodes.push({
+      id: "r2",
+      type: "resistor",
+      x: 300,
+      y: 0,
+      rotation: 0,
+      settings: { ohms: 330 },
+    });
+    // r1 → r2 → LED
+    circuit.wires = circuit.wires.filter((w) => w.id !== "w2");
+    circuit.wires.push(
+      {
+        id: "w2a",
+        from: { nodeId: "r1", pinId: "b" },
+        to: { nodeId: "r2", pinId: "a" },
+        color: "blue",
+      },
+      {
+        id: "w2b",
+        from: { nodeId: "r2", pinId: "b" },
+        to: { nodeId: "led", pinId: "anode" },
+        color: "blue",
+      },
+    );
+    expect(resistanceToSource(buildNetlist(circuit), "led", "anode")).toBe(550);
+  });
+
+  it("qarshilik ortganda LED xiralashadi", () => {
+    // 5 V va 220 Ω — darsliklardagi standart juftlik, to'liq yorqinlik.
+    expect(brightness(220)).toBe(1);
+    const dim = brightness(1000);
+    const dimmer = brightness(10000);
+    expect(dim).toBeGreaterThan(0);
+    expect(dim).toBeLessThan(0.35);
+    expect(dimmer).toBeLessThan(dim);
+    expect(dimmer).toBeLessThan(0.05);
+  });
+
+  it("qarshilik kamayganda yorqinlik ortadi", () => {
+    expect(brightness(470)).toBeLessThan(brightness(220));
+    expect(brightness(100)).toBe(1);
+  });
+
+  it("yuqori kuchlanish katta qarshilikni qoplaydi", () => {
+    // 9 V bilan 1 kΩ, 5 V bilan 1 kΩ dan yorqinroq.
+    expect(brightness(1000, 9)).toBeGreaterThan(brightness(1000, 5));
+  });
+
+  it("juda kichik qarshilik haqida ogohlantiradi", () => {
+    const issues = validateCircuit(circuitWith(10, 9));
+    expect(issues.some((i) => i.message.includes("juda kichik"))).toBe(true);
+  });
+
+  it("juda katta qarshilik haqida ogohlantiradi", () => {
+    const issues = validateCircuit(circuitWith(100000));
+    expect(issues.some((i) => i.message.includes("juda katta"))).toBe(true);
+  });
+
+  it("to'g'ri tanlangan qarshilikda ogohlantirish bermaydi", () => {
+    const issues = validateCircuit(circuitWith(220));
+    expect(issues.some((i) => i.message.includes("juda kichik"))).toBe(false);
+    expect(issues.some((i) => i.message.includes("juda katta"))).toBe(false);
+  });
+
+  it("barcha standart nominal qiymatlar oraliqda", () => {
+    for (const ohms of RESISTOR_PRESETS) expect(resistorOhms({ ohms })).toBe(ohms);
+  });
+
+  it("saqlab-ochilganda qarshilik yo'qolmaydi", () => {
+    const restored = sanitizeCircuit(circuitWith(270));
+    expect(restored.nodes.find((n) => n.id === "r1")?.settings.ohms).toBe(270);
   });
 });
 
