@@ -22,14 +22,31 @@ const PROTECTED = [
   "/parent",
   "/settings",
   "/admin",
+  "/superadmin",
   "/welcome",
 ];
 
 const AUTH_PAGES = ["/login", "/signup"];
 
+const BLOCKED_PATH_PATTERNS = [
+  /^\/\.env/i,
+  /^\/\.git(?:\/|$)/i,
+  /^\/wp-admin(?:\/|$)/i,
+  /^\/wp-login\.php$/i,
+  /^\/xmlrpc\.php$/i,
+  /^\/phpmyadmin(?:\/|$)/i,
+  /^\/admin\.php$/i,
+  /^\/config\.(?:php|json|js)$/i,
+  /^\/backup(?:\/|\.|$)/i,
+];
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(getSessionCookie(request));
+
+  if (BLOCKED_PATH_PATTERNS.some((pattern) => pattern.test(pathname))) {
+    return new NextResponse("Not found", { status: 404 });
+  }
 
   // Tizimga kirmagan foydalanuvchi himoyalangan sahifaga kirsa — login'ga.
   if (!hasSession && PROTECTED.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {

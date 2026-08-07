@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { userSettings } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
-import { requireUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { enforceLimit } from "@/lib/rate-limit";
 import { firstError } from "@/lib/validation";
 
@@ -28,17 +28,27 @@ const schema = z.object({
  * qiladi. Parolni odatda ota-ona biladi (hisobni u ochgan).
  */
 export async function setDailyLimit(minutes: number, password: string) {
-  const user = await requireUser();
+  const user = await requireRole("parent");
   // Parolni taxmin qilishga urinishni cheklaymiz.
   await enforceLimit("action", `parent:${user.id}`);
 
   const parsed = schema.safeParse({ minutes, password });
   if (!parsed.success) return { ok: false as const, error: firstError(parsed.error) };
 
-  // Parolni Better Auth orqali tekshiramiz (o'zimiz hash solishtirmaymiz).
+  /*
+   * Parolni Better Auth orqali tekshiramiz (o'zimiz hash solishtirmaymiz).
+   *
+   * `verifyPassword` — `signInEmail` EMAS. Kirish endpointi parolni to'g'ri
+   * tekshirsa-da, yon ta'siri bor: har chaqiruvda YANGI sessiya yaratadi
+   * (jadval o'sib boradi, cookie jimgina almashadi) va `/sign-in/email`
+   * uchun ajratilgan urinishlar limitini yeydi — natijada chegarani bir necha
+   * marta o'zgartirgan ota-ona o'z hisobiga kira olmay qolishi mumkin edi.
+   * `verifyPassword` esa joriy sessiya egasining parolini sessiya
+   * yaratmasdan tekshiradi.
+   */
   try {
-    await auth.api.signInEmail({
-      body: { email: user.email, password: parsed.data.password },
+    await auth.api.verifyPassword({
+      body: { password: parsed.data.password },
       headers: await headers(),
     });
   } catch {

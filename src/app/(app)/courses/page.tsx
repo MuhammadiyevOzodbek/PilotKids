@@ -20,7 +20,9 @@ export default async function CoursesPage({
   ]);
 
   const enrolledIds = new Set(myCourses.map((c) => c.id));
-  const active = categories.find((c) => c.slug === kategoriya) ?? null;
+  const categorySlugsWithCourses = new Set(allCourses.map((c) => c.categorySlug).filter(Boolean));
+  const visibleCategories = categories.filter((c) => categorySlugsWithCourses.has(c.slug));
+  const active = visibleCategories.find((c) => c.slug === kategoriya) ?? null;
   const courses = active ? allCourses.filter((c) => c.categorySlug === active.slug) : allCourses;
 
   return (
@@ -43,7 +45,7 @@ export default async function CoursesPage({
 
       {/* Kategoriyalar — bosilganda filtrlaydi */}
       <div className="grid-4" style={{ gap: 18, marginBottom: 40 }}>
-        {categories.map((c) => {
+        {visibleCategories.map((c) => {
           const isActive = active?.slug === c.slug;
           return (
             <Link

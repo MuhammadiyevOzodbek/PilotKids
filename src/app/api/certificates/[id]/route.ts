@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { certificate } from "@/lib/db/schema";
-import { getSession } from "@/lib/auth/session";
+import { getSession, getUserAccess } from "@/lib/auth/session";
 import { checkLimit } from "@/lib/rate-limit";
 import { uuidSchema } from "@/lib/validation";
 
@@ -27,6 +27,11 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/certificates/[i
   if (!session) {
     return new Response("Avtorizatsiya talab qilinadi", { status: 401 });
   }
+
+  const access = await getUserAccess(session.user.id);
+  if (!access) return new Response("Avtorizatsiya talab qilinadi", { status: 401 });
+  if (access.banned) return new Response("Akkaunt bloklangan", { status: 403 });
+  if (!access.onboarded) return new Response("Avval onboardingni yakunlang", { status: 403 });
 
   const { id } = await ctx.params;
 

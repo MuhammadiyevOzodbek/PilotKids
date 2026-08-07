@@ -25,28 +25,47 @@ const ROLE_LABEL: Record<string, string> = {
   student: "O'quvchi",
   parent: "Ota-ona",
   admin: "Admin",
+  superadmin: "Bosh admin",
 };
 
 const ROLE_STYLE: Record<string, { color: string; bg: string }> = {
   student: { color: "var(--primary)", bg: "var(--primary-soft)" },
   parent: { color: "var(--fun-violet)", bg: "var(--fun-violet-soft)" },
   admin: { color: "var(--fun-amber)", bg: "var(--fun-amber-soft)" },
+  superadmin: { color: "var(--danger)", bg: "var(--danger-soft)" },
 };
 
+const UZ_MONTHS = [
+  "yan",
+  "fev",
+  "mar",
+  "apr",
+  "may",
+  "iyun",
+  "iyul",
+  "avg",
+  "sen",
+  "okt",
+  "noy",
+  "dek",
+] as const;
+
 function formatDate(d: Date) {
-  return new Date(d).toLocaleDateString("uz-UZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const date = new Date(d);
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = UZ_MONTHS[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  return `${day}-${month}, ${year}`;
 }
 
 export function UsersTable({
   rows,
   currentUserId,
+  currentUserRole,
 }: {
   rows: AdminUserRow[];
   currentUserId: string;
+  currentUserRole: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -109,6 +128,8 @@ export function UsersTable({
           <tbody>
             {rows.map((u) => {
               const isMe = u.id === currentUserId;
+              const isPrivilegedAdmin = u.role === "admin" || u.role === "superadmin";
+              const canManageUsers = currentUserRole === "superadmin";
               const roleStyle = ROLE_STYLE[u.role] ?? ROLE_STYLE.student!;
               return (
                 <tr key={u.id} className="hover-row">
@@ -161,7 +182,7 @@ export function UsersTable({
                         label=""
                         aria-label={`${u.name} uchun rol`}
                         value={u.role}
-                        disabled={isPending || isMe}
+                        disabled={isPending || isMe || !canManageUsers}
                         onChange={(e) => run(() => setUserRole(u.id, e.target.value))}
                         options={Object.entries(ROLE_LABEL).map(([value, label]) => ({
                           value,
@@ -181,7 +202,7 @@ export function UsersTable({
                       fontWeight: 600,
                     }}
                   >
-                    {u.age ?? "—"}
+                    {isPrivilegedAdmin ? "—" : (u.age ?? "—")}
                   </td>
 
                   <td
@@ -194,7 +215,7 @@ export function UsersTable({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {u.xp} · {u.level}-dr
+                    {isPrivilegedAdmin ? "—" : `${u.xp} · ${u.level}-dr`}
                   </td>
 
                   <td
@@ -229,7 +250,7 @@ export function UsersTable({
                       <Button
                         size="sm"
                         variant={u.banned ? "success" : "ghost"}
-                        disabled={isPending || isMe}
+                        disabled={isPending || isMe || !canManageUsers || u.role === "superadmin"}
                         onClick={() => run(() => setUserBanned(u.id, !u.banned))}
                         title={u.banned ? "Blokdan chiqarish" : "Bloklash"}
                       >
@@ -238,7 +259,7 @@ export function UsersTable({
                       <Button
                         size="sm"
                         variant="danger"
-                        disabled={isPending || isMe}
+                        disabled={isPending || isMe || !canManageUsers || u.role === "superadmin"}
                         onClick={() => setConfirmDelete(u)}
                         title="O'chirish"
                       >

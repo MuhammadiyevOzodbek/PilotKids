@@ -60,7 +60,9 @@ export const partners = [
 export const footerCols = [
   { title: "Mahsulot", links: ["Kurslar", "Laboratoriya", "Sertifikatlar", "AI Tutor", "Narxlar"] },
   { title: "Ota-onalar", links: ["Ota-ona paneli", "Xavfsizlik", "Ekran vaqti", "Ko'p bola"] },
-  { title: "Kompaniya", links: ["Biz haqimizda", "Jamoa", "Karyera", "Bog'lanish"] },
+  // "Karyera" olib tashlandi — hozircha bunday sahifa yo'q, futerdan jimgina
+  // yo'qoladigan yozuv qoldirishning ma'nosi yo'q (page.tsx'dagi `footerHrefs`).
+  { title: "Kompaniya", links: ["Biz haqimizda", "Jamoa", "Bog'lanish"] },
 ];
 
 export type TeamMember = {
@@ -285,75 +287,6 @@ export const quizOptions = [
   { l: "Batareya bloki" },
 ];
 export const quizCorrect = 0;
-
-export const labProjects = [
-  {
-    icon: "smart_toy",
-    color: "#6366F1",
-    soft: "rgba(99,102,241,.12)",
-    title: "To'siqdan qochuvchi bot",
-    desc: "Sensor bilan yo'lni sezib buriladigan robot.",
-    diff: "Qiyin",
-    diffCol: "#E5484D",
-    diffBg: "rgba(229,72,77,.12)",
-    parts: "Arduino · 2 motor · HC-SR04",
-  },
-  {
-    icon: "lightbulb",
-    color: "#EAB308",
-    soft: "rgba(234,179,8,.14)",
-    title: "Aqlli tungi chiroq",
-    desc: "Qorong'uda avtomat yonadigan LED tizim.",
-    diff: "O'rta",
-    diffCol: "#EA9A0E",
-    diffBg: "rgba(234,154,14,.13)",
-    parts: "LDR · LED · Rezistor",
-  },
-  {
-    icon: "traffic",
-    color: "#0FA46E",
-    soft: "rgba(15,164,110,.12)",
-    title: "LED svetofor",
-    desc: "Vaqt asosida ishlaydigan 3-rangli svetofor.",
-    diff: "Oson",
-    diffCol: "#0FA46E",
-    diffBg: "var(--success-soft)",
-    parts: "3 LED · Rezistor",
-  },
-  {
-    icon: "precision_manufacturing",
-    color: "#EC4899",
-    soft: "rgba(236,72,153,.12)",
-    title: "Robot qo'l",
-    desc: "Servo motorlar bilan boshqariladigan qo'l.",
-    diff: "Qiyin",
-    diffCol: "#E5484D",
-    diffBg: "rgba(229,72,77,.12)",
-    parts: "3 servo · Joystick",
-  },
-  {
-    icon: "device_thermostat",
-    color: "#0EA5E9",
-    soft: "rgba(14,165,233,.12)",
-    title: "Harorat monitori",
-    desc: "Haroratni o'lchab ekranga chiqaradi.",
-    diff: "O'rta",
-    diffCol: "#EA9A0E",
-    diffBg: "rgba(234,154,14,.13)",
-    parts: "DHT11 · OLED",
-  },
-  {
-    icon: "music_note",
-    color: "#8B5CF6",
-    soft: "rgba(139,92,246,.12)",
-    title: "Musiqa qutisi",
-    desc: "Tugma bosilganda ohang chaladi.",
-    diff: "Oson",
-    diffCol: "#0FA46E",
-    diffBg: "var(--success-soft)",
-    parts: "Buzzer · Tugmalar",
-  },
-];
 
 export const badges = [
   {

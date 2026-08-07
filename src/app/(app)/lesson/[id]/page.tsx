@@ -10,6 +10,7 @@ import {
   getLessonNote,
   getUserCourses,
 } from "@/lib/queries";
+import { VideoPlayer } from "@/components/video-player";
 import { CompleteButton, LessonNote } from "./lesson-actions";
 
 export async function generateMetadata({
@@ -68,49 +69,8 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
 
       <div className="split" style={{ "--split": "1.7fr 1fr", gap: 26 } as React.CSSProperties}>
         <div>
-          {/* Video maydoni */}
-          <div
-            style={{
-              position: "relative",
-              borderRadius: 22,
-              overflow: "hidden",
-              aspectRatio: "16/9",
-              background: "linear-gradient(135deg,#16224a,#0B1220)",
-              display: "grid",
-              placeItems: "center",
-              boxShadow: "var(--shadow)",
-            }}
-          >
-            {lesson.videoUrl ? (
-              <video
-                controls
-                preload="metadata"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              >
-                <source src={lesson.videoUrl} />
-                Brauzeringiz video formatini qo&apos;llab-quvvatlamaydi.
-              </video>
-            ) : (
-              <div style={{ textAlign: "center", padding: 24, position: "relative" }}>
-                <span
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: "50%",
-                    background: "rgba(255,255,255,.1)",
-                    display: "grid",
-                    placeItems: "center",
-                    margin: "0 auto 14px",
-                  }}
-                >
-                  <Icon name="movie" size={34} color="#AEBBD4" />
-                </span>
-                <p style={{ color: "#AEBBD4", fontSize: 14.5, fontWeight: 600, margin: 0 }}>
-                  Video tayyorlanmoqda — quyidagi matnli darsdan foydalaning
-                </p>
-              </div>
-            )}
-          </div>
+          {/* Video maydoni — YouTube/Vimeo yoki to'g'ridan-to'g'ri fayl */}
+          <VideoPlayer url={lesson.videoUrl} title={lesson.title} />
 
           {/* Sarlavha va meta */}
           <div

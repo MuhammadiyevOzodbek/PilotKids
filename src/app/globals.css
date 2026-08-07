@@ -249,6 +249,40 @@ input::placeholder {
   outline-offset: 2px;
 }
 
+/* ───────────── "Asosiy qismga o'tish" havolasi ─────────────
+   Klaviatura/skrinrider foydalanuvchisi navigatsiyani aylanib o'tsin.
+   Ekrandan tashqarida turadi va faqat fokus olganda ko'rinadi. */
+.skip-link {
+  position: absolute;
+  z-index: 100;
+  top: 8px;
+  left: 8px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  /* `display:none` bo'lsa fokus ham olmaydi — shu bois ko'zdan yashiramiz */
+  transform: translateY(-160%);
+  transition: transform 0.18s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  opacity: 1;
+  outline-offset: 3px;
+}
+
+/* ───────────── Ichki havolalar (#narxlar, #jamoa …) ─────────────
+   Bo'limga sakraganda sarlavha kontent ustiga tegib ketmasin va o'tish
+   yumshoq bo'lsin (reduced-motion'da pastda `auto`ga qaytadi). */
+html {
+  scroll-behavior: smooth;
+}
+[id] {
+  scroll-margin-top: 24px;
+}
+
 /* ─────────────────────────── Animatsiyalar ─────────────────────────── */
 @keyframes floatY {
   0%,
@@ -696,11 +730,20 @@ input::placeholder {
     left: 0;
     z-index: 50;
     transform: translateX(-100%);
-    transition: transform 0.25s ease;
     box-shadow: var(--shadow-lg);
+    /* `visibility` — panel yopiq bo'lganda ekrandan tashqarida turadi, lekin
+       `transform` yolg'iz uni tab tartibidan CHIQARMAYDI: klaviatura bilan
+       yurgan foydalanuvchi ko'rinmayotgan havolalarga tushib qolardi.
+       Yopilish animatsiyasi tugagach yashiradi (`visibility` diskret o'zgaradi,
+       shu bois 0.25s davomida hali ko'rinib turadi). */
+    visibility: hidden;
+    transition:
+      transform 0.25s ease,
+      visibility 0.25s ease;
   }
   .app-sidebar[data-open="true"] {
     transform: translateX(0);
+    visibility: visible;
   }
   .app-backdrop[data-open="true"] {
     display: block;
@@ -799,12 +842,45 @@ input::placeholder {
     display: none !important;
   }
 }
+/* Qidiruv: desktopda sarlavhada doimiy maydon, telefonda tugma + panel */
+.app-header-search-btn {
+  display: none;
+}
 @media (max-width: 640px) {
   .app-header-search {
     display: none !important;
   }
+  .app-header-search-btn {
+    display: grid;
+  }
   .app-header-name {
     display: none !important;
+  }
+}
+
+/* Telefondagi qidiruv paneli — sarlavha ustidan tushadi */
+.search-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(4, 8, 18, 0.5);
+  animation: fadeIn 0.18s ease both;
+}
+.search-sheet-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  animation: slideDown 0.2s ease both;
+}
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 @media (max-width: 420px) {

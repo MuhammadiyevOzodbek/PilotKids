@@ -229,6 +229,7 @@ async function getLabProjectsWithProgress_impl(userId: string) {
       diffCol: labProject.diffCol,
       diffBg: labProject.diffBg,
       parts: labProject.parts,
+      kind: labProject.kind,
       status: sql<string | null>`${labProgress.status}`,
     })
     .from(labProject)

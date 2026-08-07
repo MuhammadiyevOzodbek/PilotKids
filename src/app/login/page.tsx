@@ -4,6 +4,7 @@ import { Robot3D } from "@/components/robot-3d";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { authMethods, isDev, otpEnabled, telegramBotUsername } from "@/lib/env";
 import { LoginClient } from "./login-client";
+import { LoginHeader } from "./login-header";
 
 export const metadata: Metadata = {
   title: "Kirish",
@@ -41,8 +42,9 @@ export default function LoginPage() {
         </div>
       }
     >
-      {/* `useSearchParams` Suspense chegarasini talab qiladi. */}
-      <Suspense fallback={null}>
+      {/* `useSearchParams` Suspense chegarasini talab qiladi. Fallback bo'sh
+          emas — sarlavha darhol HTML'da bo'ladi, JS kutilmaydi. */}
+      <Suspense fallback={<LoginHeader />}>
         <LoginClient
           methods={{
             google: authMethods.google,

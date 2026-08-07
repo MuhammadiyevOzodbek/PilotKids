@@ -14,5 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // o'z ichida `requireAdmin()` chaqiradi (layout himoya emas).
   const user = await requireAdmin();
 
-  return <AdminShell name={firstName(user.name)}>{children}</AdminShell>;
+  return (
+    <AdminShell name={firstName(user.name)} role={user.role ?? "admin"}>
+      {children}
+    </AdminShell>
+  );
 }

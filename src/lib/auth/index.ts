@@ -3,6 +3,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { admin as adminPlugin } from "better-auth/plugins/admin";
+import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { db } from "@/lib/db";
@@ -12,6 +13,8 @@ import { env, oauth, publicEnv } from "@/lib/env";
 import { sendSms } from "@/lib/notify/sms";
 import { otpEmailTemplate, sendEmail } from "@/lib/notify/email";
 import { firstError, signupSchema } from "@/lib/validation";
+import { SUPER_ADMIN_ROLES } from "@/lib/auth/roles";
+import { isInternalAuthCall } from "@/lib/auth/internal";
 
 type SocialProviderConfig = {
   clientId: string;
@@ -85,10 +88,22 @@ export const auth = betterAuth({
       const body = ctx.body as Record<string, unknown> | undefined;
       const email = typeof body?.email === "string" ? body.email.toLowerCase() : "";
 
-      // Telegram/phone synthetic accounts are created server-side and finish onboarding in /welcome.
-      const serverSynthetic =
-        email.endsWith("@telegram.pilotkids.uz") || email.endsWith("@phone.pilotkids.uz");
-      if (serverSynthetic) return;
+      /*
+       * Ichki (sintetik) manzillar — Telegram va telefon oqimlari uchun.
+       *
+       * Bularga oddiy ro'yxatdan o'tish validatsiyasi (ism/yosh/rozilik)
+       * qo'llanmaydi, chunki bu ma'lumotlar `/welcome` da so'raladi. Ammo
+       * istisno faqat SERVER boshlagan chaqiruvda amal qiladi: aks holda
+       * tashqi odam ixtiyoriy Telegram ID nomiga hisob ochib, haqiqiy egasini
+       * o'z hisobidan mahrum qilishi mumkin edi (`@/lib/auth/internal`).
+       */
+      const RESERVED_DOMAINS = ["@telegram.pilotkids.uz", "@phone.pilotkids.uz"];
+      if (RESERVED_DOMAINS.some((d) => email.endsWith(d))) {
+        if (isInternalAuthCall(ctx.headers)) return;
+        throw new APIError("BAD_REQUEST", {
+          message: "Bu manzilda ro'yxatdan o'tib bo'lmaydi",
+        });
+      }
 
       const parsed = signupSchema.safeParse({
         name: body?.name,
@@ -198,7 +213,7 @@ export const auth = betterAuth({
             },
           };
         },
-        // Yangi foydalanuvchiga boshlang'ich ma'lumot (enrollment, nishon, sertifikat...)
+        // Yangi foydalanuvchiga boshlang'ich sozlamalar va xush kelibsiz xabari.
         after: async (createdUser) => {
           await seedUserData(createdUser.id);
         },
@@ -206,10 +221,36 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    /** Admin panel — rol tekshiruvi, foydalanuvchini bloklash, ro'yxat API'lari. */
+    /**
+     * Admin plagini — `banned` maydoni va foydalanuvchi boshqaruvi API'lari.
+     *
+     * DIQQAT: bu plagin O'ZINING HTTP endpointlarini ochadi
+     * (`/api/auth/admin/set-role`, `/admin/set-user-password`,
+     * `/admin/impersonate-user`, `/admin/remove-user` …). Ular ilovaning
+     * `requireSuperAdmin()` tekshiruvidan O'TMAYDI — kim ularni chaqira
+     * olishini faqat shu yerdagi `roles` va `adminRoles` belgilaydi.
+     *
+     * Shu sababli `admin` roliga `adminAc` BERILMAYDI: aks holda oddiy
+     * kontent admini `/admin/set-role` orqali o'zini `superadmin` qilib
+     * olishi yoki `/admin/set-user-password` bilan bosh adminning parolini
+     * almashtirib, hisobini egallashi mumkin edi. Ilovaning admin/bosh admin
+     * ajratmasi shunda butunlay ma'nosiz bo'lib qolardi.
+     *
+     * Oddiy admin faqat kontent bilan ishlaydi (kurs, dars, test) — buning
+     * uchun bu endpointlar kerak emas. Foydalanuvchi boshqaruvi esa
+     * `src/lib/admin/actions.ts` dagi `requireSuperAdmin()` bilan
+     * himoyalangan action'lar orqali amalga oshiriladi.
+     */
     adminPlugin({
       defaultRole: "student",
-      adminRoles: ["admin"],
+      roles: {
+        student: userAc,
+        parent: userAc,
+        // Foydalanuvchi boshqaruvi huquqlarisiz — kontent admini.
+        admin: userAc,
+        superadmin: adminAc,
+      },
+      adminRoles: SUPER_ADMIN_ROLES,
     }),
     /**
      * Telefon orqali kirish (SMS OTP).

@@ -14,7 +14,9 @@ import {
   Tag,
   Textarea,
 } from "@/components/admin/ui";
+import { VideoThumb } from "@/components/video-player";
 import { createLesson, deleteLesson, moveLesson, updateLesson } from "@/lib/admin/actions";
+import { parseVideoUrl } from "@/lib/video";
 
 export interface AdminLessonRow {
   id: string;
@@ -65,9 +67,14 @@ const emptyDraft: Draft = {
 export function LessonsManager({
   courseId,
   lessons,
+  courseColor = "var(--primary)",
+  courseSoft = "var(--primary-soft)",
 }: {
   courseId: string;
   lessons: AdminLessonRow[];
+  /** Muqovalar kurs rangida bo'lsin — e'lon bilan bir butun ko'rinadi. */
+  courseColor?: string;
+  courseSoft?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -139,6 +146,11 @@ export function LessonsManager({
     });
   }
 
+  // Formada yozilayotgan havola darhol tanib olinadi — admin saqlashdan oldin
+  // video to'g'ri ekaniga ishonch hosil qiladi.
+  const preview = parseVideoUrl(draft.videoUrl);
+  const videoTyped = draft.videoUrl.trim().length > 0;
+
   return (
     <>
       <Card
@@ -199,6 +211,8 @@ export function LessonsManager({
                   {i + 1}
                 </span>
 
+                <VideoThumb url={l.videoUrl} color={courseColor} soft={courseSoft} />
+
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <div
                     style={{
@@ -223,10 +237,16 @@ export function LessonsManager({
                     <Tag color="var(--primary)" bg="var(--primary-soft)">
                       +{l.xpReward} XP
                     </Tag>
-                    {!l.videoUrl && l.type === "video" && (
-                      <Tag color="var(--fun-amber)" bg="var(--fun-amber-soft)">
-                        Video yo&apos;q
+                    {parseVideoUrl(l.videoUrl) ? (
+                      <Tag color="var(--success)" bg="var(--success-soft)">
+                        {parseVideoUrl(l.videoUrl)!.label}
                       </Tag>
+                    ) : (
+                      l.type === "video" && (
+                        <Tag color="var(--fun-amber)" bg="var(--fun-amber-soft)">
+                          Video yo&apos;q
+                        </Tag>
+                      )
                     )}
                   </div>
                 </div>
@@ -327,14 +347,83 @@ export function LessonsManager({
             />
           </div>
 
-          <Input
-            label="Video havolasi"
-            type="url"
-            value={draft.videoUrl}
-            onChange={(e) => setDraft((d) => ({ ...d, videoUrl: e.target.value }))}
-            placeholder="https://www.youtube.com/embed/…"
-            hint="Bo'sh qoldirsangiz dars sahifasida o'rin egallovchi ko'rinadi"
-          />
+          {/* ───────────── Video dars ───────────── */}
+          <div
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Icon name="videocam" size={19} color="var(--primary)" />
+              <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text)" }}>
+                Video dars
+              </span>
+            </div>
+
+            <Input
+              label="Video havolasi"
+              type="url"
+              value={draft.videoUrl}
+              onChange={(e) => setDraft((d) => ({ ...d, videoUrl: e.target.value }))}
+              placeholder="https://youtu.be/dQw4w9WgXcQ"
+              hint="YouTube, Vimeo yoki to'g'ridan-to'g'ri .mp4 havolasi. Bo'sh qoldirsangiz o'quvchi faqat matnni ko'radi."
+            />
+
+            {videoTyped && !preview && (
+              <div style={{ marginTop: 12 }}>
+                <Alert kind="error">
+                  Havolani tanib bo&apos;lmadi. YouTube/Vimeo manzilini yoki to&apos;liq https://
+                  bilan boshlanadigan video faylni qo&apos;ying.
+                </Alert>
+              </div>
+            )}
+
+            {preview && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                  <Icon name="check_circle" size={17} color="var(--success)" />
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--success)" }}>
+                    {preview.label} aniqlandi
+                  </span>
+                </div>
+
+                {preview.kind === "file" ? (
+                  <video
+                    controls
+                    preload="metadata"
+                    src={preview.embedUrl}
+                    style={{
+                      width: "100%",
+                      maxWidth: 420,
+                      aspectRatio: "16/9",
+                      borderRadius: 12,
+                      background: "#0B1220",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <iframe
+                    src={preview.embedUrl}
+                    title="Video ko'rinishi"
+                    loading="lazy"
+                    allowFullScreen
+                    style={{
+                      width: "100%",
+                      maxWidth: 420,
+                      aspectRatio: "16/9",
+                      border: 0,
+                      borderRadius: 12,
+                      background: "#0B1220",
+                      display: "block",
+                    }}
+                  />
+                )}
+              </div>
+            )}
+          </div>
 
           <Textarea
             label="Dars matni"

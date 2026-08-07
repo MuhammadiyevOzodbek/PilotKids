@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
+import { isAdminRole, isSuperAdminRole, type UserRole } from "@/lib/auth/roles";
 
 /** Sessiyadagi foydalanuvchi + PilotKids maydonlari. */
 export type SessionUser = {
@@ -13,7 +14,7 @@ export type SessionUser = {
   name: string;
   email: string;
   image?: string | null;
-  role?: string;
+  role?: UserRole | string;
   onboarded?: boolean;
   age?: number | null;
   banned?: boolean | null;
@@ -39,27 +40,34 @@ export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const user = session.user as unknown as SessionUser;
-  if (user.banned) redirect("/bloklangan");
-  if (!user.onboarded) redirect("/welcome");
-  return user;
+  const sessionUser = session.user as unknown as SessionUser;
+  const access = await getAccessFromDb(sessionUser.id);
+  if (!access) redirect("/login");
+  if (access.banned) redirect("/bloklangan");
+  if (!access.onboarded) redirect("/welcome");
+  return { ...sessionUser, ...access };
 }
 
 /** Onboarding sahifasining o'zi uchun — `onboarded` tekshiruvisiz. */
 export async function requireUserRaw(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/login");
-  return session.user as unknown as SessionUser;
+  const sessionUser = session.user as unknown as SessionUser;
+  const access = await getAccessFromDb(sessionUser.id);
+  if (!access) redirect("/login");
+  if (access.banned) redirect("/bloklangan");
+  return { ...sessionUser, ...access };
 }
 
 /**
  * Faqat ota-ona roli uchun. Talab qilingan rolga ega bo'lmasa — dashboard'ga.
  * Rol client'dan emas, DB'dagi sessiyadan o'qiladi (input: false).
  */
-export async function requireRole(role: "student" | "parent"): Promise<SessionUser> {
-  const user = await requireUser();
-  if (user.role !== role) redirect("/dashboard");
-  return user;
+export async function requireRole(role: UserRole): Promise<SessionUser> {
+  const sessionUser = await requireUser();
+  const dbRole = await getRoleFromDb(sessionUser.id);
+  if (dbRole !== role) redirect("/dashboard");
+  return { ...sessionUser, role: dbRole };
 }
 
 /**
@@ -70,9 +78,31 @@ export async function requireRole(role: "student" | "parent"): Promise<SessionUs
  * keyin ham odam yana 5 daqiqa panelda qolib ketardi. Shuning uchun bu yerda
  * har safar DB'ga boramiz — `cache()` tufayli bitta so'rov ichida bir marta.
  */
+const getAccessFromDb = cache(
+  async (
+    userId: string,
+  ): Promise<{ role: string; banned: boolean; onboarded: boolean; age: number | null } | null> => {
+    const rows = await db
+      .select({
+        role: user.role,
+        banned: user.banned,
+        onboarded: user.onboarded,
+        age: user.age,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+    return rows[0] ?? null;
+  },
+);
+
+/** Route handlerlar uchun joriy DB access holatini redirect qilmasdan olish. */
+export async function getUserAccess(userId: string) {
+  return getAccessFromDb(userId);
+}
+
 const getRoleFromDb = cache(async (userId: string): Promise<string | null> => {
-  const rows = await db.select({ role: user.role }).from(user).where(eq(user.id, userId)).limit(1);
-  return rows[0]?.role ?? null;
+  return (await getAccessFromDb(userId))?.role ?? null;
 });
 
 /**
@@ -84,10 +114,28 @@ export async function requireAdmin(): Promise<SessionUser> {
   if (!session) redirect("/login");
 
   const sessionUser = session.user as unknown as SessionUser;
-  const role = await getRoleFromDb(sessionUser.id);
-  if (role !== "admin") redirect("/dashboard");
+  const access = await getAccessFromDb(sessionUser.id);
+  if (!access) redirect("/login");
+  if (access.banned) redirect("/bloklangan");
+  if (!access.onboarded) redirect("/welcome");
+  if (!isAdminRole(access.role)) redirect("/dashboard");
 
-  return { ...sessionUser, role };
+  return { ...sessionUser, ...access };
+}
+
+/** Bosh admin paneli va eng xavfli mutatsiyalar uchun. */
+export async function requireSuperAdmin(): Promise<SessionUser> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const sessionUser = session.user as unknown as SessionUser;
+  const access = await getAccessFromDb(sessionUser.id);
+  if (!access) redirect("/login");
+  if (access.banned) redirect("/bloklangan");
+  if (!access.onboarded) redirect("/welcome");
+  if (!isSuperAdminRole(access.role)) redirect("/admin");
+
+  return { ...sessionUser, ...access };
 }
 
 /** Foydalanuvchi admin ekanini tekshirish (yo'naltirishsiz). */
@@ -95,5 +143,13 @@ export async function isAdmin(): Promise<boolean> {
   const session = await getSession();
   const sessionUser = session?.user as unknown as SessionUser | undefined;
   if (!sessionUser) return false;
-  return (await getRoleFromDb(sessionUser.id)) === "admin";
+  return isAdminRole(await getRoleFromDb(sessionUser.id));
+}
+
+/** Foydalanuvchi bosh admin ekanini tekshirish (yo'naltirishsiz). */
+export async function isSuperAdmin(): Promise<boolean> {
+  const session = await getSession();
+  const sessionUser = session?.user as unknown as SessionUser | undefined;
+  if (!sessionUser) return false;
+  return isSuperAdminRole(await getRoleFromDb(sessionUser.id));
 }

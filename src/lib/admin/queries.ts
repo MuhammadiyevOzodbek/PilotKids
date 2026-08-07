@@ -12,6 +12,7 @@ import {
   labProject,
   certificate,
 } from "@/lib/db/schema";
+import { USER_ROLES } from "@/lib/auth/roles";
 
 /** Admin ro'yxatlarida bir sahifadagi qatorlar soni. */
 export const PAGE_SIZE = 20;
@@ -100,9 +101,12 @@ export interface UserFilter {
 }
 
 export async function getAdminUsers({ q, role, page = 1 }: UserFilter) {
+  const safeQ = q?.trim().slice(0, 80) ?? "";
+  const safeRole = USER_ROLES.includes(role as (typeof USER_ROLES)[number]) ? role : "all";
+  const safePage = Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1;
   const where = and(
-    q ? or(ilike(user.name, `%${q}%`), ilike(user.email, `%${q}%`)) : undefined,
-    role && role !== "all" ? eq(user.role, role) : undefined,
+    safeQ ? or(ilike(user.name, `%${safeQ}%`), ilike(user.email, `%${safeQ}%`)) : undefined,
+    safeRole && safeRole !== "all" ? eq(user.role, safeRole) : undefined,
   );
 
   const [rows, [total]] = await Promise.all([
@@ -126,7 +130,7 @@ export async function getAdminUsers({ q, role, page = 1 }: UserFilter) {
       .where(where)
       .orderBy(desc(user.createdAt))
       .limit(PAGE_SIZE)
-      .offset((page - 1) * PAGE_SIZE),
+      .offset((safePage - 1) * PAGE_SIZE),
     db.select({ value: count() }).from(user).where(where),
   ]);
 

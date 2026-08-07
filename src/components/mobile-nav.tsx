@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -17,12 +17,19 @@ const links = [
  *  (ko'rinishni `.nav-burger` klassi boshqaradi, globals.css'ga qarang). */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     // Panel ochiq turganda fon skroll qilinmasin
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Tozalash paytida ref allaqachon o'zgargan bo'lishi mumkin — hozir olamiz.
+    const burger = burgerRef.current;
+    // Fokus panel ichiga kirsin — aks holda klaviatura foydalanuvchisi
+    // ko'rinmayotgan sahifa ustida qolib ketadi.
+    closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -30,12 +37,15 @@ export function MobileNav() {
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      // Panel yopilganda fokus uni ochgan tugmaga qaytadi.
+      burger?.focus();
     };
   }, [open]);
 
   return (
     <>
       <button
+        ref={burgerRef}
         className="nav-burger tap"
         aria-label="Menyuni ochish"
         aria-expanded={open}
@@ -69,6 +79,7 @@ export function MobileNav() {
               PilotKids
             </span>
             <button
+              ref={closeRef}
               className="tap"
               aria-label="Menyuni yopish"
               onClick={() => setOpen(false)}

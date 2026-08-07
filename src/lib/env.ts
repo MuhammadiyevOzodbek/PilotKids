@@ -62,6 +62,29 @@ export const publicEnv = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 };
 
+function isLocalUrl(value: string) {
+  try {
+    const host = new URL(value).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+if (process.env.NODE_ENV === "production") {
+  if (env.BETTER_AUTH_SECRET.length < 32) {
+    throw new Error("BETTER_AUTH_SECRET production uchun kamida 32 belgi bo'lishi kerak");
+  }
+  for (const [key, value] of [
+    ["BETTER_AUTH_URL", env.BETTER_AUTH_URL],
+    ["NEXT_PUBLIC_APP_URL", publicEnv.appUrl],
+  ] as const) {
+    if (!isLocalUrl(value) && !value.startsWith("https://")) {
+      throw new Error(`${key} productionda HTTPS bo'lishi kerak`);
+    }
+  }
+}
+
 /** OAuth provayder yoqilganmi (kalitlar to'ldirilganmi). */
 export const oauth = {
   google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),

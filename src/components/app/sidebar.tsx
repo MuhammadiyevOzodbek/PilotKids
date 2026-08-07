@@ -13,23 +13,32 @@ const detailsParent: Record<string, string> = {
   "/quiz": "/courses",
 };
 
-export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
+export function Sidebar({ role = "student" }: { role?: string }) {
   const pathname = usePathname();
   const { open, close } = useSidebar();
+  const isAdmin = role === "admin" || role === "superadmin";
+  const isSuperAdmin = role === "superadmin";
+  const showParentMode = role === "parent";
 
   // Sahifa almashganda mobil panel yopilsin
   useEffect(() => {
     close();
   }, [pathname, close]);
 
-  // Panel ochiq turganda Escape yopadi
+  // Panel ochiq turganda Escape yopadi va fon skroll qilinmaydi.
+  // (Fon skrolli mobil panellarda eng ko'p uchraydigan nuqson.)
   useEffect(() => {
     if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open, close]);
 
   return (
@@ -38,6 +47,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       <aside
         className="app-sidebar"
         data-open={open}
+        aria-label="Bo'limlar"
         style={{
           background: "var(--surface)",
           borderRight: "1px solid var(--border)",
@@ -119,44 +129,46 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             }}
           >
             <Icon name="admin_panel_settings" size={21} />
-            Admin panel
+            {isSuperAdmin ? "Bosh admin panel" : "Admin panel"}
           </Link>
         )}
 
-        <div
-          style={{
-            background: "linear-gradient(135deg,#12203f,#0B1220)",
-            borderRadius: 18,
-            padding: 18,
-            color: "#EAF0FB",
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Icon name="shield_person" size={20} color="#38d39a" />
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Ota-ona rejimi</span>
-          </div>
-          <p style={{ margin: "0 0 12px", fontSize: 14, color: "#AEBBD4", lineHeight: 1.5 }}>
-            Farzandingiz progressi va ekran vaqtini kuzating.
-          </p>
-          <Link
-            href="/parent"
-            className="tap"
+        {showParentMode && (
+          <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 9,
-              borderRadius: 10,
-              background: "rgba(255,255,255,.1)",
-              color: "#fff",
-              fontWeight: 600,
-              fontSize: 14.5,
+              background: "linear-gradient(135deg,#12203f,#0B1220)",
+              borderRadius: 18,
+              padding: 18,
+              color: "#EAF0FB",
+              marginBottom: 12,
             }}
           >
-            Ochish
-          </Link>
-        </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <Icon name="shield_person" size={20} color="#38d39a" />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Ota-ona rejimi</span>
+            </div>
+            <p style={{ margin: "0 0 12px", fontSize: 14, color: "#AEBBD4", lineHeight: 1.5 }}>
+              Farzandingiz progressi va ekran vaqtini kuzating.
+            </p>
+            <Link
+              href="/parent"
+              className="tap"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 9,
+                borderRadius: 10,
+                background: "rgba(255,255,255,.1)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 14.5,
+              }}
+            >
+              Ochish
+            </Link>
+          </div>
+        )}
 
         <Link
           href="/settings"

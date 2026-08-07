@@ -1,5 +1,5 @@
 /**
- * PilotKids DB seed — kontent (kategoriya, kurs, dars, nishon, lab, quiz) va
+ * PilotKids DB seed — kontent (kategoriya, kurs, dars, nishon, quiz) va
  * reyting uchun demo foydalanuvchilar. Ishga tushirish: `npm run db:seed`.
  *
  * O'zini-o'zi ta'minlaydi: dotenv'ni yuklab, o'z Neon ulanishini ochadi
@@ -17,7 +17,6 @@ import {
   featured as featuredData,
   detailLessons,
   badges as badgesData,
-  labProjects as labData,
   quizOptions,
   quizCorrect,
 } from "../data";
@@ -34,7 +33,6 @@ async function main() {
   await db.delete(schema.course);
   await db.delete(schema.category);
   await db.delete(schema.badge);
-  await db.delete(schema.labProject);
 
   // 1) Kategoriyalar
   const catRows = categoriesData.map((c, i) => ({
@@ -109,53 +107,6 @@ async function main() {
   }));
   await db.insert(schema.badge).values(badgeRows);
   console.log(`  ✓ ${badgeRows.length} nishon`);
-
-  // 6) Lab loyihalari
-  const labRows = labData.map((p, i) => ({
-    id: randomUUID(),
-    slug: slugify(p.title),
-    title: p.title,
-    description: p.desc,
-    icon: p.icon,
-    color: p.color,
-    soft: p.soft,
-    diff: p.diff,
-    diffCol: p.diffCol,
-    diffBg: p.diffBg,
-    parts: p.parts,
-    sortOrder: i,
-  }));
-  await db.insert(schema.labProject).values(labRows);
-  console.log(`  ✓ ${labRows.length} lab loyiha`);
-
-  // 7) Reyting uchun demo foydalanuvchilar (login qilmaydi — faqat XP ko'rsatkichi)
-  const demoUsers = [
-    { name: "Laylo Rahimova", xp: 1180, streak: 21 },
-    { name: "Jasur Toshmatov", xp: 1090, streak: 15 },
-    { name: "Nodira Saidova", xp: 980, streak: 12 },
-    { name: "Sardor Mirzayev", xp: 910, streak: 9 },
-    { name: "Malika Aliyeva", xp: 860, streak: 7 },
-    { name: "Bekzod Xolmatov", xp: 820, streak: 6 },
-    { name: "Dilnoza Qodirova", xp: 790, streak: 5 },
-  ];
-  // Avvalgi demo foydalanuvchilarni tozalaymiz (email suffiksi bo'yicha)
-  for (const u of demoUsers) {
-    const email = slugify(u.name) + "@demo.pilotkids.uz";
-    await db
-      .insert(schema.user)
-      .values({
-        id: randomUUID(),
-        name: u.name,
-        email,
-        emailVerified: true,
-        xp: u.xp,
-        streak: u.streak,
-        level: Math.max(1, Math.floor(u.xp / 300)),
-        role: "student",
-      })
-      .onConflictDoNothing({ target: schema.user.email });
-  }
-  console.log(`  ✓ ${demoUsers.length} demo foydalanuvchi (reyting)`);
 
   console.log("✅ Seed tugadi.");
 }

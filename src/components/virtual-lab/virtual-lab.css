@@ -1,0 +1,1962 @@
+/**
+ * Virtual laboratoriya — vizual tizim.
+ *
+ * Barcha ko'rinish shu yerda: komponentlarda inline uslub qoldirilmagan.
+ * Sabab — holatlar (hover, focus-visible, active, disabled) va media
+ * so'rovlarini inline uslub bilan yozib bo'lmaydi, natijada interfeys
+ * "o'lik" ko'rinadi.
+ *
+ * Ranglar loyihaning umumiy tokenlaridan olinadi (`--surface`, `--primary`…),
+ * shuning uchun laboratoriya yorug' va tungi mavzuda ham to'g'ri chiqadi.
+ * Faqat laboratoriyaga xos qiymatlar `--vlab-*` sifatida qayta e'lon qilinadi.
+ */
+
+.vlab-root {
+  --vlab-head: 46px;
+  --vlab-radius: 12px;
+  --vlab-gap: 10px;
+
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 76px);
+  min-height: 560px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Laboratoriya ilova qobig'i (`app-main`) ichida ochiladi, lekin unga
+ * maksimal joy kerak. Shuning uchun `app-main` ning ichki bo'shlig'ini
+ * manfiy chekka bilan bekor qilamiz.
+ */
+.vlab-page {
+  margin: -34px -32px -60px;
+}
+
+/* ═══════════════════ Yuqori panel ═══════════════════ */
+
+.vlab-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.vlab-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.vlab-brand-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(140deg, var(--primary), var(--fun-violet));
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px -4px var(--ring);
+}
+
+.vlab-name {
+  width: 168px;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.vlab-name:hover {
+  background: var(--surface-2);
+}
+
+.vlab-name:focus {
+  background: var(--surface-2);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.vlab-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.vlab-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* ── Ikonkali tugma ── */
+
+.vlab-tool-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.vlab-project-select {
+  width: 178px;
+  max-width: 32vw;
+  height: 32px;
+  border: none;
+  border-radius: 9px;
+  padding: 0 30px 0 10px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  outline: none;
+  cursor: pointer;
+}
+
+.vlab-project-select:hover,
+.vlab-project-select:focus {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.vlab-tool {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.vlab-tool:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.vlab-tool:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.vlab-tool[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.vlab-tool:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* Maslahat oynachasi — `title` atributi juda sekin chiqadi. */
+.vlab-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+  z-index: 30;
+}
+
+.vlab-tip kbd {
+  margin-left: 5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  font-family: inherit;
+  font-size: 10.5px;
+}
+
+.vlab-tool:hover .vlab-tip,
+.vlab-tool:focus-visible .vlab-tip {
+  opacity: 1;
+}
+
+/* ── Holat nishonlari ── */
+
+.vlab-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vlab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.vlab-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.vlab-badge-ok {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 24%, transparent);
+}
+
+.vlab-badge-warn {
+  background: var(--fun-amber-soft);
+  color: var(--fun-amber);
+  border-color: color-mix(in srgb, var(--fun-amber) 30%, transparent);
+}
+
+.vlab-badge-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+/* Simulyatsiya ishlayotganini bildiruvchi jonli nuqta. */
+.vlab-badge-live::before {
+  animation: vlab-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes vlab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.vlab-clock {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  min-width: 62px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── Tezlik tanlagichi ── */
+
+.vlab-speed {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.vlab-speed button {
+  padding: 5px 9px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease;
+}
+
+.vlab-speed button:hover {
+  color: var(--text);
+}
+
+.vlab-speed button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Ishga tushirish tugmalari ── */
+
+.vlab-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 11px;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    filter 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.vlab-run:hover {
+  filter: brightness(1.06);
+}
+
+.vlab-run:active {
+  transform: scale(0.97);
+}
+
+.vlab-run-start {
+  background: linear-gradient(140deg, var(--success), color-mix(in srgb, var(--success) 72%, #000));
+  box-shadow: 0 6px 16px -8px var(--success);
+}
+
+.vlab-run-pause {
+  background: linear-gradient(
+    140deg,
+    var(--fun-amber),
+    color-mix(in srgb, var(--fun-amber) 76%, #000)
+  );
+  box-shadow: 0 6px 16px -8px var(--fun-amber);
+}
+
+.vlab-run-stop {
+  padding: 9px 11px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.vlab-run-stop:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  filter: none;
+}
+
+/* ═══════════════════ Asosiy tartib ═══════════════════ */
+
+.vlab-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr) 392px;
+  gap: 1px;
+  background: var(--border);
+}
+
+/* Panellarni yig'ish — sxemaga ko'proq joy kerak bo'lganda. */
+.vlab-body[data-left="off"] {
+  grid-template-columns: 0 minmax(0, 1fr) 392px;
+}
+
+.vlab-body[data-right="off"] {
+  grid-template-columns: 244px minmax(0, 1fr) 0;
+}
+
+.vlab-body[data-left="off"][data-right="off"] {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+.vlab-col {
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.vlab-center {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 214px;
+  gap: 1px;
+  background: var(--border);
+}
+
+.vlab-center[data-serial="off"] {
+  grid-template-rows: minmax(0, 1fr) var(--vlab-head);
+}
+
+.vlab-right {
+  display: grid;
+  grid-template-rows: minmax(0, 42%) minmax(0, 58%);
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ═══════════════════ Panel qolipi ═══════════════════ */
+
+/*
+ * `overflow` ataylab kesilmagan: panel sarlavhasidagi tugmalarning maslahat
+ * oynachalari pastga chiqadi. Ichki qismlar o'zi cheklanadi (`min-height: 0`
+ * + `.vlab-panel-body` da `overflow-y: auto`), tashqi ustun esa
+ * `.vlab-col` da baribir kesiladi.
+ */
+.vlab-panel {
+  display: flex;
+  flex-direction: column;
+  /*
+   * `height` shart: kutubxona paneli oddiy blok element sifatida
+   * `.vlab-col` ichida turadi va balandligi berilmasa mazmuni bo'yicha
+   * cho'ziladi. Shunda `.vlab-panel-body` dagi `overflow-y: auto` hech
+   * qachon ishlamaydi — ro'yxat kesiladi, lekin skroll qilinmaydi.
+   */
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.vlab-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--vlab-head);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.vlab-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.vlab-panel-title svg {
+  color: var(--text-3);
+}
+
+.vlab-count {
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.vlab-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ═══════════════════ Komponentlar kutubxonasi ═══════════════════ */
+
+.vlab-search {
+  position: relative;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.vlab-search svg {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.vlab-search input {
+  width: 100%;
+  padding: 9px 10px 9px 32px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vlab-search input::placeholder {
+  color: var(--text-3);
+}
+
+.vlab-search input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.vlab-cat {
+  padding: 0 10px;
+}
+
+.vlab-cat-title {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 12px 2px 7px;
+  background: linear-gradient(var(--surface) 72%, transparent);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.vlab-items {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 4px;
+}
+
+.vlab-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: grab;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.vlab-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+  transform: translateX(2px);
+}
+
+.vlab-item:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.vlab-item-thumb {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: background 0.14s ease;
+}
+
+.vlab-item:hover .vlab-item-thumb {
+  background: var(--surface-3);
+}
+
+.vlab-item-thumb svg {
+  display: block;
+}
+
+.vlab-item-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.vlab-empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ═══════════════════ Sxema maydoni ═══════════════════ */
+
+.vlab-canvas {
+  position: relative;
+  min-height: 0;
+  background: var(--surface-2);
+}
+
+/* Maydon bo'sh bo'lganda — nima qilish kerakligi aytiladi. */
+.vlab-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.vlab-hint-icon {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  box-shadow: var(--shadow);
+}
+
+.vlab-hint-title {
+  font-size: 15.5px;
+  font-weight: 750;
+  color: var(--text-2);
+}
+
+.vlab-hint-text {
+  font-size: 13.5px;
+  color: var(--text-3);
+  max-width: 300px;
+  line-height: 1.6;
+}
+
+/* Sim ranglari uchun izoh — pastki chap burchakda. */
+.vlab-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  padding: 7px 11px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.vlab-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vlab-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ═══════════════════ Inspektor ═══════════════════ */
+
+.vlab-inspector {
+  display: grid;
+  gap: 15px;
+  padding: 14px;
+}
+
+.vlab-insp-name {
+  font-size: 15.5px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.vlab-insp-desc {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 3px;
+  line-height: 1.55;
+}
+
+.vlab-issue {
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  border: 1px solid;
+  color: var(--text-2);
+}
+
+.vlab-issue strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.vlab-issue-error {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+}
+
+.vlab-issue-error strong {
+  color: var(--danger);
+}
+
+.vlab-issue-warning {
+  background: var(--fun-amber-soft);
+  border-color: color-mix(in srgb, var(--fun-amber) 34%, transparent);
+}
+
+.vlab-issue-warning strong {
+  color: var(--fun-amber);
+}
+
+.vlab-label {
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.vlab-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vlab-label-value {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--primary);
+}
+
+.vlab-field {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vlab-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* Sensor slayderi */
+.vlab-range {
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  appearance: none;
+  background: var(--surface-3);
+  outline: none;
+  cursor: pointer;
+}
+
+.vlab-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+
+.vlab-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid var(--surface);
+  cursor: grab;
+}
+
+.vlab-range:focus-visible {
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.vlab-check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.vlab-check-row input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.vlab-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vlab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 650;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.vlab-btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.vlab-btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+}
+
+.vlab-btn-danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.vlab-wire-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vlab-wire-swatch {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--wire-color);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition:
+    box-shadow 0.14s ease,
+    transform 0.14s ease;
+}
+
+.vlab-wire-swatch:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--shadow-sm);
+}
+
+.vlab-wire-swatch[data-active="true"] {
+  box-shadow:
+    0 0 0 3px var(--ring),
+    0 0 0 5px var(--primary);
+}
+
+/* Pinlar ro'yxati */
+.vlab-sub {
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.vlab-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.vlab-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-2);
+}
+
+.vlab-pin i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════ Serial Monitor ═══════════════════ */
+
+.vlab-term {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.vlab-term-row {
+  display: flex;
+  gap: 12px;
+}
+
+.vlab-term-row:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.vlab-term-time {
+  color: var(--text-3);
+  flex-shrink: 0;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.vlab-term-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vlab-term-info {
+  color: var(--text-2);
+}
+.vlab-term-success {
+  color: var(--success);
+}
+.vlab-term-warning {
+  color: var(--fun-amber);
+}
+.vlab-term-error {
+  color: var(--danger);
+}
+
+.vlab-term-form {
+  display: flex;
+  gap: 8px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.vlab-term-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vlab-term-form input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.vlab-term-send {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  border-radius: 9px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.14s ease;
+}
+
+.vlab-term-send:hover {
+  filter: brightness(1.08);
+}
+
+/* Kichik almashtirgich (auto-scroll) */
+.vlab-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.vlab-toggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ═══════════════════ Kod muharriri ═══════════════════ */
+
+.vlab-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.vlab-editor-fallback {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 12px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.vlab-editor-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13.5px;
+}
+
+.vlab-fs {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ═══════════════════ Dars paneli ═══════════════════ */
+
+.vlab-lesson {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.vlab-lesson-title {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.vlab-lesson-check {
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.14s ease;
+}
+
+.vlab-lesson-check:hover {
+  filter: brightness(1.07);
+}
+
+.vlab-progress {
+  flex: 1;
+  min-width: 120px;
+  max-width: 260px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.vlab-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  transition: width 0.4s ease;
+}
+
+.vlab-result {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.vlab-result-hint {
+  color: var(--text-3);
+}
+
+/* ═══════════════════ Xabar ═══════════════════ */
+
+.vlab-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 650;
+  box-shadow: var(--shadow-lg);
+  /*
+   * `translateX` animatsiya ichida ham saqlanadi — aks holda `fadeUp`
+   * transformni almashtirib, xabar chapga siljib ketadi.
+   */
+  animation: vlab-toast-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@keyframes vlab-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+/* ═══════════════════ Mobil bo'lim tanlagich ═══════════════════ */
+
+.vlab-tabs {
+  display: none;
+  gap: 3px;
+  padding: 4px;
+  margin: 8px 12px 0;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.vlab-tabs button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease;
+}
+
+.vlab-tabs button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ═══════════════════ React Flow moslamalari ═══════════════════ */
+
+.vlab-canvas .react-flow__controls {
+  box-shadow: var(--shadow);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.vlab-canvas .react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  fill: currentColor;
+  transition: background 0.14s ease;
+}
+
+.vlab-canvas .react-flow__controls-button:hover {
+  background: var(--surface-3);
+  color: var(--primary);
+}
+
+.vlab-canvas .react-flow__minimap {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ═══════════════════ PilotKids UNO chizmasi ═══════════════════ */
+
+/*
+ * Plataning butun palitrasi shu yerda. Chizmada birorta hex qotirilmagan —
+ * SVG faqat `var(--board-*)` ni o'qiydi. Shu tufayli mavzu almashganda
+ * plata ham o'zgaradi, komponentlarga tegmasdan.
+ */
+.vlab-board {
+  /* Tekstolit */
+  --board-pcb: #0e8b95;
+  --board-pcb-light: #17adb7;
+  --board-pcb-dark: #096873;
+  --board-edge: #04525b;
+  --board-highlight: #8aecf1;
+  --board-shadow: #04252b;
+
+  /* Bosma qatlam */
+  --board-trace: #075a63;
+  --board-pad: #d3b25c;
+  --board-label: #eafcff;
+  --board-brand: #ffffff;
+
+  /* Chiplar */
+  --board-chip: #131923;
+  --board-chip-light: #333c4b;
+  --board-chip-highlight: #79849a;
+  --board-chip-text: #c8d1dd;
+  --board-chip-notch: #4c586a;
+
+  /* Metall qismlar */
+  --board-metal: #b8c0ca;
+  --board-metal-light: #eaeef3;
+  --board-metal-dark: #848d99;
+
+  /* Plastik korpuslar va uyalar */
+  --board-pin-shell: #131b25;
+  --board-pin-shell-light: #2b3543;
+  --board-pin-contact: #d2d9e1;
+  --board-plastic: #101720;
+  --board-plastic-light: #1f2934;
+  --board-connector: #e4e8ed;
+  --board-hole: #04080c;
+  --board-smd: #1b2b38;
+
+  /* Holatlar */
+  --board-selected: var(--primary);
+  --board-error: var(--danger);
+  --board-led-on: #3ddc84;
+  --board-led-power: #3ddc84;
+  --board-led-signal: #ffca3a;
+  --board-led-serial: #ff9a4d;
+
+  display: block;
+  max-width: 100%;
+  height: auto;
+  /* Chizma sim tortishga xalaqit bermasin — pinlar uning ustidagi qatlamda. */
+  pointer-events: none;
+}
+
+/*
+ * Tungi mavzuda tekstolit biroz to'qroq va sovuqroq: yorqin turkuaz quyuq
+ * fonda "yonib" ketardi. Kunduzgi mavzuda esa aksincha — plata oqarib
+ * ketmasligi uchun to'yingan rang saqlanadi.
+ */
+.dark .vlab-board {
+  --board-pcb: #0c7883;
+  --board-pcb-light: #129aa4;
+  --board-pcb-dark: #075660;
+  --board-edge: #03424a;
+  --board-highlight: #63d6dd;
+  --board-trace: #05474f;
+  --board-label: #dff7fb;
+  --board-brand: #f4feff;
+  --board-metal: #a8b1bd;
+  --board-metal-light: #dbe1e9;
+  --board-metal-dark: #6f7883;
+}
+
+.vlab-board[data-disabled="true"] {
+  opacity: 0.45;
+  filter: saturate(0.5);
+}
+
+/* ── Header uyasining holatlari ── */
+
+.vlab-socket-contact {
+  transition: fill 0.13s ease;
+}
+
+.vlab-socket-mark {
+  fill: none;
+  stroke-width: 1.6;
+  stroke: transparent;
+  transition:
+    stroke 0.13s ease,
+    opacity 0.13s ease;
+}
+
+/* Ulangan: uya atrofida nozik rangli halqa. */
+.vlab-socket[data-state="connected"] .vlab-socket-mark {
+  stroke: var(--primary);
+  opacity: 0.9;
+}
+
+/* HIGH: yengil yoritilgan — kuchli glow ataylab yo'q. */
+.vlab-socket[data-state="high"] .vlab-socket-mark {
+  stroke: #ffd34d;
+  opacity: 1;
+}
+
+.vlab-socket[data-state="high"] .vlab-socket-contact {
+  fill: #ffe9a3;
+}
+
+.vlab-socket[data-state="low"] .vlab-socket-mark {
+  stroke: #7b8ca3;
+  opacity: 0.7;
+}
+
+.vlab-socket[data-state="ok"] .vlab-socket-mark {
+  stroke: var(--success);
+  opacity: 1;
+}
+
+.vlab-socket[data-state="error"] .vlab-socket-mark {
+  stroke: var(--board-error);
+  opacity: 1;
+}
+
+.vlab-socket[data-state="disabled"] {
+  opacity: 0.55;
+}
+
+/* ── Indikator LED'lar ── */
+
+/*
+ * Rang guruhning `color` xossasi orqali beriladi, korpus/nur/halqa esa
+ * `currentColor` ni oladi — shu tufayli har bir holat uchun uchta emas,
+ * bitta qoida yetadi.
+ */
+.vlab-led {
+  color: var(--board-led-signal);
+}
+
+.vlab-led[data-tone="power"] {
+  color: var(--board-led-power);
+}
+
+.vlab-led[data-tone="serial"] {
+  color: var(--board-led-serial);
+}
+
+.vlab-led[data-tone="error"] {
+  color: var(--board-error);
+}
+
+.vlab-led-body {
+  fill: #23343f;
+  transition: fill 0.15s ease;
+}
+
+.vlab-led:not([data-state="off"]) .vlab-led-body {
+  fill: currentColor;
+}
+
+/* Ichki oq yadro — LED "yonib turgandek" ko'rinadi. */
+.vlab-led-core {
+  fill: #ffffff;
+  opacity: 0.68;
+}
+
+/* Nur ataylab kuchsiz: bu texnik chizma, multfilm emas. */
+.vlab-led-glow {
+  fill: currentColor;
+  opacity: 0.26;
+}
+
+/* Rangdan tashqari ikkinchi belgi — yonganda halqa chiziladi. */
+.vlab-led-ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+/*
+ * TX/RX miltillashi — CSS animatsiyasi. React'da qilinsa, Serial
+ * ishlaganda butun plata sekundiga o'nlab marta qayta chizilardi.
+ */
+.vlab-led[data-state="blink"] {
+  animation: vlab-led-blink 0.32s steps(1, end) infinite;
+}
+
+@keyframes vlab-led-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.32;
+  }
+}
+
+/* ── RESET tugmasi ── */
+
+/*
+ * Chizmaning o'zi `pointer-events: none`, lekin bu tugma bosilishi kerak —
+ * shuning uchun u o'zi uchun hodisalarni qaytaradi.
+ */
+.vlab-reset {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.vlab-reset-cap {
+  fill: #c94a4f;
+  transition:
+    fill 0.12s ease,
+    r 0.1s ease;
+}
+
+.vlab-reset-gloss {
+  fill: #e5686d;
+  transition: opacity 0.1s ease;
+}
+
+.vlab-reset-shadow {
+  fill: var(--board-shadow);
+  opacity: 0.5;
+}
+
+.vlab-reset:hover .vlab-reset-cap {
+  fill: #e0575c;
+}
+
+.vlab-reset[data-pressed="true"] .vlab-reset-cap {
+  fill: #8f3237;
+}
+
+.vlab-reset[data-pressed="true"] .vlab-reset-gloss {
+  opacity: 0.25;
+}
+
+.vlab-reset:focus-visible {
+  outline: none;
+}
+
+.vlab-reset:focus-visible .vlab-reset-cap {
+  stroke: var(--board-selected);
+  stroke-width: 2.5;
+}
+
+/* ═══════════════════ Batareya ═══════════════════ */
+
+/*
+ * Plata kabi batareya ham o'z palitrasidan foydalanadi — chizmada birorta
+ * hex qotirilmagan, shuning uchun mavzu almashganda u ham o'zgaradi.
+ */
+.vlab-battery {
+  --batt-shell: #2f3a4a;
+  --batt-shell-light: #4a5768;
+  --batt-shell-dark: #1d2531;
+  --batt-outline: #0b1220;
+  --batt-band: #d98324;
+  --batt-band-light: #f0a93f;
+  --batt-metal: #b8c0ca;
+  --batt-metal-light: #eaeef3;
+  --batt-metal-dark: #848d99;
+  --batt-text: #f6f9fc;
+  --batt-sign: #ffffff;
+  --batt-off-mark: var(--danger);
+  --batt-led-off: #43505f;
+  --batt-led-on: #3ddc84;
+
+  display: block;
+  max-width: 100%;
+  height: auto;
+  /* Chizma sim tortishga xalaqit bermasin — pinlar uning ustidagi qatlamda. */
+  pointer-events: none;
+}
+
+/* Tungi mavzuda korpus biroz ochroq: quyuq fonda shakli yo'qolmasin. */
+.dark .vlab-battery {
+  --batt-shell: #3a4756;
+  --batt-shell-light: #58687c;
+  --batt-shell-dark: #232c39;
+  --batt-band: #e08f2c;
+  --batt-band-light: #f7b64c;
+  --batt-metal: #a8b1bd;
+  --batt-metal-light: #dbe1e9;
+  --batt-metal-dark: #6f7883;
+}
+
+.vlab-batt-label {
+  fill: var(--batt-text);
+}
+
+.vlab-batt-sign {
+  fill: var(--batt-sign);
+}
+
+.vlab-batt-led {
+  fill: var(--batt-led-off);
+  transition: fill 0.15s ease;
+}
+
+.vlab-battery[data-active="true"] .vlab-batt-led {
+  fill: var(--batt-led-on);
+}
+
+/* O'chirilgan batareya so'niq ko'rinadi — ustidagi chiziq bilan birga. */
+.vlab-battery[data-enabled="false"] {
+  opacity: 0.62;
+  filter: saturate(0.55);
+}
+
+/* ── Tayyor kuchlanish tugmalari (inspektor) ── */
+
+.vlab-volt-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vlab-volt-preset {
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.vlab-volt-preset:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.vlab-volt-preset[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 42%, transparent);
+  color: var(--primary);
+}
+
+/* ═══════════════════ Ulanish nuqtalari (pinlar) ═══════════════════ */
+
+/*
+ * Pin — React Flow `Handle`i. Plata pinlari ostida SVG'da chizilgan header
+ * uyasi turadi, shuning uchun ular odatda SHAFFOF: chizmani berkitmaydi,
+ * faqat holat o'zgarganda rang oladi. Boshqa komponentlarda esa pin o'zi
+ * ko'rinadigan nuqta bo'lishi kerak.
+ */
+.vlab-canvas .react-flow__handle.vlab-pin {
+  width: 13px;
+  height: 13px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  z-index: 2;
+  transition:
+    background 0.13s ease,
+    border-color 0.13s ease,
+    box-shadow 0.13s ease;
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin-source {
+  z-index: 3;
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin-target {
+  z-index: 2;
+}
+
+.vlab-node > svg {
+  pointer-events: none;
+}
+
+/* Alohida oyoqchali komponentlar — pin doim ko'rinadi. */
+.vlab-canvas .react-flow__handle.vlab-pin[data-shape="lead"] {
+  width: 11px;
+  height: 11px;
+  background: var(--vlab-pin-color, var(--primary));
+  border-color: var(--surface);
+}
+
+/*
+ * Plata uyasi — chizma ustida turadi, lekin ko'rinmaydi: uyaning o'zi SVG'da
+ * chizilgan. Bosish maydoni ataylab uyadan (8.8 × 12 birlik) kattaroq, lekin
+ * qadam (12 birlik) doirasida — qo'shni pinning ustiga chiqmaydi.
+ */
+.vlab-canvas .react-flow__handle.vlab-pin[data-shape="socket"] {
+  width: 12px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin-connected {
+  background: var(--vlab-pin-color, var(--primary));
+  border-color: color-mix(in srgb, var(--vlab-pin-color, var(--primary)) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vlab-pin-color, var(--primary)) 26%, transparent);
+}
+
+/* HIGH — pin yoritilgan; LOW — sokin, lekin ajralib turadi. */
+.vlab-canvas .react-flow__handle.vlab-pin-high {
+  background: #ffd34d;
+  border-color: #fff0b8;
+  box-shadow:
+    0 0 0 3px rgba(255, 211, 77, 0.34),
+    0 0 10px 2px rgba(255, 211, 77, 0.55);
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin-low {
+  background: rgba(148, 163, 184, 0.55);
+  border-color: rgba(226, 232, 240, 0.5);
+}
+
+/* Sim tortilayotganda: mumkin — yashil, mumkin emas — qizil. */
+.vlab-canvas .react-flow__handle.vlab-pin-ok {
+  background: var(--success);
+  border-color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 32%, transparent);
+  animation: vlab-pin-ready 1.1s ease-in-out infinite;
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin-error {
+  background: var(--danger);
+  border-color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 28%, transparent);
+  cursor: not-allowed;
+}
+
+@keyframes vlab-pin-ready {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 16%, transparent);
+  }
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin:hover,
+.vlab-canvas .react-flow__handle.vlab-pin:focus-visible {
+  background: var(--primary);
+  border-color: #fff;
+  box-shadow: 0 0 0 4px var(--ring);
+  outline: none;
+  z-index: 12;
+}
+
+/*
+ * Pin maslahati — bir necha qator: nomi, turi, rejimi, qiymati va nimaga
+ * ulangani. Qatorlar ustma-ust turishi uchun ustunga yig'iladi; birinchi
+ * qator sarlavha sifatida yirikroq.
+ */
+.vlab-pin-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 20;
+}
+
+.vlab-pin-tip > span {
+  opacity: 0.78;
+}
+
+.vlab-pin-tip .vlab-pin-tip-title {
+  font-size: 12px;
+  font-weight: 750;
+  opacity: 1;
+}
+
+.vlab-canvas .react-flow__handle.vlab-pin:hover .vlab-pin-tip,
+.vlab-canvas .react-flow__handle.vlab-pin:focus-visible .vlab-pin-tip {
+  opacity: 1;
+}
+
+/* Plata alohida ko'rinsin — u sxemaning markazi. */
+.vlab-node[data-board="true"] svg {
+  border-radius: 10px;
+}
+
+/*
+ * Simlar komponentlar USTIDA chizilsin.
+ *
+ * React Flow standartda simlarni node'lar ostiga qo'yadi. Bizda node'lar
+ * shaffof emas (plata, breadboard), shuning uchun ikki komponent orasidagi
+ * sim ularning tagiga kirib ko'rinmay qolardi. Haqiqiy stolda ham jumper
+ * plataning ustida yotadi — shu tabiiyroq.
+ *
+ * Qatlam ko'tarilgani bilan bosish buzilmaydi: SVG'ning o'zi hodisalarni
+ * o'tkazib yuboradi, faqat simning chizig'i bosiladi.
+ */
+/*
+ * MUHIM: React Flow 12.11 har bir simni alohida `<svg>` ichida chizadi va
+ * ularni `div.react-flow__edges` ga soladi. Kutubxonaning o'z uslublari bu
+ * idishga o'lcham bermaydi — u 0 × 0 bo'lib qoladi, ichidagi `<svg>` lar
+ * ham nolga siqiladi va simlar UMUMAN chizilmaydi (DOM'da bor, ekranda yo'q).
+ * Shu sababli o'lchamni o'zimiz beramiz.
+ */
+.vlab-canvas .react-flow__edges,
+.vlab-canvas .react-flow__edges > svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.vlab-canvas .react-flow__edges {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.vlab-canvas .react-flow__edge {
+  pointer-events: visibleStroke;
+}
+
+.vlab-canvas .react-flow__edge.selected .react-flow__edge-path {
+  filter: drop-shadow(0 0 5px var(--primary));
+}
+
+.vlab-canvas .react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.22));
+}
+
+/* Tortilayotgan sim */
+.vlab-canvas .react-flow__connectionline path {
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-dasharray: 6 5;
+  animation: vlab-dash 0.5s linear infinite;
+}
+
+@keyframes vlab-dash {
+  to {
+    stroke-dashoffset: -11;
+  }
+}
+
+/* ═══════════════════ Fokus ko'rsatkichi ═══════════════════ */
+
+.vlab-root :focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════ Moslashuvchanlik ═══════════════════ */
+
+@media (max-width: 1280px) {
+  .vlab-body {
+    grid-template-columns: 218px minmax(0, 1fr) 340px;
+  }
+
+  .vlab-body[data-left="off"] {
+    grid-template-columns: 0 minmax(0, 1fr) 340px;
+  }
+
+  .vlab-body[data-right="off"] {
+    grid-template-columns: 218px minmax(0, 1fr) 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  .vlab-name {
+    width: 128px;
+  }
+
+  .vlab-clock {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .vlab-page {
+    margin: -24px -20px -48px;
+  }
+
+  .vlab-root {
+    height: calc(100dvh - 68px);
+  }
+}
+
+/*
+ * Tor ekranda uch ustun sig'maydi. Ustma-ust taxlash o'rniga bo'limlar
+ * tanlagichga aylanadi — sxema butun ekranni oladi, kod va sozlamalar esa
+ * bir bosishda ochiladi. Bu planshet va telefonda ancha qulay.
+ */
+@media (max-width: 900px) {
+  .vlab-tabs {
+    display: flex;
+  }
+
+  .vlab-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .vlab-col[data-mobile="hidden"] {
+    display: none;
+  }
+
+  .vlab-center[data-serial="on"] {
+    grid-template-rows: minmax(0, 1fr) 190px;
+  }
+
+  /* Tor ekranda panellarni yig'ish o'rniga bo'lim tanlagich ishlaydi. */
+  .vlab-collapse-group {
+    display: none;
+  }
+
+  .vlab-toolbar {
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .vlab-status {
+    order: 5;
+  }
+}
+
+@media (max-width: 620px) {
+  .vlab-brand-icon,
+  .vlab-speed {
+    display: none;
+  }
+
+  .vlab-name {
+    width: 104px;
+  }
+
+  .vlab-run {
+    padding: 9px 13px;
+  }
+
+  .vlab-project-select {
+    width: 142px;
+    max-width: 48vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vlab-root *,
+  .vlab-root *::before {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { signIn } from "@/lib/auth/client";
 
 const buttonStyle: React.CSSProperties = {
@@ -158,10 +157,8 @@ export function TelegramButton({
   configured?: boolean;
   callbackURL?: string;
 }) {
-  const router = useRouter();
   const holderRef = useRef<HTMLDivElement>(null);
   const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const callbackName = `onTelegramAuth_${useId().replace(/\W/g, "_")}`;
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -170,32 +167,8 @@ export function TelegramButton({
     const holder = holderRef.current;
     if (!holder || holder.childElementCount > 0) return;
 
-    // Telegram skripti global callback nomini `data-onauth` dan o'qiydi.
-    (window as unknown as Record<string, unknown>)[callbackName] = async (user: unknown) => {
-      if (cancelTimerRef.current) {
-        clearTimeout(cancelTimerRef.current);
-        cancelTimerRef.current = null;
-      }
-      setLoading(true);
-      try {
-        const res = await fetch("/api/auth/telegram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(user),
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          onError(body.error ?? "Telegram bilan kirishda xatolik");
-          setLoading(false);
-          return;
-        }
-        router.push(callbackURL);
-        router.refresh();
-      } catch {
-        onError("Serverga ulanib bo'lmadi");
-        setLoading(false);
-      }
-    };
+    const authURL = new URL("/api/auth/telegram", window.location.origin);
+    authURL.searchParams.set("callbackURL", callbackURL);
 
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?22";
@@ -203,15 +176,14 @@ export function TelegramButton({
     script.setAttribute("data-telegram-login", botUsername);
     script.setAttribute("data-size", "large");
     script.setAttribute("data-radius", "16");
-    script.setAttribute("data-onauth", `${callbackName}(user)`);
+    script.setAttribute("data-auth-url", authURL.toString());
     script.setAttribute("data-request-access", "write");
     holder.appendChild(script);
 
     return () => {
       if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current);
-      delete (window as unknown as Record<string, unknown>)[callbackName];
     };
-  }, [botUsername, onError, router, configured, callbackURL, callbackName]);
+  }, [botUsername, configured, callbackURL]);
 
   function handleTelegramOpen() {
     if (loading) return;

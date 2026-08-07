@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/icon";
 
 /* ─────────────────────────── Kartochka ─────────────────────────── */
@@ -302,9 +303,24 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  // `document` faqat klientda bor. Modal esa doim `open: false` bilan
+  // render qilinadi va faqat foydalanuvchi bosgach ochiladi — shu sababli
+  // server va birinchi klient renderi bir xil (`null`), hidratsiya buzilmaydi.
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  /*
+   * MUHIM: modal `document.body` ga portal orqali chiqariladi.
+   *
+   * Admin sahifalari o'z kontentini `animation: fadeUp ... both` bilan
+   * o'ralgan `div` ichida ko'rsatadi. `fadeUp` oxirgi kadri
+   * `transform: translateY(0)` — `fill-mode: both` tufayli bu transform
+   * animatsiya tugagach ham qolib ketadi. Transform esa o'zidan pastdagi
+   * `position: fixed` elementlar uchun YANGI containing block yaratadi:
+   * modal viewport'ga emas, o'sha `div` ga nisbatan joylashardi. Natijada
+   * oyna ekrandan chiqib ketar, sarlavhasi ko'rinmas va fon to'liq
+   * qoraymasdi. Portal bu bog'liqlikni butunlay uzadi.
+   */
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -384,7 +400,8 @@ export function Modal({
         </header>
         <div style={{ padding: 22 }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

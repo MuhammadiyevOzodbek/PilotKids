@@ -30,7 +30,7 @@ export const user = pgTable("user", {
   telegramPhotoUrl: text("telegram_photo_url"),
   // PilotKids profil maydonlari
   age: integer("age"),
-  role: text("role").default("student").notNull(), // student | parent | admin
+  role: text("role").default("student").notNull(), // student | parent | admin | superadmin
   xp: integer("xp").default(0).notNull(),
   streak: integer("streak").default(0).notNull(),
   level: integer("level").default(1).notNull(),
@@ -172,6 +172,13 @@ export const labProject = pgTable("lab_project", {
   diffCol: text("diff_col").notNull(),
   diffBg: text("diff_bg").notNull(),
   parts: text("parts").notNull(),
+  /**
+   * Loyiha qayerda bajariladi:
+   *   online  — brauzerda (simulyator, kod), qurilma kerak emas
+   *   offline — haqiqiy qurilma bilan (Arduino, sensor, LED)
+   * Bazada `lab_project_kind_check` cheklovi bilan qo'riqlanadi.
+   */
+  kind: text("kind").default("offline").notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
 });
 
@@ -354,6 +361,19 @@ export const userSettings = pgTable("user_settings", {
   dailyLimitMin: integer("daily_limit_min").default(90).notNull(),
 });
 
+/** Bosh admin audit jurnali — platformadagi xavfli/amaldor mutatsiyalar. */
+export const superadminAuditLog = pgTable("superadmin_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  actorName: text("actor_name").notNull(),
+  actorRole: text("actor_role").notNull(),
+  action: text("action").notNull(),
+  target: text("target").notNull(),
+  ipAddress: text("ip_address"),
+  impact: text("impact").default("low").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 /* ─────────────────────────── Relations ─────────────────────────── */
 
 export const courseRelations = relations(course, ({ one, many }) => ({
@@ -383,3 +403,4 @@ export type QuizQuestion = typeof quizQuestion.$inferSelect;
 export type QuizAttempt = typeof quizAttempt.$inferSelect;
 export type LessonNote = typeof lessonNote.$inferSelect;
 export type LabProgress = typeof labProgress.$inferSelect;
+export type SuperadminAuditLog = typeof superadminAuditLog.$inferSelect;

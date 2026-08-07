@@ -10,8 +10,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [stats, notifs] = await Promise.all([getUserStats(user.id), getNotifications(user.id)]);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar isAdmin={stats.role === "admin"} />
+    <div style={{ display: "flex", minHeight: "100svh" }}>
+      <Sidebar role={stats.role} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AppHeader
           name={firstName(user.name)}
@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             createdAt: n.createdAt,
           }))}
         />
-        <main className="app-main" style={{ flex: 1 }}>
+        <main id="content" className="app-main" style={{ flex: 1 }}>
           {children}
         </main>
       </div>

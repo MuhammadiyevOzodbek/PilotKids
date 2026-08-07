@@ -14,6 +14,8 @@ import {
   type TelegramAuthData,
 } from "@/lib/auth/telegram";
 import { authRateLimit } from "@/lib/rate-limit";
+import { withInternalAuthHeader } from "@/lib/auth/internal";
+import { assertSameOrigin, readJsonWithLimit } from "@/lib/security";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -26,6 +28,16 @@ const telegramAuthSchema = z.object({
   auth_date: z.number().int().positive(),
   hash: z.string().regex(/^[a-f0-9]{64}$/i),
 });
+
+const telegramAuthQuerySchema = telegramAuthSchema.extend({
+  id: z.coerce.number().int().positive(),
+  auth_date: z.coerce.number().int().positive(),
+});
+
+function safeCallbackURL(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  return value;
+}
 
 function telegramProfile(data: TelegramAuthData) {
   const profile = {
@@ -98,49 +110,14 @@ async function upsertTelegramAccount(userId: string, telegramId: string, data: T
 async function signInTelegramUser(request: NextRequest, email: string, password: string) {
   return auth.api.signInEmail({
     body: { email, password },
-    headers: request.headers,
+    headers: withInternalAuthHeader(request.headers),
     asResponse: true,
   });
 }
 
-/**
- * Telegram Login Widget callback'i.
- *
- * Widget bosilganda klient bu yerga imzolangan ma'lumotni yuboradi. Imzo
- * tekshirilgach, foydalanuvchi topiladi yoki yaratiladi va better-auth
- * sessiyasi ochiladi (Set-Cookie javob bilan qaytadi).
- */
-export async function POST(request: NextRequest) {
-  if (!env.TELEGRAM_BOT_TOKEN) {
-    return NextResponse.json({ error: "Telegram kirish sozlanmagan" }, { status: 503 });
-  }
-
-  // SMS/email OTP bilan bir xil cheklov — imzo tekshiruvi arzon bo'lsa-da,
-  // hisob yaratish oqimi ochiq qolmasin.
-  const limited = await authRateLimit(request);
-  if (limited) return limited;
-
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "Ma'lumot juda katta" }, { status: 413 });
-  }
-
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Ma'lumot o'qilmadi" }, { status: 400 });
-  }
-
-  const parsed = telegramAuthSchema.safeParse(raw);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Telegram ma'lumoti noto'g'ri" }, { status: 400 });
-  }
-
-  const data: TelegramAuthData = parsed.data;
-
+async function authenticateTelegram(request: NextRequest, data: TelegramAuthData) {
   if (!verifyTelegramAuth(data)) {
-    return NextResponse.json({ error: "Telegram imzosi noto'g'ri" }, { status: 401 });
+    return { error: "Telegram imzosi noto'g'ri", status: 401 } as const;
   }
 
   const email = telegramEmail(data.id);
@@ -156,9 +133,11 @@ export async function POST(request: NextRequest) {
       await upsertTelegramAccount(existing.userId, telegramId, data);
       response = await signInTelegramUser(request, existing.email, password);
     } else {
+      // Sintetik manzilga hisob ochish faqat shu ichki belgi bilan mumkin —
+      // tashqi so'rov `/api/auth/sign-up/email` orqali buni qila olmaydi.
       response = await auth.api.signUpEmail({
         body: { email, password, name, image: data.photo_url },
-        headers: request.headers,
+        headers: withInternalAuthHeader(request.headers),
         asResponse: true,
       });
       const created = await db
@@ -170,19 +149,90 @@ export async function POST(request: NextRequest) {
       await upsertTelegramAccount(created[0].id, telegramId, data);
     }
 
-    // Sessiya cookie'sini javobga ko'chiramiz, oldinga esa faqat
-    // yo'naltirish manzilini beramiz (token/parol klientga chiqmaydi).
-    const out = NextResponse.json({ ok: true });
-    response.headers.getSetCookie().forEach((c) => out.headers.append("set-cookie", c));
-    return out;
+    return { response } as const;
   } catch (err) {
     if (err instanceof Error && err.message === "TELEGRAM_LINK_CONFLICT") {
-      return NextResponse.json(
-        { error: "Bu Telegram hisobi boshqa foydalanuvchiga bog'langan" },
-        { status: 409 },
-      );
+      return {
+        error: "Bu Telegram hisobi boshqa foydalanuvchiga bog'langan",
+        status: 409,
+      } as const;
     }
     console.error("Telegram kirish xatosi:", err);
-    return NextResponse.json({ error: "Kirishda xatolik yuz berdi" }, { status: 500 });
+    return { error: "Kirishda xatolik yuz berdi", status: 500 } as const;
   }
+}
+
+async function preflight(request: NextRequest) {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    return NextResponse.json({ error: "Telegram kirish sozlanmagan" }, { status: 503 });
+  }
+
+  // SMS/email OTP bilan bir xil cheklov — imzo tekshiruvi arzon bo'lsa-da,
+  // hisob yaratish oqimi ochiq qolmasin.
+  const limited = await authRateLimit(request);
+  if (limited) return limited;
+  return null;
+}
+
+/**
+ * Telegram Login Widget redirect callback'i.
+ *
+ * `data-auth-url` rejimida Telegram signed ma'lumotlarni query string bilan
+ * shu endpointga yuboradi. Imzo serverda tekshiriladi, Better Auth sessiyasi
+ * ochiladi va foydalanuvchi ilovaga qaytariladi.
+ */
+export async function GET(request: NextRequest) {
+  const failed = await preflight(request);
+  if (failed) return failed;
+
+  const url = new URL(request.url);
+  const callbackURL = safeCallbackURL(url.searchParams.get("callbackURL"));
+  const parsed = telegramAuthQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success) {
+    return NextResponse.redirect(new URL("/login?telegram_error=invalid", request.url));
+  }
+
+  const result = await authenticateTelegram(request, parsed.data);
+  if ("error" in result) {
+    const message = result.error ?? "Telegram bilan kirishda xatolik";
+    return NextResponse.redirect(
+      new URL(`/login?telegram_error=${encodeURIComponent(message)}`, request.url),
+    );
+  }
+
+  const out = NextResponse.redirect(new URL(callbackURL, request.url));
+  result.response.headers.getSetCookie().forEach((c) => out.headers.append("set-cookie", c));
+  return out;
+}
+
+/**
+ * JSON callback eski klientlar/testlar uchun saqlanadi.
+ */
+export async function POST(request: NextRequest) {
+  const failed = await preflight(request);
+  if (failed) return failed;
+
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
+  const raw = await readJsonWithLimit(request, MAX_BODY_BYTES);
+  if (!raw.ok) return raw.response;
+
+  const parsed = telegramAuthSchema.safeParse(raw.data);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Telegram ma'lumoti noto'g'ri" }, { status: 400 });
+  }
+
+  const data: TelegramAuthData = parsed.data;
+
+  const result = await authenticateTelegram(request, data);
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  // Sessiya cookie'sini javobga ko'chiramiz, oldinga esa faqat
+  // yo'naltirish manzilini beramiz (token/parol klientga chiqmaydi).
+  const out = NextResponse.json({ ok: true });
+  result.response.headers.getSetCookie().forEach((c) => out.headers.append("set-cookie", c));
+  return out;
 }

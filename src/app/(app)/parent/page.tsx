@@ -1,5 +1,5 @@
 import { Icon } from "@/components/icon";
-import { requireUser } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import {
   getUserStats,
   getWeekActivity,
@@ -23,7 +23,7 @@ function timeAgo(date: Date): string {
 }
 
 export default async function ParentPage() {
-  const user = await requireUser();
+  const user = await requireRole("parent");
   const [stats, week, latestBadge, settings] = await Promise.all([
     getUserStats(user.id),
     getWeekActivity(user.id),

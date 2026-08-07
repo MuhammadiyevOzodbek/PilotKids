@@ -6,9 +6,10 @@ export const metadata = { title: "Sahifa topilmadi — PilotKids" };
 /** 404 — mavjud bo'lmagan sahifa. */
 export default function NotFound() {
   return (
-    <div
+    <main
+      id="content"
       style={{
-        minHeight: "100vh",
+        minHeight: "100svh",
         display: "grid",
         placeItems: "center",
         padding: "40px 24px",
@@ -96,6 +97,6 @@ export default function NotFound() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

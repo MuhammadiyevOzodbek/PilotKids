@@ -3,16 +3,42 @@ import { sora, jakarta } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme-provider";
 import { InlineScript } from "@/components/inline-script";
+import { siteUrl, siteName, siteTitle, siteDescription } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Absolyut manzillarning asosi — busiz OG/Twitter rasmlari va canonical
+  // havolalar nisbiy chiqadi va Telegram/WhatsApp ko'rinishi buziladi.
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "PilotKids — Robototexnika Akademiyasi",
-    template: "%s · PilotKids",
+    default: siteTitle,
+    template: `%s · ${siteName}`,
   },
-  description:
-    "7–18 yoshli bolalar uchun robototexnika, kod va STEM platformasi. O'ynab, qurib, kashf et.",
+  description: siteDescription,
   keywords: ["robototexnika", "bolalar", "STEM", "Arduino", "kod", "PilotKids"],
+  applicationName: siteName,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName,
+    locale: "uz_UZ",
+    url: "/",
+    title: siteTitle,
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  // Standalone rejimda iOS'da o'z sarlavha paneli bilan ochiladi
+  appleWebApp: { capable: true, title: siteName, statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -20,11 +46,25 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#EDF1F8" },
     { media: "(prefers-color-scheme: dark)", color: "#0B1220" },
   ],
+  // Kirish/dars sahifalarida input fokuslanganda iOS sahifani kattalashtirmasin,
+  // ammo foydalanuvchi o'zi zoom qila olishi kerak (WCAG 1.4.4).
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="uz" suppressHydrationWarning className={`${sora.variable} ${jakarta.variable}`}>
+    <html
+      lang="uz"
+      suppressHydrationWarning
+      // `globals.css`da `scroll-behavior: smooth` bor (bo'limga yumshoq
+      // sakrash uchun). Next shu atributni ko'rmasa, MARSHRUT almashganda
+      // ham animatsiya bilan skroll qiladi — sahifalar orasida yurish
+      // sekin tuyuladi. Bu atribut faqat navigatsiya uchun uni o'chiradi.
+      data-scroll-behavior="smooth"
+      className={`${sora.variable} ${jakarta.variable}`}
+    >
       <head>
         {/* Material Symbols ikonka shrifti */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,6 +80,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <InlineScript html={themeInitScript} />
       </head>
       <body>
+        {/* "Asosiy qismga o'tish" — body'dagi BIRINCHI fokuslanadigan element
+            bo'lishi kerak, shu bois bir marta shu yerda beriladi. Har bir
+            qobiq/sahifa o'z `<main>`iga `id="content"` qo'yadi. Odatda
+            ko'rinmaydi, faqat Tab bosilganda chiqadi (globals.css). */}
+        <a href="#content" className="skip-link">
+          Asosiy qismga o&apos;tish
+        </a>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

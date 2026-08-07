@@ -10,7 +10,15 @@ const KIND_LABEL: Record<SearchHit["kind"], string> = {
   lesson: "Dars",
 };
 
-export function GlobalSearch() {
+export function GlobalSearch({
+  /** `header` — sarlavhadagi doimiy maydon (desktop).
+   *  `sheet` — telefonda ochiladigan qidiruv paneli ichida. */
+  variant = "header",
+  onClose,
+}: {
+  variant?: "header" | "sheet";
+  onClose?: () => void;
+} = {}) {
   const router = useRouter();
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -63,10 +71,17 @@ export function GlobalSearch() {
     };
   }, [open]);
 
+  // Panel rejimida maydon darhol fokus oladi — foydalanuvchi qidiruvni ochdi,
+  // demak yozmoqchi (mobil klaviatura ham shu zahoti chiqadi).
+  useEffect(() => {
+    if (variant === "sheet") inputRef.current?.focus();
+  }, [variant]);
+
   function go(hit: SearchHit) {
     setOpen(false);
     setQuery("");
     setHits([]);
+    onClose?.();
     router.push(hit.href);
   }
 
@@ -74,6 +89,7 @@ export function GlobalSearch() {
     if (e.key === "Escape") {
       setOpen(false);
       inputRef.current?.blur();
+      onClose?.();
       return;
     }
     if (!open || hits.length === 0) return;
@@ -97,8 +113,13 @@ export function GlobalSearch() {
   return (
     <div
       ref={wrapRef}
-      className="app-header-search"
-      style={{ position: "relative", flex: 1, maxWidth: 440 }}
+      className={variant === "sheet" ? undefined : "app-header-search"}
+      style={{
+        position: "relative",
+        flex: 1,
+        maxWidth: variant === "sheet" ? "none" : 440,
+        minWidth: 0,
+      }}
     >
       <span
         className="ms"

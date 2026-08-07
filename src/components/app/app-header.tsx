@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -21,119 +22,201 @@ export function AppHeader({
   notifications: NotificationItem[];
 }) {
   const toggle = useSidebar((s) => s.toggle);
+  const sidebarOpen = useSidebar((s) => s.open);
+  // Telefonda sarlavhada qidiruv maydoniga joy yo'q, shu bois u tugma ortida
+  // yashiringan panelda ochiladi — busiz mobil foydalanuvchida qidiruv
+  // umuman bo'lmasdi.
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
 
   return (
-    <header
-      className="app-header"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 20,
-        display: "flex",
-        alignItems: "center",
-        background: "color-mix(in srgb,var(--bg) 82%,transparent)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid var(--border)",
-      }}
-    >
-      {/* Ko'rinishni `.app-burger` klassi boshqaradi — shuning uchun bu yerda
+    <>
+      <header
+        className="app-header"
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          background: "color-mix(in srgb,var(--bg) 82%,transparent)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        {/* Ko'rinishni `.app-burger` klassi boshqaradi — shuning uchun bu yerda
           ataylab `display` berilmagan (inline stil klassni bosib ketardi). */}
-      <button
-        className="app-burger tap"
-        onClick={toggle}
-        aria-label="Menyuni ochish"
-        style={{
-          placeItems: "center",
-          flexShrink: 0,
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          border: "1px solid var(--border)",
-          background: "var(--surface)",
-          color: "var(--text)",
-          cursor: "pointer",
-        }}
-      >
-        <Icon name="menu" size={21} />
-      </button>
-
-      <GlobalSearch />
-      <div style={{ flex: 1 }} />
-
-      <div
-        className="app-header-stats"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "9px 14px",
-          borderRadius: 12,
-          background: "var(--success-soft)",
-          color: "var(--success)",
-          fontWeight: 700,
-          fontSize: 14,
-        }}
-      >
-        <Icon name="local_fire_department" size={19} />
-        {streak}
-      </div>
-      <div
-        className="app-header-stats"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "9px 14px",
-          borderRadius: 12,
-          background: "var(--primary-soft)",
-          color: "var(--primary)",
-          fontWeight: 700,
-          fontSize: 14,
-        }}
-      >
-        <Icon name="bolt" size={19} />
-        {xp} XP
-      </div>
-
-      <ThemeToggle />
-
-      <NotificationsMenu notifications={notifications} />
-
-      <Link
-        href="/profile"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "5px 12px 5px 5px",
-          borderRadius: 99,
-          border: "1px solid var(--border)",
-          background: "var(--surface)",
-        }}
-      >
-        <span
+        <button
+          type="button"
+          className="app-burger tap"
+          onClick={toggle}
+          aria-label="Menyuni ochish"
+          aria-expanded={sidebarOpen}
           style={{
-            fontFamily: "var(--font-display)",
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg,#2F6BF3,#5b8cff)",
-            display: "grid",
             placeItems: "center",
-            color: "#fff",
+            flexShrink: 0,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            cursor: "pointer",
+          }}
+        >
+          <Icon name="menu" size={21} />
+        </button>
+
+        <GlobalSearch />
+
+        {/* Telefondagi qidiruv tugmasi — ko'rinishni `.app-header-search-btn`
+          boshqaradi (globals.css), shu bois inline `display` berilmagan. */}
+        <button
+          type="button"
+          className="app-header-search-btn tap"
+          onClick={() => setSearchOpen(true)}
+          aria-label="Qidirish"
+          aria-expanded={searchOpen}
+          style={{
+            placeItems: "center",
+            flexShrink: 0,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            cursor: "pointer",
+          }}
+        >
+          <Icon name="search" size={21} />
+        </button>
+
+        <div style={{ flex: 1 }} />
+
+        <div
+          className="app-header-stats"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "9px 14px",
+            borderRadius: 12,
+            background: "var(--success-soft)",
+            color: "var(--success)",
             fontWeight: 700,
             fontSize: 14,
           }}
         >
-          {initials}
-        </span>
-        <span
-          className="app-header-name"
-          style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}
+          <Icon name="local_fire_department" size={19} />
+          {streak}
+        </div>
+        <div
+          className="app-header-stats"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "9px 14px",
+            borderRadius: 12,
+            background: "var(--primary-soft)",
+            color: "var(--primary)",
+            fontWeight: 700,
+            fontSize: 14,
+          }}
         >
-          {name}
-        </span>
-      </Link>
-    </header>
+          <Icon name="bolt" size={19} />
+          {xp} XP
+        </div>
+
+        <ThemeToggle />
+
+        <NotificationsMenu notifications={notifications} />
+
+        <Link
+          href="/profile"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "5px 12px 5px 5px",
+            borderRadius: 99,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg,#2F6BF3,#5b8cff)",
+              display: "grid",
+              placeItems: "center",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            {initials}
+          </span>
+          <span
+            className="app-header-name"
+            style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}
+          >
+            {name}
+          </span>
+        </Link>
+      </header>
+
+      {/* DIQQAT: panel `<header>` TASHQARISIDA. Header'da `backdrop-filter` bor,
+          u esa `position: fixed` uchun yangi konteyner yaratadi — panel ichida
+          qolsa, ekranga emas, sarlavha qutisiga nisbatan joylashardi. */}
+      {searchOpen && (
+        <div
+          className="search-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Qidiruv"
+          onClick={(e) => {
+            // Fon bosilsa yopiladi; panel ichidagi bosishlar o'tmasin.
+            if (e.target === e.currentTarget) setSearchOpen(false);
+          }}
+        >
+          <div className="search-sheet-panel">
+            <GlobalSearch variant="sheet" onClose={() => setSearchOpen(false)} />
+            <button
+              type="button"
+              onClick={() => setSearchOpen(false)}
+              aria-label="Qidiruvni yopish"
+              className="tap"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              <Icon name="close" size={21} />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

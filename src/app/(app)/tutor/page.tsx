@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Robot3D } from "@/components/robot-3d";
 import { requireUser } from "@/lib/auth/session";
 import { getChatMessages } from "@/lib/queries";
 import { TutorChat } from "./tutor-chat";
+
+export const metadata: Metadata = {
+  title: "AI Tutor",
+  description: "Robo bilan suhbat — savol bering, dars mavzusini tushuntirib beradi.",
+};
 
 export default async function TutorPage() {
   const user = await requireUser();

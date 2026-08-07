@@ -12,6 +12,7 @@ const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const redis = url && token ? new Redis({ url, token }) : null;
+const memoryBuckets = new Map<string, number[]>();
 
 function make(
   limit: number,
@@ -40,6 +41,40 @@ const limiters = {
 
 export type LimitKind = keyof typeof limiters;
 
+const fallbackRules: Record<LimitKind, { limit: number; windowMs: number }> = {
+  ai: { limit: 15, windowMs: 10 * 60 * 1000 },
+  write: { limit: 60, windowMs: 60 * 1000 },
+  action: { limit: 120, windowMs: 60 * 1000 },
+  auth: { limit: 10, windowMs: 10 * 60 * 1000 },
+};
+
+function checkMemoryLimit(kind: LimitKind, identifier: string): boolean {
+  const now = Date.now();
+  const rule = fallbackRules[kind];
+  const key = `${kind}:${identifier}`;
+  const since = now - rule.windowMs;
+  const recent = (memoryBuckets.get(key) ?? []).filter((ts) => ts > since);
+
+  if (recent.length >= rule.limit) {
+    memoryBuckets.set(key, recent);
+    return false;
+  }
+
+  recent.push(now);
+  memoryBuckets.set(key, recent);
+
+  if (memoryBuckets.size > 10_000) {
+    for (const [bucketKey, timestamps] of memoryBuckets) {
+      const active = timestamps.filter((ts) => now - ts < 10 * 60 * 1000);
+      if (active.length === 0) memoryBuckets.delete(bucketKey);
+      else memoryBuckets.set(bucketKey, active);
+      if (memoryBuckets.size <= 8_000) break;
+    }
+  }
+
+  return true;
+}
+
 /** So'rov IP manzili (proxy sarlavhalari orqali). */
 export async function clientIp(): Promise<string> {
   const h = await headers();
@@ -54,14 +89,14 @@ export async function clientIp(): Promise<string> {
  */
 export async function checkLimit(kind: LimitKind, identifier: string): Promise<boolean> {
   const limiter = limiters[kind];
-  if (!limiter) return true; // Redis sozlanmagan — dev rejimida o'tkazamiz
+  if (!limiter) return checkMemoryLimit(kind, identifier);
   try {
     const { success } = await limiter.limit(identifier);
     return success;
   } catch (err) {
-    // Redis ishlamay qolsa saytni to'xtatmaymiz, lekin logga yozamiz.
+    // Redis ishlamay qolsa per-process fallback ishlaydi.
     console.error("[rate-limit] xato:", err);
-    return true;
+    return checkMemoryLimit(kind, identifier);
   }
 }
 

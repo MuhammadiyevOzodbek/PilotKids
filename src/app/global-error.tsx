@@ -22,7 +22,7 @@ export default function GlobalError({
       <body
         style={{
           margin: 0,
-          minHeight: "100vh",
+          minHeight: "100svh",
           display: "grid",
           placeItems: "center",
           background: "#0B1220",

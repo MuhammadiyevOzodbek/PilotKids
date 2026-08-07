@@ -12,7 +12,6 @@ import {
   EmptyState,
   Input,
   Modal,
-  Select,
   Tag,
   Textarea,
 } from "@/components/admin/ui";
@@ -35,12 +34,8 @@ export interface AdminCourseRow {
   lessonCount: number;
 }
 
-export interface CategoryOption {
-  id: string;
-  title: string;
-}
-
-const LEVELS = ["BOSHLANG'ICH", "O'RTA", "YUQORI"];
+/** Yangi kurs shu darajada ochiladi (forma maydonisiz). */
+const DEFAULT_LEVEL = "BOSHLANG'ICH";
 
 /** Ranglar tanlovi — inline hex o'rniga tayyor palitradan. */
 const COLORS = [
@@ -74,7 +69,7 @@ const emptyDraft: Draft = {
   icon: "smart_toy",
   color: COLORS[0]!.color,
   soft: COLORS[0]!.soft,
-  level: LEVELS[0]!,
+  level: DEFAULT_LEVEL,
   hours: "4 soat",
   featured: false,
   sortOrder: 0,
@@ -90,13 +85,7 @@ function slugify(title: string): string {
     .slice(0, 60);
 }
 
-export function CoursesManager({
-  courses,
-  categories,
-}: {
-  courses: AdminCourseRow[];
-  categories: CategoryOption[];
-}) {
+export function CoursesManager({ courses }: { courses: AdminCourseRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -168,11 +157,6 @@ export function CoursesManager({
       router.refresh();
     });
   }
-
-  const categoryOptions = [
-    { value: "", label: "Kategoriyasiz" },
-    ...categories.map((c) => ({ value: c.id, label: c.title })),
-  ];
 
   return (
     <>
@@ -264,20 +248,15 @@ export function CoursesManager({
               <div style={{ padding: 18, flex: 1, display: "flex", flexDirection: "column" }}>
                 <h2
                   className="font-display"
-                  style={{ fontWeight: 700, fontSize: 17, margin: "0 0 6px", color: "var(--text)" }}
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 17,
+                    margin: "0 0 12px",
+                    color: "var(--text)",
+                  }}
                 >
                   {c.title}
                 </h2>
-                <p
-                  style={{
-                    color: "var(--text-3)",
-                    fontSize: 13.5,
-                    margin: "0 0 12px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {c.lessonCount} dars · {c.hours} · {c.level}
-                </p>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
                   <Tag>{c.categoryTitle ?? "Kategoriyasiz"}</Tag>
                   <Tag>/{c.slug}</Tag>
@@ -351,36 +330,11 @@ export function CoursesManager({
             placeholder="Bu kursda nima o'rganiladi?"
           />
 
-          <div className="grid-2" style={{ gap: 12 }}>
-            <Select
-              label="Kategoriya"
-              value={draft.categoryId}
-              onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value }))}
-              options={categoryOptions}
-            />
-            <Select
-              label="Daraja"
-              value={draft.level}
-              onChange={(e) => setDraft((d) => ({ ...d, level: e.target.value }))}
-              options={LEVELS.map((l) => ({ value: l, label: l }))}
-            />
-          </div>
-
-          <div className="grid-2" style={{ gap: 12 }}>
-            <Input
-              label="Ikonka nomi"
-              required
-              value={draft.icon}
-              onChange={(e) => setDraft((d) => ({ ...d, icon: e.target.value }))}
-              hint="Material Symbols nomi, masalan: smart_toy"
-            />
-            <Input
-              label="Davomiyligi"
-              value={draft.hours}
-              onChange={(e) => setDraft((d) => ({ ...d, hours: e.target.value }))}
-              placeholder="4 soat"
-            />
-          </div>
+          {/* Kategoriya, daraja, ikonka va davomiylik maydonlari formadan olib
+              tashlandi. Ular baribir `draft` bilan yuboriladi: yangi kursda
+              `emptyDraft` dagi standart qiymatlar (kategoriyasiz,
+              BOSHLANG'ICH, smart_toy, "4 soat"), tahrirlashda esa kursning
+              mavjud qiymatlari o'zgarmay saqlanadi. */}
 
           <div>
             <span
@@ -435,23 +389,14 @@ export function CoursesManager({
             </div>
           </div>
 
-          <div className="grid-2" style={{ gap: 12, alignItems: "end" }}>
-            <Input
-              label="Tartib raqami"
-              type="number"
-              min={0}
-              value={draft.sortOrder}
-              onChange={(e) => setDraft((d) => ({ ...d, sortOrder: Number(e.target.value) }))}
-              hint="Kichik raqam yuqorida turadi"
-            />
-            <div style={{ paddingBottom: 12 }}>
-              <Checkbox
-                label="Bosh sahifada ko'rsatilsin"
-                checked={draft.featured}
-                onChange={(e) => setDraft((d) => ({ ...d, featured: e.target.checked }))}
-              />
-            </div>
-          </div>
+          {/* Tartib raqami maydoni olib tashlandi — yangi kurs ro'yxat oxiriga
+              qo'shiladi (`openCreate` da `sortOrder: courses.length`),
+              tahrirlashda esa mavjud tartib o'zgarmaydi. */}
+          <Checkbox
+            label="Bosh sahifada ko'rsatilsin"
+            checked={draft.featured}
+            onChange={(e) => setDraft((d) => ({ ...d, featured: e.target.checked }))}
+          />
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
             <Button type="button" variant="ghost" onClick={close}>

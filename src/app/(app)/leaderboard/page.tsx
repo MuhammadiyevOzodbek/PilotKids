@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getLeaderboard, getUserBadges } from "@/lib/queries";
+
+export const metadata: Metadata = {
+  title: "Reyting",
+  description: "Haftalik XP reytingi, podium va yig'ilgan nishonlar.",
+};
 
 export default async function LeaderboardPage() {
   const user = await requireUser();

@@ -12,6 +12,7 @@ const ROLE_TABS = [
   { value: "student", label: "O'quvchilar" },
   { value: "parent", label: "Ota-onalar" },
   { value: "admin", label: "Adminlar" },
+  { value: "superadmin", label: "Bosh adminlar" },
 ];
 
 export default async function AdminUsersPage({
@@ -137,7 +138,7 @@ export default async function AdminUsersPage({
       </div>
 
       <Card padding={16}>
-        <UsersTable rows={rows} currentUserId={me.id} />
+        <UsersTable rows={rows} currentUserId={me.id} currentUserRole={me.role ?? "admin"} />
       </Card>
 
       {pages > 1 && (

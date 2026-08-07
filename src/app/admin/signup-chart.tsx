@@ -1,62 +1,40 @@
 "use client";
 
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 
-/** Oxirgi 14 kunlik ro'yxatdan o'tishlar grafigi. */
-export function SignupChart({ data }: { data: { day: string; value: number }[] }) {
+/**
+ * Grafik uchun yuklanish o'rindig'i (skeleton).
+ *
+ * Balandligi grafikning o'zi bilan bir xil (240px) — shunda grafik kelganda
+ * sahifa sakramaydi (layout shift bo'lmaydi).
+ */
+function ChartSkeleton() {
   return (
-    <div style={{ width: "100%", height: 240 }}>
-      <ResponsiveContainer>
-        <AreaChart data={data} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
-          <defs>
-            <linearGradient id="signupFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-          <XAxis
-            dataKey="day"
-            tick={{ fill: "var(--text-3)", fontSize: 12 }}
-            tickLine={false}
-            axisLine={{ stroke: "var(--border)" }}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fill: "var(--text-3)", fontSize: 12 }}
-            tickLine={false}
-            axisLine={false}
-            width={44}
-          />
-          <Tooltip
-            cursor={{ stroke: "var(--border)" }}
-            contentStyle={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              fontSize: 14,
-              color: "var(--text)",
-            }}
-            labelStyle={{ color: "var(--text-2)", fontWeight: 700 }}
-            formatter={(v) => [`${v ?? 0} ta`, "Yangi hisob"]}
-          />
-          <Area
-            type="monotone"
-            dataKey="value"
-            stroke="var(--primary)"
-            strokeWidth={2.5}
-            fill="url(#signupFill)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    <div
+      role="status"
+      aria-label="Grafik yuklanmoqda"
+      style={{
+        width: "100%",
+        height: 240,
+        borderRadius: 14,
+        background:
+          "linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 37%,var(--surface-2) 63%)",
+        backgroundSize: "400px 100%",
+        animation: "shimmer 1.4s linear infinite",
+      }}
+    />
   );
 }
+
+/**
+ * Oxirgi 14 kunlik ro'yxatdan o'tishlar grafigi.
+ *
+ * `recharts` ~350 KB — u admin paneli birinchi yuklamasini sekinlashtirmasin,
+ * shu bois grafik alohida chunk sifatida keyin keladi. Grafik faqat brauzerda
+ * o'lchamga qarab chiziladi (`ResponsiveContainer`), server'da render qilib
+ * foyda yo'q — shuning uchun `ssr: false`.
+ */
+export const SignupChart = dynamic(() => import("./signup-chart-view"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});

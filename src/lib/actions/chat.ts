@@ -9,7 +9,7 @@ import { getChatMessages } from "@/lib/queries";
 import { askRobo } from "@/lib/ai/gemini";
 import { buildRoboContext } from "@/lib/ai/context";
 import { checkUserInput, INJECTION_REPLY } from "@/lib/ai/safety";
-import { checkLimit } from "@/lib/rate-limit";
+import { checkLimit, enforceLimit } from "@/lib/rate-limit";
 import { chatInputSchema, firstError, uuidSchema } from "@/lib/validation";
 
 /** Gemini ishlamasa ishlatiladigan zaxira javob — tashqi LLM'siz. */
@@ -74,6 +74,7 @@ export async function sendChatMessage(text: string) {
 /** Suhbat tarixini tozalash. */
 export async function clearChatHistory() {
   const user = await requireUser();
+  await enforceLimit("action", user.id);
   await db.delete(chatMessage).where(eq(chatMessage.userId, user.id));
   revalidatePath("/tutor");
   return { ok: true as const };
@@ -82,6 +83,7 @@ export async function clearChatHistory() {
 /** Bitta xabarni o'chirish (faqat o'zinikini). */
 export async function deleteChatMessage(id: string) {
   const user = await requireUser();
+  await enforceLimit("action", user.id);
   const parsed = uuidSchema.safeParse(id);
   if (!parsed.success) return { ok: false as const, error: "Noto'g'ri identifikator" };
 

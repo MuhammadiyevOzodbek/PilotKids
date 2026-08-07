@@ -32,7 +32,7 @@ const liStyle: React.CSSProperties = {
 
 export default function ShartlarPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <main id="content" style={{ minHeight: "100svh", background: "var(--bg)" }}>
       <section
         style={{
           background: "radial-gradient(120% 120% at 80% -10%,#16224a 0%,#0B1220 55%)",
@@ -227,6 +227,6 @@ export default function ShartlarPage() {
           </Link>
         </div>
       </article>
-    </div>
+    </main>
   );
 }

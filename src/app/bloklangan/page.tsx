@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 export default function BlockedPage() {
   return (
     <main
+      id="content"
       style={{
         minHeight: "100svh",
         display: "grid",

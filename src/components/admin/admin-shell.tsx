@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { AccountMenu } from "@/components/account-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
@@ -19,12 +20,36 @@ const NAV = [
  * Ilova qobig'idan (`(app)/layout.tsx`) ataylab alohida: bu yer bolalar uchun
  * emas, boshqaruv uchun — quyuqroq, zichroq, o'yin elementlarisiz.
  */
-export function AdminShell({ name, children }: { name: string; children: React.ReactNode }) {
+export function AdminShell({
+  name,
+  role,
+  children,
+}: {
+  name: string;
+  role: string;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+
+  // Panel ochiq turganda Escape yopadi va fon skroll qilinmaydi.
+  // (Bo'lim almashganda panel navigatsiya havolasining `onClick`ida yopiladi.)
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
     <div style={{ display: "flex", minHeight: "100svh", background: "var(--bg)" }}>
@@ -33,6 +58,7 @@ export function AdminShell({ name, children }: { name: string; children: React.R
       <aside
         className="app-sidebar"
         data-open={open}
+        aria-label="Admin bo'limlari"
         style={{
           background: "linear-gradient(180deg,#12203f,#0B1220)",
           borderRight: "1px solid rgba(255,255,255,.08)",
@@ -45,6 +71,7 @@ export function AdminShell({ name, children }: { name: string; children: React.R
       >
         <Link
           href="/admin"
+          onClick={() => setOpen(false)}
           style={{
             display: "flex",
             alignItems: "center",
@@ -103,22 +130,32 @@ export function AdminShell({ name, children }: { name: string; children: React.R
 
         <div style={{ flex: 1 }} />
 
-        <Link
-          href="/dashboard"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "11px 14px",
-            borderRadius: 12,
-            color: "#AEBBD4",
-            fontWeight: 600,
-            fontSize: 15,
-          }}
-        >
-          <Icon name="arrow_back" size={20} />
-          Ilovaga qaytish
-        </Link>
+        {role === "superadmin" && (
+          <Link
+            href="/superadmin"
+            onClick={() => setOpen(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 11,
+              padding: "12px 14px",
+              borderRadius: 13,
+              background: "linear-gradient(135deg,rgba(124,92,255,.24),rgba(255,77,94,.18))",
+              border: "1px solid rgba(124,92,255,.42)",
+              color: "#fff",
+            }}
+          >
+            <Icon name="workspace_premium" size={20} color="#c3b2ff" />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontWeight: 700, fontSize: 14 }}>
+                Bosh boshqaruv
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "#a99bd8" }}>
+                Kengaytirilgan panel
+              </span>
+            </span>
+          </Link>
+        )}
       </aside>
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -159,42 +196,10 @@ export function AdminShell({ name, children }: { name: string; children: React.R
 
           <ThemeToggle />
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: "7px 14px 7px 9px",
-              borderRadius: 99,
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-            }}
-          >
-            <span
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg,#2F6BF3,#5b8cff)",
-                display: "grid",
-                placeItems: "center",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              <Icon name="shield_person" size={17} color="#fff" />
-            </span>
-            <span
-              className="app-header-name"
-              style={{ fontWeight: 700, fontSize: 14.5, color: "var(--text)" }}
-            >
-              {name}
-            </span>
-          </div>
+          <AccountMenu name={name} />
         </header>
 
-        <main className="app-main" style={{ flex: 1 }}>
+        <main id="content" className="app-main" style={{ flex: 1 }}>
           <div style={{ maxWidth: 1240, margin: "0 auto" }}>{children}</div>
         </main>
       </div>

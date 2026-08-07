@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getMainCourse, getQuizQuestions, getQuizAttempts } from "@/lib/queries";
 import { QuizClient } from "./quiz-client";
+
+export const metadata: Metadata = {
+  title: "Test",
+  description: "Bilimingizni sinab ko'ring va XP yig'ing.",
+};
 
 export default async function QuizPage() {
   const user = await requireUser();

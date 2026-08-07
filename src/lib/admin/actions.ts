@@ -4,16 +4,19 @@ import { revalidatePath } from "next/cache";
 import { and, eq, max, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { course, lesson, quizQuestion, user } from "@/lib/db/schema";
-import { requireAdmin } from "@/lib/auth/session";
+import { certificate, course, lesson, quizQuestion, user } from "@/lib/db/schema";
+import { requireAdmin, requireSuperAdmin } from "@/lib/auth/session";
+import { isAdminRole, isSuperAdminRole, USER_ROLES } from "@/lib/auth/roles";
 import { enforceLimit } from "@/lib/rate-limit";
+import { writeSuperadminAudit } from "@/lib/superadmin/audit";
 import { firstError, userIdSchema, uuidSchema } from "@/lib/validation";
 
 /**
  * Admin action'lari.
  *
- * Har biri `requireAdmin()` bilan boshlanadi — server action HTTP endpoint
- * bo'lgani uchun UI'da tugma ko'rinmasligi himoya emas.
+ * Har biri serverda rolni qayta tekshiradi — server action HTTP endpoint
+ * bo'lgani uchun UI'da tugma ko'rinmasligi himoya emas. Kontent mutatsiyalari
+ * admin/superadmin, user boshqaruvi esa faqat superadmin uchun.
  */
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -32,12 +35,12 @@ const slugSchema = z
 
 /* ─────────────────────────── Foydalanuvchilar ─────────────────────────── */
 
-const roleSchema = z.enum(["student", "parent", "admin"], { message: "Noto'g'ri rol" });
+const roleSchema = z.enum(USER_ROLES, { message: "Noto'g'ri rol" });
 const booleanSchema = z.boolean({ message: "Noto'g'ri qiymat" });
 const moveDirectionSchema = z.enum(["up", "down"], { message: "Noto'g'ri yo'nalish" });
 
 export async function setUserRole(userId: string, role: string): Promise<Result> {
-  const me = await requireAdmin();
+  const me = await requireSuperAdmin();
   await enforceLimit("action", me.id);
 
   const parsedUserId = userIdSchema.safeParse(userId);
@@ -46,22 +49,48 @@ export async function setUserRole(userId: string, role: string): Promise<Result>
   const parsedRole = roleSchema.safeParse(role);
   if (!parsedRole.success) return fail(firstError(parsedRole.error));
 
-  // O'zini adminlikdan mahrum qilib, panelga kirolmay qolmasin.
-  if (parsedUserId.data === me.id && parsedRole.data !== "admin") {
+  // O'zini bosh adminlikdan mahrum qilib, panelga kirolmay qolmasin.
+  if (parsedUserId.data === me.id && parsedRole.data !== "superadmin") {
     return fail("O'z rolingizni o'zgartira olmaysiz");
   }
 
-  await db
-    .update(user)
-    .set({ role: parsedRole.data, updatedAt: new Date() })
-    .where(eq(user.id, parsedUserId.data));
+  const [target] = await db
+    .select({ id: user.id, email: user.email, role: user.role })
+    .from(user)
+    .where(eq(user.id, parsedUserId.data))
+    .limit(1);
+  if (!target) return fail("Foydalanuvchi topilmadi");
+
+  if (target.role === "superadmin" && parsedRole.data !== "superadmin") {
+    const [{ value: remainingSuperAdmins }] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(user)
+      .where(and(eq(user.role, "superadmin"), ne(user.id, parsedUserId.data)));
+    if (remainingSuperAdmins === 0) return fail("Oxirgi bosh admin rolini olib bo'lmaydi");
+  }
+
+  const nextUserPatch: { role: string; onboarded?: boolean; updatedAt: Date } = {
+    role: parsedRole.data,
+    updatedAt: new Date(),
+  };
+  if (isAdminRole(parsedRole.data)) nextUserPatch.onboarded = true;
+
+  await db.update(user).set(nextUserPatch).where(eq(user.id, parsedUserId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "user.role.update",
+    target: `${target.email}: ${target.role} -> ${parsedRole.data}`,
+    impact: isAdminRole(parsedRole.data) || isAdminRole(target.role) ? "high" : "medium",
+  });
 
   revalidatePath("/admin/users");
+  revalidatePath("/superadmin/adminlar");
+  revalidatePath("/superadmin/audit");
   return ok;
 }
 
 export async function setUserBanned(userId: string, banned: boolean): Promise<Result> {
-  const me = await requireAdmin();
+  const me = await requireSuperAdmin();
   await enforceLimit("action", me.id);
 
   const parsedUserId = userIdSchema.safeParse(userId);
@@ -72,6 +101,14 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Re
 
   if (parsedUserId.data === me.id) return fail("O'zingizni bloklay olmaysiz");
 
+  const [target] = await db
+    .select({ email: user.email, role: user.role })
+    .from(user)
+    .where(eq(user.id, parsedUserId.data))
+    .limit(1);
+  if (!target) return fail("Foydalanuvchi topilmadi");
+  if (isSuperAdminRole(target.role)) return fail("Bosh adminni bloklab bo'lmaydi");
+
   await db
     .update(user)
     .set({
@@ -80,13 +117,21 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Re
       updatedAt: new Date(),
     })
     .where(eq(user.id, parsedUserId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: parsedBanned.data ? "user.ban" : "user.unban",
+    target: target.email,
+    impact: "medium",
+  });
 
   revalidatePath("/admin/users");
+  revalidatePath("/superadmin/xavfsizlik");
+  revalidatePath("/superadmin/audit");
   return ok;
 }
 
 export async function deleteUser(userId: string): Promise<Result> {
-  const me = await requireAdmin();
+  const me = await requireSuperAdmin();
   await enforceLimit("action", me.id);
 
   const parsedUserId = userIdSchema.safeParse(userId);
@@ -94,17 +139,35 @@ export async function deleteUser(userId: string): Promise<Result> {
 
   if (parsedUserId.data === me.id) return fail("O'z hisobingizni o'chira olmaysiz");
 
-  // Oxirgi admin o'chib ketmasin — panelga kirish yopilib qoladi.
-  const [{ value: admins }] = await db
-    .select({ value: sql<number>`count(*)::int` })
+  const [target] = await db
+    .select({ email: user.email, role: user.role })
     .from(user)
-    .where(and(eq(user.role, "admin"), ne(user.id, parsedUserId.data)));
-  if (admins === 0) return fail("Oxirgi adminni o'chirib bo'lmaydi");
+    .where(eq(user.id, parsedUserId.data))
+    .limit(1);
+  if (!target) return fail("Foydalanuvchi topilmadi");
+  if (isSuperAdminRole(target.role)) return fail("Bosh adminni o'chirib bo'lmaydi");
+
+  // Oxirgi admin/superadmin o'chib ketmasin — panelga kirish yopilib qoladi.
+  if (isAdminRole(target.role)) {
+    const [{ value: admins }] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(user)
+      .where(and(sql`${user.role} in ('admin', 'superadmin')`, ne(user.id, parsedUserId.data)));
+    if (admins === 0) return fail("Oxirgi adminni o'chirib bo'lmaydi");
+  }
 
   // Bog'liq yozuvlar `onDelete: cascade` bilan o'zi o'chadi.
   await db.delete(user).where(eq(user.id, parsedUserId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "user.delete",
+    target: target.email,
+    impact: "high",
+  });
 
   revalidatePath("/admin/users");
+  revalidatePath("/superadmin/adminlar");
+  revalidatePath("/superadmin/audit");
   return ok;
 }
 
@@ -143,6 +206,12 @@ export async function createCourse(input: unknown): Promise<Result> {
     categoryId: parsed.data.categoryId ?? null,
     totalLessons: 0,
   });
+  await writeSuperadminAudit({
+    actor: me,
+    action: "course.create",
+    target: parsed.data.title,
+    impact: "medium",
+  });
 
   revalidatePath("/admin/courses");
   revalidatePath("/courses");
@@ -159,6 +228,13 @@ export async function updateCourse(courseId: string, input: unknown): Promise<Re
   const parsed = courseSchema.safeParse(input);
   if (!parsed.success) return fail(firstError(parsed.error));
 
+  const [current] = await db
+    .select({ slug: course.slug })
+    .from(course)
+    .where(eq(course.id, parsedId.data))
+    .limit(1);
+  if (!current) return fail("Kurs topilmadi");
+
   const clash = await db
     .select({ id: course.id })
     .from(course)
@@ -170,9 +246,16 @@ export async function updateCourse(courseId: string, input: unknown): Promise<Re
     .update(course)
     .set({ ...parsed.data, categoryId: parsed.data.categoryId ?? null })
     .where(eq(course.id, parsedId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "course.update",
+    target: parsed.data.title,
+    impact: "medium",
+  });
 
   revalidatePath("/admin/courses");
   revalidatePath("/courses");
+  revalidatePath(`/courses/${current.slug}`);
   revalidatePath(`/courses/${parsed.data.slug}`);
   return ok;
 }
@@ -184,7 +267,19 @@ export async function deleteCourse(courseId: string): Promise<Result> {
   const parsedId = uuidSchema.safeParse(courseId);
   if (!parsedId.success) return fail(firstError(parsedId.error));
 
+  const [target] = await db
+    .select({ title: course.title })
+    .from(course)
+    .where(eq(course.id, parsedId.data))
+    .limit(1);
+  await db.delete(certificate).where(eq(certificate.courseId, parsedId.data));
   await db.delete(course).where(eq(course.id, parsedId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "course.delete",
+    target: target?.title ?? parsedId.data,
+    impact: "high",
+  });
 
   revalidatePath("/admin/courses");
   revalidatePath("/courses");
@@ -212,12 +307,22 @@ async function syncLessonCount(courseId: string) {
   await db.update(course).set({ totalLessons: value }).where(eq(course.id, courseId));
 }
 
+async function courseExists(courseId: string) {
+  const rows = await db
+    .select({ id: course.id })
+    .from(course)
+    .where(eq(course.id, courseId))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function createLesson(courseId: string, input: unknown): Promise<Result> {
   const me = await requireAdmin();
   await enforceLimit("action", me.id);
 
   const parsedId = uuidSchema.safeParse(courseId);
   if (!parsedId.success) return fail(firstError(parsedId.error));
+  if (!(await courseExists(parsedId.data))) return fail("Kurs topilmadi");
 
   const parsed = lessonSchema.safeParse(input);
   if (!parsed.success) return fail(firstError(parsed.error));
@@ -235,6 +340,12 @@ export async function createLesson(courseId: string, input: unknown): Promise<Re
     ...parsed.data,
     videoUrl: parsed.data.videoUrl || null,
   });
+  await writeSuperadminAudit({
+    actor: me,
+    action: "lesson.create",
+    target: parsed.data.title,
+    impact: "low",
+  });
 
   await syncLessonCount(parsedId.data);
   revalidatePath(`/admin/courses/${parsedId.data}`);
@@ -248,6 +359,13 @@ export async function updateLesson(lessonId: string, input: unknown): Promise<Re
   const parsedId = uuidSchema.safeParse(lessonId);
   if (!parsedId.success) return fail(firstError(parsedId.error));
 
+  const existing = await db
+    .select({ id: lesson.id })
+    .from(lesson)
+    .where(eq(lesson.id, parsedId.data))
+    .limit(1);
+  if (!existing.length) return fail("Dars topilmadi");
+
   const parsed = lessonSchema.safeParse(input);
   if (!parsed.success) return fail(firstError(parsed.error));
 
@@ -255,6 +373,12 @@ export async function updateLesson(lessonId: string, input: unknown): Promise<Re
     .update(lesson)
     .set({ ...parsed.data, videoUrl: parsed.data.videoUrl || null })
     .where(eq(lesson.id, parsedId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "lesson.update",
+    target: parsed.data.title,
+    impact: "low",
+  });
 
   revalidatePath("/admin/courses");
   revalidatePath(`/lesson/${parsedId.data}`);
@@ -271,8 +395,19 @@ export async function deleteLesson(lessonId: string, courseId: string): Promise<
   const parsedCourseId = uuidSchema.safeParse(courseId);
   if (!parsedCourseId.success) return fail(firstError(parsedCourseId.error));
 
-  await db.delete(lesson).where(eq(lesson.id, parsedId.data));
+  const deleted = await db
+    .delete(lesson)
+    .where(and(eq(lesson.id, parsedId.data), eq(lesson.courseId, parsedCourseId.data)))
+    .returning({ id: lesson.id, title: lesson.title });
+  if (!deleted.length) return fail("Dars topilmadi");
+
   await syncLessonCount(parsedCourseId.data);
+  await writeSuperadminAudit({
+    actor: me,
+    action: "lesson.delete",
+    target: deleted[0]?.title ?? parsedId.data,
+    impact: "medium",
+  });
 
   revalidatePath(`/admin/courses/${parsedCourseId.data}`);
   return ok;
@@ -313,7 +448,7 @@ export async function moveLesson(
 
   // `unique(courseId, sortOrder)` bor, shuning uchun to'g'ridan-to'g'ri
   // almashtirib bo'lmaydi — vaqtincha bo'sh o'ringa chiqaramiz.
-  const temp = -1;
+  const temp = -Date.now();
   await db.update(lesson).set({ sortOrder: temp }).where(eq(lesson.id, a.id));
   await db.update(lesson).set({ sortOrder: a.sortOrder }).where(eq(lesson.id, b.id));
   await db.update(lesson).set({ sortOrder: b.sortOrder }).where(eq(lesson.id, a.id));
@@ -351,6 +486,12 @@ export async function createQuestion(input: unknown): Promise<Result> {
     ...parsed.data,
     courseId: parsed.data.courseId ?? null,
   });
+  await writeSuperadminAudit({
+    actor: me,
+    action: "quiz.create",
+    target: parsed.data.prompt,
+    impact: "low",
+  });
 
   revalidatePath("/admin/quiz");
   revalidatePath("/quiz");
@@ -371,6 +512,12 @@ export async function updateQuestion(questionId: string, input: unknown): Promis
     .update(quizQuestion)
     .set({ ...parsed.data, courseId: parsed.data.courseId ?? null })
     .where(eq(quizQuestion.id, parsedId.data));
+  await writeSuperadminAudit({
+    actor: me,
+    action: "quiz.update",
+    target: parsed.data.prompt,
+    impact: "low",
+  });
 
   revalidatePath("/admin/quiz");
   revalidatePath("/quiz");
@@ -384,7 +531,16 @@ export async function deleteQuestion(questionId: string): Promise<Result> {
   const parsedId = uuidSchema.safeParse(questionId);
   if (!parsedId.success) return fail(firstError(parsedId.error));
 
-  await db.delete(quizQuestion).where(eq(quizQuestion.id, parsedId.data));
+  const deleted = await db
+    .delete(quizQuestion)
+    .where(eq(quizQuestion.id, parsedId.data))
+    .returning({ prompt: quizQuestion.prompt });
+  await writeSuperadminAudit({
+    actor: me,
+    action: "quiz.delete",
+    target: deleted[0]?.prompt ?? parsedId.data,
+    impact: "medium",
+  });
 
   revalidatePath("/admin/quiz");
   revalidatePath("/quiz");

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import {
@@ -19,6 +20,9 @@ export default async function DashboardPage() {
     getUserCourses(user.id),
     getCurrentLesson(user.id),
   ]);
+  if (stats.role === "superadmin") redirect("/superadmin");
+  if (stats.role === "admin") redirect("/admin");
+
   const homeStats = [
     {
       icon: "bolt",

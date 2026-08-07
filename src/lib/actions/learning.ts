@@ -184,13 +184,14 @@ async function grantBadgeIfMissing(userId: string, slug: string) {
     .from(badge)
     .where(eq(badge.slug, slug));
   if (!b) return;
-  const existing = await db
-    .select({ userId: userBadge.userId })
-    .from(userBadge)
-    .where(and(eq(userBadge.userId, userId), eq(userBadge.badgeId, b.id)))
-    .limit(1);
-  if (existing.length) return;
-  await db.insert(userBadge).values({ userId, badgeId: b.id });
+
+  const inserted = await db
+    .insert(userBadge)
+    .values({ userId, badgeId: b.id })
+    .onConflictDoNothing()
+    .returning({ userId: userBadge.userId });
+  if (inserted.length === 0) return;
+
   await db.insert(notification).values({
     userId,
     message: `Yangi nishon qo'lga kiritildi: ${b.name} 🏅`,
@@ -388,18 +389,19 @@ export async function submitQuizAnswer(questionId: string, selectedIndex: number
     const correct = parsed.data.selectedIndex === q.correctIndex;
 
     // Bir savolga faqat birinchi urinish hisobga olinadi (XP farming'ning oldini oladi).
-    const [prev] = await db
-      .select({ id: quizAttempt.id })
-      .from(quizAttempt)
-      .where(and(eq(quizAttempt.userId, u.id), eq(quizAttempt.questionId, q.id)));
-
-    if (!prev) {
-      await db.insert(quizAttempt).values({
+    const insertedAttempt = await db
+      .insert(quizAttempt)
+      .values({
         userId: u.id,
         questionId: q.id,
         selectedIndex: parsed.data.selectedIndex,
         correct,
-      });
+      })
+      .onConflictDoNothing()
+      .returning({ id: quizAttempt.id });
+    const firstAttempt = insertedAttempt.length > 0;
+
+    if (firstAttempt) {
       if (correct) await awardXp(u.id, 10);
     }
 
@@ -420,8 +422,8 @@ export async function submitQuizAnswer(questionId: string, selectedIndex: number
       ok: true as const,
       correct,
       correctIndex: q.correctIndex, // javob berilgandan KEYIN oshkor qilinadi
-      xpGained: !prev && correct ? 10 : 0,
-      alreadyAnswered: Boolean(prev),
+      xpGained: firstAttempt && correct ? 10 : 0,
+      alreadyAnswered: !firstAttempt,
     };
   });
 }

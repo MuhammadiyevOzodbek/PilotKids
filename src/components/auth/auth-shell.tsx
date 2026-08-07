@@ -78,16 +78,19 @@ export function AuthShell({
           className="auth-aside-hide"
           style={{ position: "relative", color: "#8496b5", fontSize: 14 }}
         >
-          © 2026 PilotKids · Bolalar uchun xavfsiz ta&apos;lim
+          © {new Date().getFullYear()} PilotKids · Bolalar uchun xavfsiz ta&apos;lim
         </div>
       </div>
 
-      <div
+      {/* Forma sahifaning asosiy qismi — `<main>` bo'lsin, shunda skrinrider
+          "asosiy kontent"ga to'g'ridan-to'g'ri o'tishi mumkin. */}
+      <main
+        id="content"
         className="auth-main"
         style={{ display: "grid", placeItems: "center", background: "var(--bg)" }}
       >
         {children}
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,15 +1,29 @@
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getLabProjectsWithProgress } from "@/lib/queries";
-import { LabCardActions } from "./lab-card-actions";
+import { LAB_KINDS, type LabKindSlug } from "./lab-kinds";
 
 export const metadata = { title: "Laboratoriya — PilotKids" };
 
+/**
+ * Laboratoriya tanlovi.
+ *
+ * O'quvchi avval qayerda ishlashini tanlaydi — brauzerdami yoki haqiqiy
+ * qurilma bilanmi. Tanlagach o'sha turdagi loyihalar sahifasiga o'tadi.
+ */
 export default async function LabPage() {
   const user = await requireUser();
   const projects = await getLabProjectsWithProgress(user.id);
+
+  // Bitta so'rov yetarli — sonlarni shu yerda ajratamiz.
+  const countOf = (slug: LabKindSlug) =>
+    projects.filter((p) => p.kind === LAB_KINDS[slug].dbKind).length;
+  const doneOf = (slug: LabKindSlug) =>
+    projects.filter((p) => p.kind === LAB_KINDS[slug].dbKind && p.status === "done").length;
+
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <div
         style={{
           display: "inline-flex",
@@ -28,6 +42,7 @@ export default async function LabPage() {
         <Icon name="science" size={18} />
         LABORATORIYA
       </div>
+
       <h1
         style={{
           fontFamily: "var(--font-display)",
@@ -38,125 +53,135 @@ export default async function LabPage() {
           color: "var(--text)",
         }}
       >
-        Haqiqiy loyihalar quring
+        Qayerda ishlaymiz?
       </h1>
-      <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 28px" }}>
-        Darslardagi bilimni haqiqiy qurilmalarga aylantiring
+      <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 32px" }}>
+        Laboratoriya turini tanlang — keyin uni istalgan vaqtda almashtirishingiz mumkin
       </p>
-      {projects.length === 0 && (
-        <p
-          style={{
-            color: "var(--text-2)",
-            fontSize: 15,
-            padding: "40px 24px",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 18,
-            textAlign: "center",
-          }}
-        >
-          Loyihalar tayyorlanmoqda. Tez orada bu yerda amaliy ishlar paydo bo&apos;ladi!
-        </p>
-      )}
-      <div className="grid-3" style={{ gap: 22 }}>
-        {projects.map((p) => (
-          <div
-            key={p.id}
-            className="hover-lift"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 22,
-              overflow: "hidden",
-              boxShadow: "var(--shadow-sm)",
-              transition: "transform .25s ease,box-shadow .25s ease",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
+
+      <div className="grid-2" style={{ gap: 22 }}>
+        {(Object.keys(LAB_KINDS) as LabKindSlug[]).map((slug) => {
+          const k = LAB_KINDS[slug];
+          const total = countOf(slug);
+          const done = doneOf(slug);
+
+          return (
+            <Link
+              key={slug}
+              href={`/lab/${slug}`}
+              className="hover-lift"
               style={{
-                height: 130,
-                background: p.soft,
-                display: "grid",
-                placeItems: "center",
-                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                padding: 28,
+                borderRadius: 24,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                boxShadow: "var(--shadow-sm)",
+                transition: "transform .25s ease,box-shadow .25s ease",
+                color: "inherit",
               }}
             >
-              <Icon name={p.icon} size={56} color={p.color} />
               <span
                 style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 12,
-                  padding: "5px 11px",
-                  borderRadius: 99,
-                  background: p.diffBg,
-                  color: p.diffCol,
-                  fontSize: "11.5px",
-                  fontWeight: 700,
+                  width: 62,
+                  height: 62,
+                  borderRadius: 18,
+                  background: k.accentSoft,
+                  display: "grid",
+                  placeItems: "center",
+                  marginBottom: 18,
                 }}
               >
-                {p.diff}
+                <Icon name={k.icon} size={31} color={k.accent} />
               </span>
-              {p.status && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 12,
-                    left: 12,
-                    padding: "5px 11px",
-                    borderRadius: 99,
-                    background: p.status === "done" ? "var(--success)" : "var(--primary)",
-                    color: "#fff",
-                    fontSize: "11.5px",
-                    fontWeight: 700,
-                  }}
-                >
-                  {p.status === "done" ? "Tugallandi" : "Boshlandi"}
-                </span>
-              )}
-            </div>
-            <div style={{ padding: 20 }}>
-              <h3
+
+              <h2
                 style={{
                   fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: "17.5px",
-                  margin: "0 0 6px",
+                  fontWeight: 800,
+                  fontSize: 22,
+                  letterSpacing: "-.015em",
+                  margin: "0 0 8px",
                   color: "var(--text)",
                 }}
               >
-                {p.title}
-              </h3>
+                {k.title}
+              </h2>
+
               <p
                 style={{
                   color: "var(--text-2)",
-                  fontSize: "13.5px",
-                  lineHeight: 1.55,
-                  margin: "0 0 14px",
+                  fontSize: 14.5,
+                  lineHeight: 1.6,
+                  margin: "0 0 20px",
                 }}
               >
-                {p.description}
+                {k.long}
               </p>
+
+              <div style={{ flex: 1 }} />
+
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 7,
-                  color: "var(--text-3)",
-                  fontSize: "12.5px",
-                  fontWeight: 600,
-                  marginBottom: 16,
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginBottom: 20,
                 }}
               >
-                <Icon name="memory" size={16} />
-                {p.parts}
+                <span
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: 99,
+                    background: k.accentSoft,
+                    color: k.accent,
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {/* Onlayn laboratoriya — bu simulyator, loyihalar ro'yxati emas. */}
+                  {"badge" in k ? k.badge : `${total} ta loyiha`}
+                </span>
+                {done > 0 && (
+                  <span
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 99,
+                      background: "var(--success-soft)",
+                      color: "var(--success)",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {done} ta tugallangan
+                  </span>
+                )}
               </div>
-              <LabCardActions projectId={p.id} status={p.status} />
-            </div>
-          </div>
-        ))}
+
+              {/* Haqiqiy tugma emas — butun kartochka havola, ichida yana
+                  tugma bo'lsa ichma-ich interaktiv element hosil bo'lardi. */}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "13px 22px",
+                  borderRadius: 14,
+                  background: k.accent,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 15.5,
+                }}
+              >
+                Kirish
+                <Icon name="arrow_forward" size={20} />
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

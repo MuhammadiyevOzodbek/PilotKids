@@ -1,0 +1,583 @@
+/**
+ * Bosh admin ("command deck") uslublari.
+ *
+ * Ataylab `globals.css` tokenlaridan MUSTAQIL: oddiy admin panel yorug'/quyuq
+ * mavzuga bo'ysunadi, bu yer esa har doim qora — bosh admin boshqa muhitga
+ * kirganini bir qarashda his qilishi kerak. Barcha sinflar `sa-` prefiksi
+ * bilan, ilovaning qolgan qismiga tegmaydi.
+ */
+
+.sa-root {
+  --sa-bg: #05060c;
+  --sa-panel: #0c0e18;
+  --sa-panel-2: #11141f;
+  --sa-panel-3: #171b29;
+  --sa-line: rgba(255, 255, 255, 0.07);
+  --sa-line-2: rgba(255, 255, 255, 0.13);
+  --sa-text: #e9edf8;
+  --sa-dim: #838ea6;
+  --sa-faint: #4d566c;
+  --sa-accent: #7c5cff;
+  --sa-accent-2: #00e0ff;
+  --sa-ok: #2ee6a8;
+  --sa-warn: #ffb020;
+  --sa-crit: #ff4d5e;
+  --sa-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  min-height: 100svh;
+  background: var(--sa-bg);
+  color: var(--sa-text);
+  display: flex;
+  /* Panel ichida yorug' mavzu tokenlari sizib chiqmasin. */
+  color-scheme: dark;
+}
+
+/* Yengil to'r — "boshqaruv paneli" hissi, kontentga xalaqit bermaydi. */
+.sa-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 500px at 12% -8%, rgba(124, 92, 255, 0.16), transparent 65%),
+    radial-gradient(700px 420px at 92% 6%, rgba(0, 224, 255, 0.09), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 100% 44px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 44px 100%;
+}
+
+/* ───────────────────────────── Yon panel ───────────────────────────── */
+
+.sa-side {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 246px;
+  flex-shrink: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px 14px;
+  background: linear-gradient(180deg, #0a0b14, #06070e);
+  border-right: 1px solid var(--sa-line);
+  overflow-y: auto;
+}
+
+.sa-side-scrim {
+  display: none;
+}
+
+.sa-navlink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: var(--sa-dim);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.sa-navlink:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sa-text);
+}
+
+.sa-navlink[data-active="true"] {
+  background: linear-gradient(90deg, rgba(124, 92, 255, 0.22), rgba(124, 92, 255, 0.04));
+  color: #fff;
+}
+
+/* Faol bo'limning chap chekkasidagi neon chiziq. */
+.sa-navlink[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sa-accent);
+  box-shadow: 0 0 12px var(--sa-accent);
+}
+
+.sa-navgroup {
+  padding: 16px 11px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sa-faint);
+}
+
+/* ───────────────────────────── Ustki qator ───────────────────────────── */
+
+.sa-main {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sa-top {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: rgba(5, 6, 12, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--sa-line);
+}
+
+.sa-burger {
+  display: none;
+}
+
+.sa-content {
+  padding: 26px 22px 60px;
+  max-width: 1420px;
+  width: 100%;
+  margin: 0 auto;
+  animation: sa-rise 0.36s ease both;
+}
+
+@keyframes sa-rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ───────────────────────────── Panellar ───────────────────────────── */
+
+.sa-panel {
+  background: linear-gradient(180deg, var(--sa-panel), var(--sa-panel-2));
+  border: 1px solid var(--sa-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.sa-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--sa-line);
+  background: rgba(255, 255, 255, 0.017);
+}
+
+.sa-panel-title {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sa-dim);
+}
+
+/* Xavfli bo'limlar — qizil hoshiya. */
+.sa-panel[data-tone="crit"] {
+  border-color: rgba(255, 77, 94, 0.34);
+  background: linear-gradient(180deg, rgba(255, 77, 94, 0.07), var(--sa-panel-2));
+}
+
+.sa-panel[data-tone="crit"] .sa-panel-title {
+  color: var(--sa-crit);
+}
+
+/* ───────────────────────────── Raqamlar ───────────────────────────── */
+
+.sa-num {
+  font-family: var(--sa-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.sa-stat {
+  position: relative;
+  padding: 16px 17px;
+  border-radius: 15px;
+  border: 1px solid var(--sa-line);
+  background: linear-gradient(180deg, var(--sa-panel), var(--sa-panel-2));
+  overflow: hidden;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.sa-stat:hover {
+  border-color: var(--sa-line-2);
+  transform: translateY(-2px);
+}
+
+/* Kartochka tepasidagi ingichka rangli chiziq — metrikaning "signali". */
+.sa-stat::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, var(--sa-tint, var(--sa-accent)), transparent 78%);
+}
+
+/* ───────────────────────────── Jadval ───────────────────────────── */
+
+.sa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.sa-table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--sa-faint);
+  border-bottom: 1px solid var(--sa-line);
+  white-space: nowrap;
+}
+
+.sa-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  color: var(--sa-text);
+  vertical-align: middle;
+}
+
+.sa-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sa-table tbody tr {
+  transition: background 0.14s ease;
+}
+
+.sa-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.sa-scroll-x {
+  overflow-x: auto;
+}
+
+/* ───────────────────────────── Boshqaruv elementlari ───────────────────────────── */
+
+.sa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--sa-line-2);
+  background: var(--sa-panel-3);
+  color: var(--sa-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.sa-btn:hover {
+  background: #1d2231;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.sa-btn:active {
+  transform: scale(0.975);
+}
+
+.sa-btn[data-variant="primary"] {
+  background: linear-gradient(135deg, var(--sa-accent), #5b3ff0);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 20px -8px rgba(124, 92, 255, 0.85);
+}
+
+.sa-btn[data-variant="primary"]:hover {
+  filter: brightness(1.09);
+}
+
+.sa-btn[data-variant="crit"] {
+  background: rgba(255, 77, 94, 0.12);
+  border-color: rgba(255, 77, 94, 0.45);
+  color: #ff8b96;
+}
+
+.sa-btn[data-variant="crit"]:hover {
+  background: rgba(255, 77, 94, 0.2);
+}
+
+.sa-btn[data-variant="quiet"] {
+  background: transparent;
+  border-color: var(--sa-line);
+  color: var(--sa-dim);
+}
+
+.sa-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sa-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--sa-line-2);
+  background: #090b13;
+  color: var(--sa-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.sa-input::placeholder {
+  color: var(--sa-faint);
+}
+
+.sa-input:focus {
+  border-color: var(--sa-accent);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.2);
+}
+
+/* Kalit (feature flag) tugmasi. */
+.sa-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  border: 1px solid var(--sa-line-2);
+  background: #0a0c14;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.sa-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sa-faint);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.sa-switch[data-on="true"] {
+  background: rgba(46, 230, 168, 0.2);
+  border-color: rgba(46, 230, 168, 0.55);
+}
+
+.sa-switch[data-on="true"]::after {
+  transform: translateX(18px);
+  background: var(--sa-ok);
+}
+
+/* ───────────────────────────── Belgi va indikatorlar ───────────────────────────── */
+
+.sa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.sa-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sa-dot[data-pulse="true"] {
+  animation: sa-pulse 1.9s ease-in-out infinite;
+}
+
+@keyframes sa-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+/* Bosh admin nishoni — oddiy admin panelida bunday narsa yo'q. */
+.sa-root-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-family: var(--sa-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffd9dd;
+  background: linear-gradient(135deg, rgba(255, 77, 94, 0.3), rgba(124, 92, 255, 0.3));
+  border: 1px solid rgba(255, 77, 94, 0.45);
+}
+
+/* ───────────────────────────── Modal ───────────────────────────── */
+
+.sa-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3, 4, 9, 0.72);
+  backdrop-filter: blur(4px);
+  animation: sa-fade 0.16s ease both;
+}
+
+.sa-modal {
+  position: relative;
+  width: 100%;
+  max-height: 88svh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #10131e, #0a0c14);
+  border: 1px solid var(--sa-line-2);
+  border-radius: 18px;
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+  animation: sa-rise 0.2s ease both;
+}
+
+@keyframes sa-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sa-spin {
+  animation: sa-spin 1.6s linear infinite;
+}
+
+@keyframes sa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ───────────────────────────── To'rlar ───────────────────────────── */
+
+.sa-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(var(--sa-min, 220px), 1fr));
+}
+
+.sa-split {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: var(--sa-split, 1.6fr 1fr);
+}
+
+@media (max-width: 1080px) {
+  .sa-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────────────────────── Mobil ───────────────────────────── */
+
+@media (max-width: 900px) {
+  .sa-side {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+    z-index: 60;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+  }
+
+  .sa-side[data-open="true"] {
+    transform: none;
+  }
+
+  .sa-side-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(3, 4, 9, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.24s ease;
+  }
+
+  .sa-side-scrim[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sa-burger {
+    display: grid;
+  }
+
+  .sa-content {
+    padding: 18px 14px 52px;
+  }
+
+  .sa-top {
+    padding: 10px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sa-root *,
+  .sa-root *::before,
+  .sa-root *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

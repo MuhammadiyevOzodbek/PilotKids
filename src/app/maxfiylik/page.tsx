@@ -32,7 +32,7 @@ const liStyle: React.CSSProperties = {
 
 export default function MaxfiylikPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <main id="content" style={{ minHeight: "100svh", background: "var(--bg)" }}>
       {/* Sarlavha (navy, landing hero uslubida) */}
       <section
         style={{
@@ -287,6 +287,6 @@ export default function MaxfiylikPage() {
           </Link>
         </div>
       </article>
-    </div>
+    </main>
   );
 }
