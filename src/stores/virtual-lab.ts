@@ -9,6 +9,7 @@ import {
   sanitizeCircuit,
   saveProjects,
 } from "@/lib/virtual-lab/storage";
+import type { BlockWorkspace } from "@/lib/virtual-lab/blocks";
 import type {
   Circuit,
   CircuitNode,
@@ -551,7 +552,13 @@ interface ProjectState {
   setName: (name: string, dirty?: boolean) => void;
   markDirty: () => void;
   newProject: (name?: string) => void;
-  save: (circuit: Circuit, code: string, sensors: Record<string, number>) => void;
+  /** `blocks` ixtiyoriy: kod rejimida ishlayotgan loyihada ish maydoni bo'sh bo'lishi mumkin (§29). */
+  save: (
+    circuit: Circuit,
+    code: string,
+    sensors: Record<string, number>,
+    blocks?: BlockWorkspace,
+  ) => void;
   open: (id: string) => SavedProject | null;
   duplicate: (id: string) => void;
   rename: (id: string, name: string) => void;
@@ -577,7 +584,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   newProject: (name = "Yangi loyiha") =>
     set({ currentId: null, name, lessonSlug: null, dirty: false, lastError: null }),
 
-  save: (circuit, code, sensors) => {
+  save: (circuit, code, sensors, blocks) => {
     const { projects, currentId, name, lessonSlug } = get();
     const now = new Date().toISOString();
 
@@ -594,6 +601,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
               code,
               sensors,
               lessonSlug,
+              blocks,
               updatedAt: now,
             }
           : p,
@@ -604,6 +612,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         circuit: sanitizeCircuit(circuit),
         code,
         sensors,
+        blocks,
       };
       id = created.id;
       next = [created, ...projects];

@@ -205,7 +205,8 @@ export default async function CoursesPage({
                         padding: "5px 10px",
                         borderRadius: 99,
                         background: "var(--success)",
-                        color: "#fff",
+                        // Oq matn tungi rejimda yashil ustida 1.99:1 — o'qib bo'lmaydi.
+                        color: "var(--on-success)",
                         fontSize: 13,
                         fontWeight: 700,
                       }}

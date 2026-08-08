@@ -170,18 +170,45 @@ export function rootOf(ws: BlockWorkspace, id: string): string {
  * o'z-o'zidan buzilmaydi.
  */
 
+/**
+ * Ish maydonining YUZAKI nusxasi: blok obyektlari ULASHILADI.
+ *
+ * Ilgari bu yerda har bir blok chuqur nusxalanardi. Natijada bitta uyaga
+ * son yozilganda ish maydonidagi HAMMA blok yangi obyektga aylanardi va
+ * React ularning barchasini qayta chizardi — 100+ blokli maydonda sudrash
+ * sezilarli sekinlashardi (§39).
+ *
+ * Endi o'zgargan blok `mutable()` bilan ALOHIDA nusxalanadi, qolganlari
+ * eski havolada qoladi. Shuning uchun `React.memo` va zustand selektorlari
+ * haqiqatan ishlaydi: o'zgarmagan blok qayta chizilmaydi.
+ *
+ * Muhim shart: `mutable()` dan O'TMAGAN blokka HECH QACHON yozilmaydi —
+ * u eski (undo tarixidagi) ish maydoni bilan ulashilgan.
+ */
 function clone(ws: BlockWorkspace): BlockWorkspace {
   return {
     version: ws.version,
-    blocks: Object.fromEntries(
-      Object.entries(ws.blocks).map(([id, b]) => [
-        id,
-        { ...b, fields: { ...b.fields }, inputs: { ...b.inputs }, statements: { ...b.statements } },
-      ]),
-    ),
-    tops: Object.fromEntries(Object.entries(ws.tops).map(([id, p]) => [id, { ...p }])),
-    variables: ws.variables.map((v) => ({ ...v })),
+    blocks: { ...ws.blocks },
+    tops: { ...ws.tops },
+    variables: ws.variables,
   };
+}
+
+/** Blokni o'zgartirishga tayyorlaydi: birinchi murojaatda nusxa oladi. */
+function mutable(ws: BlockWorkspace, id: string, source: BlockWorkspace): BlockNode | null {
+  const block = ws.blocks[id];
+  if (!block) return null;
+  // Manba bilan bir xil havola — hali nusxalanmagan.
+  if (block !== source.blocks[id]) return block;
+
+  const copy: BlockNode = {
+    ...block,
+    fields: { ...block.fields },
+    inputs: { ...block.inputs },
+    statements: { ...block.statements },
+  };
+  ws.blocks[id] = copy;
+  return copy;
 }
 
 /** Blokni ish maydoniga ildiz sifatida qo'yadi. */
@@ -234,7 +261,7 @@ export function detachBlock(ws: BlockWorkspace, id: string, x: number, y: number
   const next = clone(ws);
 
   if (link) {
-    const parent = next.blocks[link.parentId];
+    const parent = mutable(next, link.parentId, ws);
     if (parent) {
       if (link.slot.kind === "next") parent.next = null;
       else if (link.slot.kind === "input") parent.inputs[link.slot.name] = null;
@@ -246,16 +273,24 @@ export function detachBlock(ws: BlockWorkspace, id: string, x: number, y: number
   return next;
 }
 
-/** Ish maydonidagi joydan olib tashlaydi, lekin blokni o'chirmaydi. */
-function unlinkFromParent(ws: BlockWorkspace, id: string): void {
+/**
+ * Ish maydonidagi joydan olib tashlaydi, lekin blokni o'chirmaydi.
+ *
+ * Faqat AYNAN shu blokka ishora qilayotgan ota nusxalanadi — qolgan
+ * bloklar eski havolada qoladi.
+ */
+function unlinkFromParent(ws: BlockWorkspace, id: string, source: BlockWorkspace): void {
   for (const block of Object.values(ws.blocks)) {
-    if (block.next === id) block.next = null;
-    for (const [name, child] of Object.entries(block.inputs)) {
-      if (child === id) block.inputs[name] = null;
-    }
-    for (const [name, child] of Object.entries(block.statements)) {
-      if (child === id) block.statements[name] = null;
-    }
+    const holdsNext = block.next === id;
+    const inputName = Object.entries(block.inputs).find(([, child]) => child === id)?.[0];
+    const statementName = Object.entries(block.statements).find(([, child]) => child === id)?.[0];
+    if (!holdsNext && inputName === undefined && statementName === undefined) continue;
+
+    const editable = mutable(ws, block.id, source);
+    if (!editable) continue;
+    if (holdsNext) editable.next = null;
+    if (inputName !== undefined) editable.inputs[inputName] = null;
+    if (statementName !== undefined) editable.statements[statementName] = null;
   }
   delete ws.tops[id];
 }
@@ -283,16 +318,16 @@ export function connectAfter(
   if (subtreeIds(ws, movingId).includes(targetId)) return ws;
 
   const next = clone(ws);
-  unlinkFromParent(next, movingId);
+  unlinkFromParent(next, movingId, ws);
 
-  const target = next.blocks[targetId];
+  const target = mutable(next, targetId, ws);
   const moving = next.blocks[movingId];
   if (!target || !moving) return ws;
 
   const tail = target.next;
   target.next = movingId;
   if (tail) {
-    const movingLast = next.blocks[lastOfStack(next, movingId)];
+    const movingLast = mutable(next, lastOfStack(next, movingId), ws);
     if (movingLast) movingLast.next = tail;
   }
   return next;
@@ -309,16 +344,16 @@ export function connectIntoStatement(
   if (subtreeIds(ws, movingId).includes(parentId)) return ws;
 
   const next = clone(ws);
-  unlinkFromParent(next, movingId);
+  unlinkFromParent(next, movingId, ws);
 
-  const parent = next.blocks[parentId];
+  const parent = mutable(next, parentId, ws);
   const moving = next.blocks[movingId];
   if (!parent || !moving || !(slotName in parent.statements)) return ws;
 
   const existing = parent.statements[slotName];
   parent.statements[slotName] = movingId;
   if (existing) {
-    const movingLast = next.blocks[lastOfStack(next, movingId)];
+    const movingLast = mutable(next, lastOfStack(next, movingId), ws);
     if (movingLast) movingLast.next = existing;
   }
   return next;
@@ -341,10 +376,10 @@ export function connectValue(
   if (subtreeIds(ws, movingId).includes(parentId)) return ws;
 
   const next = clone(ws);
-  unlinkFromParent(next, movingId);
+  unlinkFromParent(next, movingId, ws);
 
-  const parent = next.blocks[parentId];
-  const moving = next.blocks[movingId];
+  const parent = mutable(next, parentId, ws);
+  const moving = mutable(next, movingId, ws);
   if (!parent || !moving || !(slotName in parent.inputs)) return ws;
 
   const existing = parent.inputs[slotName];
@@ -361,7 +396,7 @@ export function connectValue(
 export function removeBlock(ws: BlockWorkspace, id: string): BlockWorkspace {
   const doomed = new Set(subtreeIds(ws, id));
   const next = clone(ws);
-  unlinkFromParent(next, id);
+  unlinkFromParent(next, id, ws);
 
   for (const doomedId of doomed) {
     delete next.blocks[doomedId];
@@ -369,43 +404,62 @@ export function removeBlock(ws: BlockWorkspace, id: string): BlockWorkspace {
   }
   // Yo'q bo'lgan bloklarga qolgan havolalarni tozalaymiz.
   for (const block of Object.values(next.blocks)) {
-    if (block.next && doomed.has(block.next)) block.next = null;
-    for (const [name, child] of Object.entries(block.inputs)) {
-      if (child && doomed.has(child)) block.inputs[name] = null;
-    }
-    for (const [name, child] of Object.entries(block.statements)) {
-      if (child && doomed.has(child)) block.statements[name] = null;
-    }
+    const badNext = block.next !== null && doomed.has(block.next);
+    const badInputs = Object.entries(block.inputs).filter(([, c]) => c && doomed.has(c));
+    const badStatements = Object.entries(block.statements).filter(([, c]) => c && doomed.has(c));
+    if (!badNext && badInputs.length === 0 && badStatements.length === 0) continue;
+
+    const editable = mutable(next, block.id, ws);
+    if (!editable) continue;
+    if (badNext) editable.next = null;
+    for (const [name] of badInputs) editable.inputs[name] = null;
+    for (const [name] of badStatements) editable.statements[name] = null;
   }
   return next;
 }
 
+export interface BlockSubtree {
+  blocks: BlockNode[];
+  rootId: string;
+}
+
+/**
+ * Blok ro'yxatini YANGI ID'lar bilan qayta yozadi.
+ *
+ * Ish maydonidan mustaqil: shu sababli u ham nusxalash uchun, ham
+ * buferdan joylash uchun ishlaydi. Buferdagi daraxtni har joylashda
+ * qayta belgilash SHART — aks holda bitta nusxani ikki marta joylaganda
+ * ikkita blok bir xil ID bilan qolardi.
+ */
+export function remapSubtree(source: readonly BlockNode[], rootId: string): BlockSubtree {
+  const remap = new Map(source.map((block) => [block.id, newBlockId()]));
+  const link = (id: string | null) => (id ? (remap.get(id) ?? null) : null);
+
+  const blocks = source.map(
+    (block) =>
+      ({
+        id: remap.get(block.id)!,
+        type: block.type,
+        fields: { ...block.fields },
+        inputs: Object.fromEntries(Object.entries(block.inputs).map(([k, v]) => [k, link(v)])),
+        statements: Object.fromEntries(
+          Object.entries(block.statements).map(([k, v]) => [k, link(v)]),
+        ),
+        next: link(block.next),
+      }) satisfies BlockNode,
+  );
+
+  return { blocks, rootId: remap.get(rootId) ?? blocks[0]?.id ?? rootId };
+}
+
 /** Blok daraxtini yangi ID'lar bilan nusxalaydi. */
-export function duplicateSubtree(
-  ws: BlockWorkspace,
-  id: string,
-): { blocks: BlockNode[]; rootId: string } | null {
+export function duplicateSubtree(ws: BlockWorkspace, id: string): BlockSubtree | null {
   const ids = subtreeIds(ws, id);
   if (ids.length === 0 || !ws.blocks[id]) return null;
-
-  const remap = new Map(ids.map((old) => [old, newBlockId()]));
-  const blocks = ids.map((old) => {
-    const source = ws.blocks[old]!;
-    return {
-      id: remap.get(old)!,
-      type: source.type,
-      fields: { ...source.fields },
-      inputs: Object.fromEntries(
-        Object.entries(source.inputs).map(([k, v]) => [k, v ? (remap.get(v) ?? null) : null]),
-      ),
-      statements: Object.fromEntries(
-        Object.entries(source.statements).map(([k, v]) => [k, v ? (remap.get(v) ?? null) : null]),
-      ),
-      next: source.next ? (remap.get(source.next) ?? null) : null,
-    } satisfies BlockNode;
-  });
-
-  return { blocks, rootId: remap.get(id)! };
+  return remapSubtree(
+    ids.map((old) => ws.blocks[old]!),
+    id,
+  );
 }
 
 /** Uya qiymatini yozadi (ro'yxat, son yoki matn). */
@@ -422,7 +476,7 @@ export function setField(
   if (!slot) return ws;
 
   const next = clone(ws);
-  next.blocks[id]!.fields[name] = normalizeFieldValue(slot, value);
+  mutable(next, id, ws)!.fields[name] = normalizeFieldValue(slot, value);
   return next;
 }
 
@@ -587,31 +641,34 @@ export function addVariable(
   const check = checkVariableName(ws, name);
   if (!check.ok) return ws;
   const next = clone(ws);
-  next.variables.push({ id: newBlockId("v"), name: check.name, type });
+  // `variables` massivi ham ulashilgan — o'zgartirishdan oldin nusxalanadi.
+  next.variables = [...ws.variables, { id: newBlockId("v"), name: check.name, type }];
   return next;
 }
 
 export function renameVariable(ws: BlockWorkspace, id: string, name: string): BlockWorkspace {
   const check = checkVariableName(ws, name, id);
   if (!check.ok) return ws;
+  const source = ws.variables.find((v) => v.id === id);
+  if (!source) return ws;
+  const oldName = source.name;
+
   const next = clone(ws);
-  const variable = next.variables.find((v) => v.id === id);
-  if (!variable) return ws;
-  const oldName = variable.name;
-  variable.name = check.name;
+  next.variables = ws.variables.map((v) => (v.id === id ? { ...v, name: check.name } : v));
 
   // Nomga qarab ishlaydigan uyalarni ham yangilaymiz.
   for (const block of Object.values(next.blocks)) {
-    for (const [slot, value] of Object.entries(block.fields)) {
-      if (value === oldName) block.fields[slot] = check.name;
-    }
+    const slots = Object.entries(block.fields).filter(([, value]) => value === oldName);
+    if (slots.length === 0) continue;
+    const editable = mutable(next, block.id, ws)!;
+    for (const [slot] of slots) editable.fields[slot] = check.name;
   }
   return next;
 }
 
 export function removeVariable(ws: BlockWorkspace, id: string): BlockWorkspace {
   const next = clone(ws);
-  next.variables = next.variables.filter((v) => v.id !== id);
+  next.variables = ws.variables.filter((v) => v.id !== id);
   return next;
 }
 

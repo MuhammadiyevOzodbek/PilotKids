@@ -127,6 +127,13 @@ export type SlotDef =
   | {
       kind: "statement";
       name: string;
+      /**
+       * Ichki stek ustida ko'rinadigan yorliq uchun i18n kaliti.
+       *
+       * `if/else` blokidagi «aks holda» shu yerdan chiqadi: u yorliq
+       * shablonining bir qismi emas, chunki BIRINCHI stekdan KEYIN turadi.
+       */
+      labelKey?: string;
     };
 
 /* ─────────────────────────── Blok ta'rifi ─────────────────────────── */
@@ -168,6 +175,14 @@ export interface BlockDefinition {
    * `"{pin} pinini {mode} qil"`.
    */
   messageKey: string;
+  /**
+   * Boshlang'ich darajadagi SODDAROQ yorliq kaliti (§32).
+   *
+   * Blok mantiqi ikkiga bo'linmaydi — faqat matn almashadi: advanced'da
+   * «13 ni HIGH qil», beginner'da «13-pin LEDni yoq». Uyalar bir xil
+   * qolishi shart, aks holda ikki matn bir blokni tasvirlay olmasdi.
+   */
+  messageKeyBeginner?: string;
   /** Tooltip i18n kaliti (§40). */
   tooltipKey?: string;
   slots: SlotDef[];
@@ -235,6 +250,18 @@ export interface GenWarning {
  * Generatorlar hech qachon global holatga tegmaydi — hamma narsa shu
  * obyekt orqali o'tadi, shuning uchun natija deterministik (§26).
  */
+/** `declareObject` qaytaradigan e'lon bo'laklari. */
+export interface ObjectDeclaration {
+  /** `#include <Servo.h>` uchun sarlavha fayli. */
+  include?: string;
+  /** Global e'lon: `Servo servo1;`, `DHT dht(2, DHT11);`. */
+  global?: string | string[];
+  /** `setup()` ga tushadigan qator: `servo1.attach(9);`. */
+  setup?: string | string[];
+  /** Obyekt bilan birga chiqadigan yordamchi funksiya. */
+  helper?: string[];
+}
+
 export interface GenApi {
   /** Ro'yxat/son/matn uyasining xom qiymati. */
   field(block: BlockNode, name: string): string;
@@ -255,6 +282,23 @@ export interface GenApi {
   helper(key: string, lines: string[]): void;
   /** Takrorlanmaydigan C++ identifikatori yaratadi. */
   uniqueName(base: string): string;
+  /**
+   * Kutubxona obyektini KALIT bo'yicha bir marta e'lon qiladi va nomini
+   * qaytaradi (§36).
+   *
+   * Kalit odatda pin(lar)dan quriladi (`servo:9`), shuning uchun bitta
+   * pinga ulangan o'nta servo bloki BITTA `Servo servo1;` va BITTA
+   * `servo1.attach(9);` beradi, ikki xil pin esa ikkita alohida obyekt.
+   *
+   * `numbered` — nom doim raqam bilan tugasin (`servo1`, `servo2`).
+   * Aks holda birinchi obyekt raqamsiz bo'ladi (`lcd`, keyin `lcd2`).
+   */
+  declareObject(
+    key: string,
+    base: string,
+    build: (name: string) => ObjectDeclaration,
+    options?: { numbered?: boolean },
+  ): string;
   warn(warning: GenWarning): void;
 
   /** Sxema — component-aware bloklar uchun. */

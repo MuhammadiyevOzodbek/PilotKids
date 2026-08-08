@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatMessage } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
@@ -10,7 +10,7 @@ import { askRobo } from "@/lib/ai/gemini";
 import { buildRoboContext } from "@/lib/ai/context";
 import { checkUserInput, INJECTION_REPLY } from "@/lib/ai/safety";
 import { checkLimit, limitGuard } from "@/lib/rate-limit";
-import { chatInputSchema, firstError, uuidSchema } from "@/lib/validation";
+import { chatInputSchema, firstError } from "@/lib/validation";
 
 /** Gemini ishlamasa ishlatiladigan zaxira javob — tashqi LLM'siz. */
 function roboReply(q: string, name: string): string {
@@ -81,17 +81,14 @@ export async function clearChatHistory() {
   return { ok: true as const };
 }
 
-/** Bitta xabarni o'chirish (faqat o'zinikini). */
-export async function deleteChatMessage(id: string) {
-  const user = await requireUser();
-  const limited = await limitGuard("action", user.id);
-  if (limited) return limited;
-  const parsed = uuidSchema.safeParse(id);
-  if (!parsed.success) return { ok: false as const, error: "Noto'g'ri identifikator" };
-
-  await db
-    .delete(chatMessage)
-    .where(and(eq(chatMessage.id, parsed.data), eq(chatMessage.userId, user.id)));
-  revalidatePath("/tutor");
-  return { ok: true as const };
-}
+/*
+ * `deleteChatMessage` OLIB TASHLANDI.
+ *
+ * U hech qayerdan chaqirilmasdi, lekin `"use server"` faylidagi har bir
+ * eksport Next.js'da doimiy HTTP endpoint hosil qiladi. Ya'ni interfeysda
+ * tugmasi yo'q MA'LUMOT O'CHIRUVCHI amal tashqaridan chaqirilishi mumkin
+ * bo'lib qolgan edi.
+ *
+ * Bitta xabarni o'chirish kerak bo'lsa — avval interfeysi yozilsin.
+ * Butun tarixni tozalash esa `clearChatHistory` orqali ishlaydi.
+ */

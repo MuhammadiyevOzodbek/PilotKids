@@ -103,7 +103,7 @@ export function CompleteButton({
           borderRadius: 14,
           border: "none",
           background: "var(--success)",
-          color: "#fff",
+          color: "var(--on-success)",
           fontFamily: "var(--font-display)",
           fontWeight: 700,
           fontSize: "15.5px",

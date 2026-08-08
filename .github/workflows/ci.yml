@@ -1,0 +1,58 @@
+# Uzluksiz integratsiya.
+#
+# Ilgari yagona darvoza `.husky/pre-commit` edi va u faqat `eslint --fix` +
+# `prettier --write` ishlatardi. Ya'ni tiplar tekshiruvi, 600 dan ortiq test
+# va qurilishning O'ZI hech qachon avtomatik ishga tushmasdi — singan test
+# yoki tip xatosi bemalol `main` ga tushib ketardi.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Bir branch uchun bir vaqtda bitta ishga tushirish: yangi commit kelsa
+# eskisi bekor qilinadi va navbat band qilmaydi.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Next.js 16 minimal talabi — `package.json` dagi `engines` bilan bir xil.
+          node-version: "20.9"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tiplar
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatlash
+        run: npm run format:check
+
+      - name: Testlar
+        run: npm test
+
+      - name: Qurilish
+        run: npm run build
+        env:
+          # Qurilish uchun haqiqiy sirlar KERAK EMAS: sahifalar dinamik
+          # render qilinadi va baza faqat ishlash paytida so'raladi. Bu
+          # qiymatlar `src/lib/env.ts` dagi zod tekshiruvini qanoatlantirish
+          # uchun — ular bilan hech qayerga ulanilmaydi.
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32ch
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

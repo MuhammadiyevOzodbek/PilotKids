@@ -127,6 +127,15 @@ export function SubmitButton({
   variant?: "primary" | "success";
 }) {
   const bg = variant === "success" ? "var(--success)" : "var(--primary)";
+  /*
+   * Matn rangi MAVZUGA qarab almashadi.
+   *
+   * Ilgari bu yerda `#fff` qotirib qo'yilgandi. Tungi rejimda aksentlar
+   * yorqinlashadi, ya'ni oq matn yashil tugmada 1.99:1 — amalda o'qib
+   * bo'lmaydi, ko'k tugmada esa 3.59:1. `--on-*` tokenlari aynan shu
+   * uchun yaratilgan, lekin bu komponent ularni ishlatmasdi.
+   */
+  const fg = variant === "success" ? "var(--on-success)" : "var(--on-primary)";
   return (
     <button
       type="submit"
@@ -138,7 +147,7 @@ export function SubmitButton({
         borderRadius: 16,
         border: "none",
         background: bg,
-        color: "#fff",
+        color: fg,
         fontFamily: "var(--font-display)",
         fontWeight: 700,
         fontSize: 16.5,

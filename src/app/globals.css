@@ -35,6 +35,16 @@
   --success: #0fa46e;
   --success-soft: #e6f7f0;
   /*
+   * Yashil MATN uchun alohida, to'qroq tus.
+   *
+   * `--success` fon sifatida yaxshi (u yorqin va ko'zga tashlanadi),
+   * lekin oq kartochkada MATN bo'lganda atigi 3.20:1 beradi — AA esa
+   * 4.5 talab qiladi. Ilgari yashil matn "to'g'ri javob", streak va
+   * "tugallandi" yozuvlarida ishlatilardi, ya'ni eng muhim qatorlar eng
+   * past kontrastda edi. Bu tus oq fonda 6.13, sahifa fonida 5.41 beradi.
+   */
+  --success-text: #097048;
+  /*
    * Yashil TO'LDIRILGAN tugma ustidagi matn rangi.
    *
    * Yashil ikki xil vazifada ishlatiladi: to'q fonda MATN sifatida (unda
@@ -55,6 +65,14 @@
      kategoriya ranglari shu yerdan olinadi, inline hex o'rniga. */
   --fun-amber: #f5a524;
   --fun-amber-soft: #fff3dd;
+  /*
+   * Sariq MATN uchun to'q tus.
+   *
+   * `--fun-amber` o'zining yumshoq foni ustida atigi 1.86:1 beradi —
+   * amalda oq-sariq fonda yo'qoladi. Yon paneldagi «Admin panel»
+   * havolasi va admin rol nishonlari aynan shu juftlikni ishlatardi.
+   */
+  --fun-amber-text: #8a5300;
   --fun-violet: #8b5cf6;
   --fun-violet-soft: #f1ebff;
   --fun-pink: #ec4899;
@@ -68,6 +86,12 @@
      (kunduzi to'q sariq to'q, kechasi yorqin). */
   --on-fun-orange: #ffffff;
   --fun-orange-soft: rgba(234, 106, 14, 0.13);
+  /* 3D laboratoriya aksenti. `--fun-violet` (#8b5cf6) dan alohida, chunki u
+     bezak rangi: oq matn bilan atigi 4.23 beradi va to'ldirilgan tugmada
+     AA dan o'tmasdi. Bu esa to'qroq — 5.70. */
+  --fun-purple: #7c3aed;
+  --on-fun-purple: #ffffff;
+  --fun-purple-soft: rgba(124, 58, 237, 0.13);
   /* «Chiqish» kabi matn tugmalari uchun: #e5484d och fonda 3.45 edi. */
   --danger: #c33d41;
   --danger-soft: rgba(229, 72, 77, 0.1);
@@ -92,6 +116,8 @@
   --success: #2fd08d;
   --success-soft: rgba(47, 208, 141, 0.15);
   --on-success: #0b1220;
+  /* Tungi rejimda to'q fon — yorqin yashil matn sifatida allaqachon yetarli (7.22). */
+  --success-text: #2fd08d;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 30px 64px -24px rgba(0, 0, 0, 0.65);
@@ -100,6 +126,8 @@
   /* Tungi rejimda aksentlar yorqinroq — quyuq fonda kontrast yetarli bo'lsin */
   --fun-amber: #fbbf24;
   --fun-amber-soft: rgba(251, 191, 36, 0.16);
+  /* To'q fonda yorqin sariq matn sifatida yetarli. */
+  --fun-amber-text: #fbbf24;
   --fun-violet: #a78bfa;
   --fun-violet-soft: rgba(167, 139, 250, 0.16);
   --fun-pink: #f472b6;
@@ -109,6 +137,10 @@
   --fun-orange: #fb923c;
   --on-fun-orange: #0b1220;
   --fun-orange-soft: rgba(251, 146, 60, 0.16);
+  /* Quyuq fonda yorqin binafsha yetarli (6.88), ustidagi matn esa to'q. */
+  --fun-purple: #a78bfa;
+  --on-fun-purple: #0b1220;
+  --fun-purple-soft: rgba(167, 139, 250, 0.16);
   --danger: #ff6b6f;
   --danger-soft: rgba(255, 107, 111, 0.14);
 

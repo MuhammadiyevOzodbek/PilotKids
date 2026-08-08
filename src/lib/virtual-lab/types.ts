@@ -448,4 +448,14 @@ export interface SavedProject {
   /** Qaysi darsdan boshlangani (bo'lsa). */
   lessonSlug: string | null;
   sensors: Record<string, number>;
+  /**
+   * Blok ish maydoni (§29).
+   *
+   * IXTIYORIY va shunday qolishi SHART: Faza 1 dan oldin saqlangan
+   * loyihalarda bu maydon umuman yo'q va ular ochilishda buzilmasligi
+   * kerak. Yo'q bo'lsa — bloklarsiz, faqat kodli loyiha.
+   */
+  blocks?: import("./blocks/types").BlockWorkspace;
+  /** `blocks` qaysi formatda saqlangani — migratsiya uchun. */
+  blockWorkspaceVersion?: number;
 }

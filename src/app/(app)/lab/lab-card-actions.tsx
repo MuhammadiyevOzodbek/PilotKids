@@ -66,7 +66,7 @@ export function LabCardActions({
           borderRadius: 12,
           border: "none",
           background: started ? "var(--success)" : "var(--primary)",
-          color: "#fff",
+          color: started ? "var(--on-success)" : "var(--on-primary)",
           fontWeight: 700,
           fontSize: 15,
           cursor: isPending ? "wait" : "pointer",

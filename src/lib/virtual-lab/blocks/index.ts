@@ -10,6 +10,16 @@ import { registerBlocks } from "./registry";
 import { EVENT_BLOCKS } from "./defs/events";
 import { CONTROL_BLOCKS } from "./defs/control";
 import { ARDUINO_BLOCKS } from "./defs/arduino";
+import { ANALOG_BLOCKS } from "./defs/analog";
+import { LOGIC_BLOCKS } from "./defs/logic";
+import { MATH_BLOCKS } from "./defs/math";
+import { VARIABLE_BLOCKS } from "./defs/variables";
+import { SERIAL_BLOCKS } from "./defs/serial";
+import { SENSOR_BLOCKS } from "./defs/sensors";
+import { OUTPUT_BLOCKS } from "./defs/output";
+import { MOTOR_BLOCKS } from "./defs/motors";
+import { DISPLAY_BLOCKS } from "./defs/display";
+import { COMPONENT_BLOCKS } from "./defs/component-blocks";
 
 let registered = false;
 
@@ -18,7 +28,20 @@ function registerAll() {
   registered = true;
   registerBlocks(EVENT_BLOCKS);
   registerBlocks(CONTROL_BLOCKS);
+  registerBlocks(LOGIC_BLOCKS);
   registerBlocks(ARDUINO_BLOCKS);
+  registerBlocks(ANALOG_BLOCKS);
+  registerBlocks(MATH_BLOCKS);
+  registerBlocks(VARIABLE_BLOCKS);
+  // Komponentga bog'langan bloklar palitrada XOM pinli bloklardan OLDIN
+  // turadi: boshlang'ich foydalanuvchi birinchi ko'radigan blok «LED #1 ni
+  // yoq» bo'lishi kerak, «13 ni HIGH qil» emas (§32).
+  registerBlocks(COMPONENT_BLOCKS);
+  registerBlocks(SENSOR_BLOCKS);
+  registerBlocks(OUTPUT_BLOCKS);
+  registerBlocks(MOTOR_BLOCKS);
+  registerBlocks(DISPLAY_BLOCKS);
+  registerBlocks(SERIAL_BLOCKS);
 }
 
 registerAll();
@@ -29,3 +52,5 @@ export * from "./workspace";
 export * from "./generator";
 export * from "./messages";
 export * from "./pins";
+export * from "./components";
+export * from "./validation";

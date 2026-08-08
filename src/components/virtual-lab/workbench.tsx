@@ -31,6 +31,7 @@ import { Simulator } from "@/lib/virtual-lab/simulator";
 import { hasBlockingErrors, validateCircuit } from "@/lib/virtual-lab/validator";
 import { checkLesson, getLesson } from "@/lib/virtual-lab/lessons";
 import { exportProject, importProject } from "@/lib/virtual-lab/storage";
+import { needsSimulationRestart } from "@/lib/virtual-lab/restart";
 import type { Circuit, LessonResult, ParsedSketch, SimulationSpeed } from "@/lib/virtual-lab/types";
 import {
   useCircuitStore,
@@ -45,6 +46,8 @@ import { Inspector } from "./inspector";
 import { SerialMonitor } from "./serial-monitor";
 import { LessonPanel } from "./lesson-panel";
 import { ProblemsPanel } from "./problems-panel";
+import { emptyWorkspace, isEmptyWorkspace } from "@/lib/virtual-lab/blocks";
+import { useBlocksStore } from "@/stores/blocks";
 import { BlockEditor } from "./blocks/block-editor";
 
 /**
@@ -58,15 +61,6 @@ import { BlockEditor } from "./blocks/block-editor";
 const SPEEDS: SimulationSpeed[] = [0.5, 1, 2, 5];
 /** React holatini yangilash oralig'i (ms) — UI ni ortiqcha qayta chizmaslik uchun. */
 const UI_SYNC_MS = 100;
-const LIVE_SETTING_KEYS: Record<string, string> = {
-  potentiometer: "value",
-  ldr: "light",
-  ultrasonic: "distance",
-  "push-button": "pressed",
-  tmp36: "temperature",
-  "soil-moisture": "moisture",
-  pir: "motion",
-};
 
 /** Tor ekranda bir vaqtda ko'rinadigan bo'lim. */
 type MobileView = "palette" | "canvas" | "panel";
@@ -88,53 +82,6 @@ type WorkbenchView = "circuit" | "program";
 function formatTime(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function needsSimulationRestart(
-  previous: { circuit: Circuit; code: string },
-  next: { circuit: Circuit; code: string },
-): boolean {
-  if (previous.code !== next.code) return true;
-  if (previous.circuit.nodes.length !== next.circuit.nodes.length) return true;
-  if (previous.circuit.wires.length !== next.circuit.wires.length) return true;
-
-  for (let i = 0; i < previous.circuit.wires.length; i++) {
-    const a = previous.circuit.wires[i]!;
-    const b = next.circuit.wires[i]!;
-    if (
-      a.id !== b.id ||
-      a.color !== b.color ||
-      a.from.nodeId !== b.from.nodeId ||
-      a.from.pinId !== b.from.pinId ||
-      a.to.nodeId !== b.to.nodeId ||
-      a.to.pinId !== b.to.pinId
-    ) {
-      return true;
-    }
-  }
-
-  for (let i = 0; i < previous.circuit.nodes.length; i++) {
-    const a = previous.circuit.nodes[i]!;
-    const b = next.circuit.nodes[i]!;
-    if (
-      a.id !== b.id ||
-      a.type !== b.type ||
-      a.x !== b.x ||
-      a.y !== b.y ||
-      a.rotation !== b.rotation
-    ) {
-      return true;
-    }
-
-    const liveKey = LIVE_SETTING_KEYS[a.type];
-    const keys = new Set([...Object.keys(a.settings), ...Object.keys(b.settings)]);
-    for (const key of keys) {
-      if (key === liveKey) continue;
-      if (a.settings[key] !== b.settings[key]) return true;
-    }
-  }
-
-  return false;
 }
 
 export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
@@ -503,11 +450,24 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   }, [setLesson]);
 
   /* ── Saqlash / import / eksport ── */
+
+  /*
+   * Blok ish maydoni loyiha bilan BIRGA saqlanadi (§29).
+   *
+   * Bo'sh maydon `undefined` bo'lib ketadi: kod rejimida ishlagan
+   * foydalanuvchining faylida keraksiz bo'sh obyekt paydo bo'lmasin va
+   * eski loyihalar bilan farqi qolmasin.
+   */
+  const currentBlocks = useCallback(() => {
+    const workspace = useBlocksStore.getState().workspace;
+    return isEmptyWorkspace(workspace) ? undefined : workspace;
+  }, []);
+
   const handleSave = useCallback(() => {
-    saveProject(circuit, code, sensors);
+    saveProject(circuit, code, sensors, currentBlocks());
     const error = useProjectStore.getState().lastError;
     showToast(error ?? "Loyiha saqlandi");
-  }, [saveProject, circuit, code, sensors, showToast]);
+  }, [saveProject, circuit, code, sensors, currentBlocks, showToast]);
 
   const handleNewProject = useCallback(() => {
     suppressNextDirty.current = true;
@@ -515,6 +475,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     replaceCircuit({ nodes: [], wires: [] });
     resetCode();
     setSensors({});
+    useBlocksStore.getState().replaceWorkspace(emptyWorkspace());
     stopSimulation();
   }, [newProject, replaceCircuit, resetCode, setSensors, stopSimulation]);
 
@@ -532,6 +493,8 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       setCode(project.code);
       setSensors(project.sensors);
       setLesson(project.lessonSlug);
+      // Eski loyihada `blocks` yo'q — ish maydoni bo'shatiladi (§29).
+      useBlocksStore.getState().replaceWorkspace(project.blocks ?? emptyWorkspace());
       setLessonResult(null);
       showToast("Loyiha ochildi");
     },
@@ -566,6 +529,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       code,
       lessonSlug: lesson?.slug ?? null,
       sensors,
+      blocks: currentBlocks(),
     });
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -574,7 +538,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     a.download = `${projectName.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [projectName, circuit, code, lesson, sensors]);
+  }, [projectName, circuit, code, lesson, sensors, currentBlocks]);
 
   const handleImportFile = useCallback(
     async (file: File) => {
@@ -590,6 +554,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       setCode(project.code);
       setSensors(project.sensors);
       setLesson(project.lessonSlug);
+      useBlocksStore.getState().replaceWorkspace(project.blocks ?? emptyWorkspace());
       showToast("Loyiha yuklandi");
     },
     [addImported, replaceCircuit, setCode, setLesson, setSensors, showToast],
@@ -605,7 +570,18 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
 
       const mod = e.metaKey || e.ctrlKey;
 
-      if (mod && e.key.toLowerCase() === "z") {
+      /*
+       * Dasturlash ko'rinishida sxemaga tegadigan yorliqlar O'CHADI (§30).
+       *
+       * Aks holda blok muharriridagi Ctrl+Z sxemani ham orqaga qaytarardi,
+       * Delete esa tanlangan blok o'rniga sxemadagi komponentni o'chirardi.
+       * Bu yorliqlarni blok muharririning O'ZI (`block-editor.tsx`) ushlaydi.
+       * Saqlash, to'liq ekran va simulyatsiya ikkala ko'rinishda ham
+       * ishlayveradi — ular ko'rinishga bog'liq emas.
+       */
+      const circuitKeys = view === "circuit";
+
+      if (circuitKeys && mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
@@ -616,15 +592,15 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
         handleSave();
         return;
       }
-      if (mod && e.key.toLowerCase() === "c") {
+      if (circuitKeys && mod && e.key.toLowerCase() === "c") {
         copySelection();
         return;
       }
-      if (mod && e.key.toLowerCase() === "v") {
+      if (circuitKeys && mod && e.key.toLowerCase() === "v") {
         pasteClipboard();
         return;
       }
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (circuitKeys && (e.key === "Delete" || e.key === "Backspace")) {
         e.preventDefault();
         removeSelected();
         return;
@@ -658,6 +634,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     startSimulation,
     pauseSimulation,
     toggleFullscreen,
+    view,
   ]);
 
   /*

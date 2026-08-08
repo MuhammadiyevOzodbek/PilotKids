@@ -11,6 +11,16 @@ import { env } from "@/lib/env";
 
 const BASE = "https://notify.eskiz.uz/api";
 
+/**
+ * Tashqi so'rov uchun eng ko'p kutish vaqti (ms).
+ *
+ * Timeout'siz Eskiz javob bermay qolsa, SMS kod so'ragan HAR BIR
+ * foydalanuvchi so'rovi Node.js ning standart TCP muddatigacha —
+ * daqiqalarcha — osilib turardi va serverless funksiya vaqti tugaguncha
+ * resursni band qilardi.
+ */
+const TIMEOUT_MS = 8000;
+
 /** Token 30 kun amal qiladi — jarayon xotirasida keshlaymiz. */
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -21,7 +31,11 @@ async function getToken(): Promise<string> {
   body.append("email", env.ESKIZ_EMAIL);
   body.append("password", env.ESKIZ_PASSWORD);
 
-  const res = await fetch(`${BASE}/auth/login`, { method: "POST", body });
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    body,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`Eskiz auth xatosi: ${res.status}`);
 
   const json = (await res.json()) as { data?: { token?: string } };
@@ -59,6 +73,7 @@ export async function sendSms(phoneNumber: string, message: string): Promise<voi
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 
   if (!res.ok) {

@@ -6,6 +6,14 @@ import { sanitizeReply } from "@/lib/ai/safety";
 
 const MODEL = "gemini-2.5-flash";
 
+/**
+ * Modeldan javob kutishning eng ko'p muddati (ms).
+ *
+ * Bola savol yozib 20 sekunddan ko'p kutmasligi kerak — bu muddatdan
+ * keyin unga "hozir javob bera olmadim" deb aytgan afzal.
+ */
+const REQUEST_TIMEOUT_MS = 20_000;
+
 /** PilotKids "Robo" — bolalarga mo'ljallangan robototexnika ustozi. */
 function systemInstruction(ctx: RoboContext): string {
   return `Sening isming — Robo. Sen PilotKids platformasidagi AI ustozsan.
@@ -104,6 +112,14 @@ export async function askRobo(
         // Chat javoblari qisqa va tez bo'lishi kerak — "thinking" o'chirilgan.
         thinkingConfig: { thinkingBudget: 0 },
         safetySettings,
+        /*
+         * Muddat chegarasi SHART.
+         *
+         * Timeout'siz model sekinlashsa `/tutor` sahifasi javobsiz
+         * qolardi: `catch` faqat XATO holatida `null` qaytaradi,
+         * sekinlik holatida esa so'rov cheksiz kutardi.
+         */
+        abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
     });
 

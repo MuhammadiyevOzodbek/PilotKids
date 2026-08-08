@@ -52,7 +52,31 @@ export async function setDailyLimit(minutes: number, password: string) {
       body: { password: parsed.data.password },
       headers: await headers(),
     });
-  } catch {
+  } catch (err) {
+    /*
+     * Xato SABABI ajratiladi.
+     *
+     * Ilgari `catch` bo'sh edi va HAR QANDAY xato — tarmoq uzilishi,
+     * auth xizmatining ishlamasligi, noto'g'ri sozlama — "Parol
+     * noto'g'ri" bo'lib chiqardi. Ota-ona to'g'ri parolni qayta-qayta
+     * kiritib, o'z urinishlar limitini yeb qo'yardi, haqiqiy sabab esa
+     * hech qayerda ko'rinmasdi.
+     *
+     * Better Auth noto'g'ri parolda 401 beradi; qolgan hamma narsa —
+     * bizning tomondagi nosozlik.
+     */
+    const status =
+      (err as { status?: number; statusCode?: number } | null)?.statusCode ??
+      (err as { status?: number } | null)?.status;
+    const wrongPassword = status === 401 || status === 400;
+
+    if (!wrongPassword) {
+      console.error("[parent] parolni tekshirib bo'lmadi:", err);
+      return {
+        ok: false as const,
+        error: "Hozir tekshirib bo'lmadi. Biroz kutib, qayta urinib ko'ring.",
+      };
+    }
     return { ok: false as const, error: "Parol noto'g'ri. Ota-onangizdan so'rang." };
   }
 

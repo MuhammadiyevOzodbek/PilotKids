@@ -31,9 +31,14 @@ export default async function ParentPage() {
     getUserSettings(user.id),
   ]);
   const totalMin = week.reduce((s, w) => s + w.minutes, 0);
-  // Bugungi faollik (0=Dushanba).
-  const todayIdx = (new Date().getDay() + 6) % 7;
-  const usedToday = week[todayIdx]?.minutes ?? 0;
+  /*
+   * Bugun — ro'yxatning OXIRGI kuni.
+   *
+   * `getWeekActivity` oxirgi yetti kunni eng eskisidan bugungacha
+   * qaytaradi, shuning uchun indeksni hafta kunidan hisoblash shart
+   * emas — bu ilgari xatoga sabab bo'lardi.
+   */
+  const usedToday = week[week.length - 1]?.minutes ?? 0;
   const parentStats = [
     {
       icon: "menu_book",

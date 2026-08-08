@@ -1,5 +1,12 @@
 import { z } from "zod";
 import { getDefinition, getPin } from "./catalog";
+/*
+ * Blok modulini INDEKS orqali chaqiramiz: aynan o'sha yerda ta'riflar
+ * registrga yoziladi. To'g'ridan-to'g'ri `./blocks/workspace` dan olsak,
+ * registr bo'sh bo'lardi va `sanitizeWorkspace` hamma blokni «noma'lum
+ * tur» deb tashlab yuborardi.
+ */
+import { BLOCK_WORKSPACE_VERSION, blockWorkspaceSchema, sanitizeWorkspace } from "./blocks";
 import type { Circuit, SavedProject, WireColor } from "./types";
 
 /**
@@ -52,6 +59,13 @@ export const savedProjectSchema = z.object({
   code: z.string().max(50_000),
   lessonSlug: z.string().max(64).nullable(),
   sensors: z.record(z.string().max(64), z.number().finite()),
+  /*
+   * IXTIYORIY (§29). Eski loyihalarda bu maydonlar yo'q — `.optional()`
+   * ularni tekshiruvdan o'tkazadi va `loadProjects()` dagi "har bir
+   * loyihani alohida tekshirish" mantig'i buzilmaydi.
+   */
+  blocks: blockWorkspaceSchema.optional(),
+  blockWorkspaceVersion: z.number().int().min(1).max(1000).optional(),
 });
 
 const WIRE_COLORS = new Set<WireColor>(["red", "black", "blue", "green", "yellow", "orange"]);
@@ -151,7 +165,7 @@ export function sanitizeCircuit(circuit: Circuit): Circuit {
 }
 
 function sanitizeProject(project: SavedProject): SavedProject {
-  return {
+  const clean: SavedProject = {
     ...project,
     name: project.name.trim() || "Yangi loyiha",
     circuit: sanitizeCircuit(project.circuit),
@@ -159,6 +173,21 @@ function sanitizeProject(project: SavedProject): SavedProject {
       Object.entries(project.sensors).filter(([, value]) => Number.isFinite(value)),
     ),
   };
+
+  /*
+   * Blok maydoni BO'LSA tozalanadi, YO'Q bo'lsa umuman qo'shilmaydi.
+   * `blocks: undefined` yozib qo'yish ham xavfsiz emas edi: eksport
+   * qilingan JSON'da kalit paydo bo'lib, eski ilova versiyalari uni
+   * o'qiy olmasligi mumkin.
+   */
+  if (project.blocks) {
+    clean.blocks = sanitizeWorkspace(project.blocks);
+    clean.blockWorkspaceVersion = BLOCK_WORKSPACE_VERSION;
+  } else {
+    delete clean.blocks;
+    delete clean.blockWorkspaceVersion;
+  }
+  return clean;
 }
 
 function sanitizeProjectList(projects: SavedProject[]): SavedProject[] {

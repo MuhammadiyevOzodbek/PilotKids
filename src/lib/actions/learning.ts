@@ -21,6 +21,7 @@ import {
   dailyActivity,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { dayKey } from "@/lib/day";
 import { enforceLimit, RateLimitError } from "@/lib/rate-limit";
 import { uuidSchema, quizAnswerSchema, noteSchema, firstError } from "@/lib/validation";
 import { z } from "zod";
@@ -52,12 +53,16 @@ async function guard<T>(fn: () => Promise<Ok<T> | Fail>): Promise<Ok<T> | Fail> 
   }
 }
 
-/**
- * XP qo'shadi, darajani qayta hisoblaydi, streak va kunlik faollikni yangilaydi.
- * Daraja oshsa bildirishnoma yaratadi.
- */
-async function awardXp(userId: string, amount: number, minutes = 0) {
-  const [current] = await db
+/** Foydalanuvchining XP hisobi uchun kerakli joriy holati. */
+interface XpState {
+  xp: number;
+  level: number;
+  streak: number;
+  lastActiveAt: Date | null;
+}
+
+async function readXpState(userId: string): Promise<XpState | null> {
+  const [row] = await db
     .select({
       xp: user.xp,
       level: user.level,
@@ -66,19 +71,85 @@ async function awardXp(userId: string, amount: number, minutes = 0) {
     })
     .from(user)
     .where(eq(user.id, userId));
+  return row ?? null;
+}
+
+/**
+ * Yangi streak qiymati.
+ *
+ * Kecha faol bo'lgan bo'lsa +1, bugun bo'lsa o'zgarmaydi, aks holda 1
+ * dan boshlanadi. Kun chegarasi Toshkent bo'yicha — server UTC'da
+ * ishlashi mumkin va bunda bola uchun "kun" bir necha soatga siljib
+ * ketardi.
+ */
+function nextStreak(current: XpState): number {
+  const today = dayKey();
+  if (!current.lastActiveAt) return 1;
+
+  const last = dayKey(new Date(current.lastActiveAt));
+  if (last === today) return current.streak;
+
+  const yesterday = dayKey(new Date(Date.now() - 86_400_000));
+  return last === yesterday ? current.streak + 1 : 1;
+}
+
+/**
+ * Kunlik daqiqalar va daraja oshgani haqidagi xabar.
+ *
+ * XP berilgani ANIQ bo'lgandan keyin chaqiriladi: bular yordamchi
+ * yozuvlar va ular uzilib qolsa hisobga ta'sir qilmaydi.
+ */
+async function recordActivity(userId: string, minutes: number, newLevel: number | null) {
+  const writes = [];
+
+  if (minutes > 0) {
+    /*
+     * Kun SANASI bo'yicha yoziladi.
+     *
+     * Ilgari faqat hafta kuni (0..6) saqlanardi va daqiqalar ustiga
+     * qo'shilaverardi — ya'ni "dushanba" qatori hech qachon nolga
+     * qaytmasdi va bir necha haftadan keyin "bugungi ekran vaqti"
+     * o'nlab soatni ko'rsatardi.
+     */
+    writes.push(
+      db
+        .insert(dailyActivity)
+        .values({ userId, day: dayKey(), minutes })
+        .onConflictDoUpdate({
+          target: [dailyActivity.userId, dailyActivity.day],
+          set: { minutes: sql`${dailyActivity.minutes} + ${minutes}` },
+        }),
+    );
+  }
+
+  if (newLevel !== null) {
+    writes.push(
+      db.insert(notification).values({
+        userId,
+        message: `Tabriklaymiz! Siz ${newLevel}-darajaga ko'tarildingiz 🎉`,
+      }),
+    );
+  }
+
+  if (writes.length === 1) await writes[0];
+  else if (writes.length > 1) await db.batch([writes[0]!, ...writes.slice(1)]);
+}
+
+/**
+ * XP qo'shadi, darajani qayta hisoblaydi, streak va kunlik faollikni yangilaydi.
+ * Daraja oshsa bildirishnoma yaratadi.
+ *
+ * DIQQAT: bu funksiyada takroriy berishdan himoya YO'Q — chaqiruvchi
+ * o'zi kafolatlashi kerak (quiz javobi va laboratoriya loyihasi
+ * `onConflictDoNothing` / holat tekshiruvi bilan himoyalangan).
+ * `completeLesson` esa buni ishlatmaydi: u XP ni dars belgisi bilan
+ * bitta tranzaksiyada beradi.
+ */
+async function awardXp(userId: string, amount: number, minutes = 0) {
+  const current = await readXpState(userId);
   if (!current) return { xp: 0, level: 1, leveledUp: false };
 
-  // Streak: kecha faol bo'lgan bo'lsa +1, bugun bo'lsa o'zgarmaydi, aks holda 1.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const last = current.lastActiveAt ? new Date(current.lastActiveAt) : null;
-  if (last) last.setHours(0, 0, 0, 0);
-  const dayMs = 86_400_000;
-  let streak = current.streak;
-  if (!last) streak = 1;
-  else if (last.getTime() === today.getTime()) streak = current.streak;
-  else if (today.getTime() - last.getTime() === dayMs) streak = current.streak + 1;
-  else streak = 1;
+  const streak = nextStreak(current);
 
   // XP va daraja SQL ifodasi bilan yangilanadi — parallel so'rovlar bir-birining
   // natijasini bosib ketmaydi (lost update'ning oldini oladi).
@@ -98,24 +169,7 @@ async function awardXp(userId: string, amount: number, minutes = 0) {
   const newLevel = updated?.level ?? levelFromXp(newXp);
   const leveledUp = newLevel > current.level;
 
-  if (minutes > 0) {
-    // JS'da 0=Yakshanba; bizda 0=Dushanba.
-    const weekday = (new Date().getDay() + 6) % 7;
-    await db
-      .insert(dailyActivity)
-      .values({ userId, weekday, minutes })
-      .onConflictDoUpdate({
-        target: [dailyActivity.userId, dailyActivity.weekday],
-        set: { minutes: sql`${dailyActivity.minutes} + ${minutes}` },
-      });
-  }
-
-  if (leveledUp) {
-    await db.insert(notification).values({
-      userId,
-      message: `Tabriklaymiz! Siz ${newLevel}-darajaga ko'tarildingiz 🎉`,
-    });
-  }
+  await recordActivity(userId, minutes, leveledUp ? newLevel : null);
 
   return { xp: newXp, level: newLevel, leveledUp };
 }
@@ -219,38 +273,56 @@ export async function enrollCourse(courseId: string) {
       .where(eq(course.id, parsed.data));
     if (!c) return fail("Bunday kurs topilmadi");
 
-    await db
-      .insert(enrollment)
-      .values({ userId: u.id, courseId: c.id, progressPercent: 0 })
-      .onConflictDoNothing();
-
-    // Kursning birinchi darsini ochamiz.
+    // Kursning birinchi darsi — uni ochish uchun kerak.
     const [first] = await db
       .select({ id: lesson.id })
       .from(lesson)
       .where(eq(lesson.courseId, c.id))
       .orderBy(lesson.sortOrder)
       .limit(1);
-    if (first) {
-      await db
-        .insert(lessonProgress)
-        .values({ userId: u.id, lessonId: first.id, status: "current" })
-        .onConflictDoNothing();
-    }
 
-    // Kurs uchun sertifikat yozuvi (hali qulflangan holatda).
-    await db
-      .insert(certificate)
-      .values({
-        userId: u.id,
-        courseId: c.id,
-        title: c.title,
-        color: c.color,
-        soft: c.soft,
-        state: "locked",
-        issuedLabel: "Kursni tugating",
-      })
-      .onConflictDoNothing();
+    /*
+     * Uchala yozuv BIRGA bajariladi.
+     *
+     * Ilgari ular ketma-ket uchta alohida so'rov edi. Ikkinchisida
+     * uzilish bo'lsa foydalanuvchi kursga yozilgan, lekin birorta dars
+     * "current" emas holatda qolardi — va qayta "yozilish" bosilsa
+     * `onConflictDoNothing` hech narsa qilmasdi. Ya'ni bola kursga
+     * kirgan, lekin uni BOSHLAY OLMASDI va bu holatdan o'zi chiqa
+     * olmasdi. Uchinchisi tushib qolsa esa kurs tugaganda sertifikat
+     * "done" bo'la olmasdi.
+     */
+    const writes = [
+      db
+        .insert(enrollment)
+        .values({ userId: u.id, courseId: c.id, progressPercent: 0 })
+        .onConflictDoNothing(),
+      // Kurs uchun sertifikat yozuvi (hali qulflangan holatda).
+      db
+        .insert(certificate)
+        .values({
+          userId: u.id,
+          courseId: c.id,
+          title: c.title,
+          color: c.color,
+          soft: c.soft,
+          state: "locked",
+          issuedLabel: "Kursni tugating",
+        })
+        .onConflictDoNothing(),
+    ] as const;
+
+    if (first) {
+      await db.batch([
+        ...writes,
+        db
+          .insert(lessonProgress)
+          .values({ userId: u.id, lessonId: first.id, status: "current" })
+          .onConflictDoNothing(),
+      ]);
+    } else {
+      await db.batch([...writes]);
+    }
 
     revalidatePath("/courses");
     revalidatePath("/dashboard");
@@ -300,36 +372,94 @@ export async function completeLesson(lessonId: string) {
       return fail("Bu dars hali ochilmagan");
     }
 
-    const completed = await db
-      .update(lessonProgress)
-      .set({ status: "done", completedAt: new Date() })
-      .where(
-        and(
-          eq(lessonProgress.userId, u.id),
-          eq(lessonProgress.lessonId, l.id),
-          eq(lessonProgress.status, "current"),
-        ),
-      )
-      .returning({ id: lessonProgress.id });
-    if (completed.length === 0) {
-      return { ok: true as const, alreadyDone: true, xpGained: 0, leveledUp: false };
-    }
-
-    // Keyingi darsni "current" qilamiz.
+    // Keyingi dars — uni ochish shu bilan bitta tranzaksiyaga kiradi.
     const [next] = await db
       .select({ id: lesson.id })
       .from(lesson)
       .where(and(eq(lesson.courseId, l.courseId), sql`${lesson.sortOrder} > ${l.sortOrder}`))
       .orderBy(lesson.sortOrder)
       .limit(1);
-    if (next) {
-      await db
-        .insert(lessonProgress)
-        .values({ userId: u.id, lessonId: next.id, status: "current" })
-        .onConflictDoNothing();
+
+    /*
+     * XP va dars holati BITTA tranzaksiyada.
+     *
+     * Ilgari bular ketma-ket to'rtta alohida so'rov edi. Dars "done"
+     * bo'lgandan keyin XP beruvchi so'rov uzilsa, keyingi urinishda
+     * tizim "allaqachon bajarilgan" deb 0 XP qaytarardi va XP ABADIY
+     * yo'qolardi. Keyingi darsni ochuvchi so'rov tushib qolsa esa kurs
+     * o'sha yerda to'xtab qolardi.
+     *
+     * Ikki himoya bir vaqtda ishlaydi:
+     *   `xp_awarded = false` sharti — ikki marta XP berilmasin;
+     *   XP yangilanishi dars belgisidan OLDIN turadi — u hali
+     *   o'zgartirilmagan holatni ko'radi, ya'ni shart to'g'ri ishlaydi.
+     *
+     * Shu sababli qayta bosish ham, uzilishdan keyingi qayta urinish ham
+     * xavfsiz: XP aynan bir marta beriladi.
+     */
+    const claimable = sql`exists (
+      select 1 from ${lessonProgress}
+      where ${lessonProgress.userId} = ${u.id}
+        and ${lessonProgress.lessonId} = ${l.id}
+        and ${lessonProgress.status} = 'current'
+        and ${lessonProgress.xpAwarded} = false
+    )`;
+
+    const current = await readXpState(u.id);
+    if (!current) return fail("Foydalanuvchi topilmadi");
+
+    const streak = nextStreak(current);
+    const now = new Date();
+
+    const statements = [
+      db
+        .update(user)
+        .set({
+          xp: sql`${user.xp} + ${l.xpReward}`,
+          level: sql`greatest(1, floor((${user.xp} + ${l.xpReward}) / 500) + 1)`,
+          streak,
+          lastActiveAt: now,
+          updatedAt: now,
+        })
+        .where(and(eq(user.id, u.id), claimable))
+        .returning({ xp: user.xp, level: user.level }),
+      db
+        .update(lessonProgress)
+        .set({ status: "done", xpAwarded: true, completedAt: now })
+        .where(
+          and(
+            eq(lessonProgress.userId, u.id),
+            eq(lessonProgress.lessonId, l.id),
+            eq(lessonProgress.status, "current"),
+          ),
+        )
+        .returning({ id: lessonProgress.id }),
+    ] as const;
+
+    const results = next
+      ? await db.batch([
+          ...statements,
+          db
+            .insert(lessonProgress)
+            .values({ userId: u.id, lessonId: next.id, status: "current" })
+            .onConflictDoNothing(),
+        ])
+      : await db.batch([...statements]);
+
+    const [awarded] = results[0];
+    // XP berilmagan bo'lsa — dars allaqachon hisoblangan.
+    if (!awarded) {
+      return { ok: true as const, alreadyDone: true, xpGained: 0, leveledUp: false };
     }
 
-    const award = await awardXp(u.id, l.xpReward, l.durationMin);
+    const award = {
+      xp: awarded.xp,
+      level: awarded.level,
+      leveledUp: awarded.level > current.level,
+    };
+
+    // Daqiqalar va daraja xabari — XP muvaffaqiyatli berilgandan keyin.
+    await recordActivity(u.id, l.durationMin, award.leveledUp ? award.level : null);
     const progress = await recalcCourseProgress(u.id, l.courseId);
 
     // Birinchi tugallangan dars uchun nishon.
@@ -345,6 +475,15 @@ export async function completeLesson(lessonId: string) {
     revalidatePath("/courses");
     revalidatePath("/certificates");
     revalidatePath("/profile");
+    /*
+     * XP o'zgardi — yuqoridagi hisoblagich va reyting ham yangilansin.
+     *
+     * Header `(app)` layout ichida turadi, layout esa sahifa yo'li bilan
+     * yangilanmaydi. Ilgari bola darsni tugatib +40 XP olardi, lekin
+     * yuqoridagi raqam va `/leaderboard` eski qiymatda qolardi.
+     */
+    revalidatePath("/(app)", "layout");
+    revalidatePath("/leaderboard");
 
     return {
       ok: true as const,
@@ -421,6 +560,15 @@ export async function submitQuizAnswer(questionId: string, selectedIndex: number
 
     revalidatePath("/quiz");
     revalidatePath("/dashboard");
+    /*
+     * XP o'zgardi — yuqoridagi hisoblagich va reyting ham yangilansin.
+     *
+     * Header `(app)` layout ichida turadi, layout esa sahifa yo'li bilan
+     * yangilanmaydi. Ilgari bola darsni tugatib +40 XP olardi, lekin
+     * yuqoridagi raqam va `/leaderboard` eski qiymatda qolardi.
+     */
+    revalidatePath("/(app)", "layout");
+    revalidatePath("/leaderboard");
 
     return {
       ok: true as const,
@@ -547,6 +695,15 @@ export async function setLabProjectStatus(projectId: string, status: "started" |
 
     revalidatePath("/lab");
     revalidatePath("/dashboard");
+    /*
+     * XP o'zgardi — yuqoridagi hisoblagich va reyting ham yangilansin.
+     *
+     * Header `(app)` layout ichida turadi, layout esa sahifa yo'li bilan
+     * yangilanmaydi. Ilgari bola darsni tugatib +40 XP olardi, lekin
+     * yuqoridagi raqam va `/leaderboard` eski qiymatda qolardi.
+     */
+    revalidatePath("/(app)", "layout");
+    revalidatePath("/leaderboard");
     return { ok: true as const, status: "done" as const };
   });
 }

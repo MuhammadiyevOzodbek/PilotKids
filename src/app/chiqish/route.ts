@@ -29,9 +29,28 @@ export async function GET(request: NextRequest) {
    * prefiksli boshqa ko'rinishda qo'yadi — nomi o'zgarsa jim ishlamay
    * qolmasligi uchun naqsh bo'yicha tozalaymiz.
    */
+  /*
+   * O'chirish atributlari cookie QO'YILGANDAGI atributlar bilan mos
+   * bo'lishi SHART.
+   *
+   * Productionda better-auth `useSecureCookies` bilan ishlaydi va cookie
+   * nomiga `__Secure-` prefiksini qo'yadi. RFC 6265bis bo'yicha brauzer
+   * bunday nomli `Set-Cookie` ni `Secure` atributisiz BUTUNLAY rad etadi.
+   * Ya'ni `secure` siz bu sikl productionda hech narsani o'chirmasdi va
+   * yuqorida tasvirlangan cheksiz aylanma aynan o'sha yerda — tirik
+   * serverda — davom etardi.
+   */
+  const secure = process.env.NODE_ENV === "production";
+
   for (const cookie of request.cookies.getAll()) {
     if (/better-auth|session_token|session_data/i.test(cookie.name)) {
-      response.cookies.set(cookie.name, "", { maxAge: 0, path: "/" });
+      response.cookies.set(cookie.name, "", {
+        maxAge: 0,
+        path: "/",
+        secure,
+        httpOnly: true,
+        sameSite: "lax",
+      });
     }
   }
 

@@ -161,7 +161,7 @@ export function LabSection({
                       padding: "5px 11px",
                       borderRadius: 99,
                       background: p.status === "done" ? "var(--success)" : "var(--primary)",
-                      color: "#fff",
+                      color: p.status === "done" ? "var(--on-success)" : "var(--on-primary)",
                       fontSize: "11.5px",
                       fontWeight: 700,
                     }}

@@ -70,20 +70,19 @@ export async function completePhoneSignup(input: {
     return { ok: false as const, error: firstError(parsedPassword.error) };
   }
 
-  try {
-    await auth.api.setPassword({
-      body: { newPassword: parsedPassword.data },
-      headers: await headers(),
-    });
-  } catch {
-    // Parol o'rnatilmasa ham hisob ochilgan — foydalanuvchini yo'lda
-    // qoldirmaymiz, u SMS kod bilan kiraverishi mumkin.
-    return {
-      ok: false as const,
-      error: "Parolni saqlab bo'lmadi. Sozlamalar bo'limidan qayta urinib ko'ring.",
-    };
-  }
-
+  /*
+   * Profil AVVAL saqlanadi, parol keyin.
+   *
+   * Ilgari tartib teskari edi: parol saqlanmasa `return` qilinardi va
+   * `onboarded: true` YOZILMASDAN qolardi. Ammo hisob allaqachon
+   * ochilgan, SMS kod tasdiqlangan va sessiya bor edi — ya'ni
+   * foydalanuvchi `/welcome` sahifasida abadiy qamalib qolardi, chunki
+   * `onboarded = false` bo'lganda ilova sahifalari yopiq.
+   *
+   * Parol — qo'shimcha qulaylik: usiz ham SMS kod bilan kirish mumkin.
+   * Shu bois uning xatosi onboarding'ni to'xtatmaydi, faqat
+   * ogohlantirish sifatida qaytariladi.
+   */
   await db
     .update(user)
     .set({
@@ -96,5 +95,19 @@ export async function completePhoneSignup(input: {
     .where(eq(user.id, u.id));
 
   revalidatePath("/", "layout");
+
+  try {
+    await auth.api.setPassword({
+      body: { newPassword: parsedPassword.data },
+      headers: await headers(),
+    });
+  } catch (err) {
+    console.error("[onboarding] parolni saqlab bo'lmadi:", err);
+    return {
+      ok: true as const,
+      warning: "Parol saqlanmadi — uni Sozlamalar bo'limidan qo'shishingiz mumkin.",
+    };
+  }
+
   return { ok: true as const };
 }

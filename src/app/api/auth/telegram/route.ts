@@ -13,12 +13,20 @@ import {
   verifyTelegramAuth,
   type TelegramAuthData,
 } from "@/lib/auth/telegram";
-import { authRateLimit } from "@/lib/rate-limit";
+import { authRateLimit, consumeOnce } from "@/lib/rate-limit";
 import { withInternalAuthHeader } from "@/lib/auth/internal";
 import { assertSameOrigin, readJsonWithLimit } from "@/lib/security";
 import { safeInternalPath } from "@/lib/safe-path";
 
 const MAX_BODY_BYTES = 8 * 1024;
+
+/**
+ * Imzo belgisi qancha saqlanadi (sekund).
+ *
+ * `verifyTelegramAuth` imzoni 10 daqiqadan keyin baribir rad etadi,
+ * shuning uchun belgini undan uzoq saqlashning ma'nosi yo'q.
+ */
+const TELEGRAM_SIGNATURE_TTL = 10 * 60;
 
 const telegramAuthSchema = z.object({
   id: z.number().int().positive(),
@@ -114,6 +122,23 @@ async function signInTelegramUser(request: NextRequest, email: string, password:
 async function authenticateTelegram(request: NextRequest, data: TelegramAuthData) {
   if (!verifyTelegramAuth(data)) {
     return { error: "Telegram imzosi noto'g'ri", status: 401 } as const;
+  }
+
+  /*
+   * Imzo BIR MARTA ishlaydi.
+   *
+   * Imzoning o'zi to'g'ri, lekin u `auth_date` oynasi tugaguncha (10
+   * daqiqa) haqiqiy bo'lib qoladi. Ya'ni imzolangan manzilni kim ochsa —
+   * hisobga kiradi. Manzil esa brauzer tarixida, umumiy kompyuterda,
+   * proksi loglarida yoki tasodifan yuborilgan havolada qolishi mumkin.
+   *
+   * `hash` — har bir kirish uchun noyob, shuning uchun aynan u belgi
+   * sifatida ishlatiladi. Muddat imzo oynasi bilan bir xil: undan
+   * keyin imzoning o'zi ham eskiradi.
+   */
+  const fresh = await consumeOnce(`tg:${data.hash}`, TELEGRAM_SIGNATURE_TTL);
+  if (!fresh) {
+    return { error: "Bu kirish havolasi allaqachon ishlatilgan", status: 401 } as const;
   }
 
   const email = telegramEmail(data.id);

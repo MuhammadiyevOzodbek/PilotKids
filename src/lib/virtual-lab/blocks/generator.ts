@@ -19,7 +19,9 @@ import { getBlockDefinition } from "./registry";
 import { stackIds } from "./workspace";
 import {
   PREC,
+  type BlockNode,
   type BlockWorkspace,
+  type CodeFragment,
   type GenApi,
   type GenWarning,
   type GeneratedProgram,
@@ -60,6 +62,31 @@ export function numberLiteral(raw: string, fallback = 0): string {
   return String(value);
 }
 
+/**
+ * Ikki operandli ifoda — ortiqcha qavssiz.
+ *
+ * Operatorlar CHAPGA bog'lanadi, shuning uchun chap operand o'z darajasida
+ * qavssiz qoladi (`a - b - c`), o'ng operand esa bir pog'ona kuchliroq
+ * bo'lishi kerak (`a - (b - c)`). Shu ikki chegara `leftMax`/`rightMax`
+ * sifatida beriladi — natijada `a < 5 && b > 2` qavssiz, `(a + 1) * 2` esa
+ * qavs bilan chiqadi.
+ */
+export function binaryFragment(
+  api: GenApi,
+  block: BlockNode,
+  options: {
+    left: string;
+    right: string;
+    op: string;
+    prec: Precedence;
+    rightMax: Precedence;
+  },
+): CodeFragment {
+  const left = api.value(block, options.left, options.prec);
+  const right = api.value(block, options.right, options.rightMax);
+  return { code: `${left} ${options.op} ${right}`, prec: options.prec };
+}
+
 /* ─────────────────────────── Yig'gich ─────────────────────────── */
 
 class Collector {
@@ -70,11 +97,37 @@ class Collector {
   readonly warnings: GenWarning[] = [];
   readonly usedNames = new Set<string>();
   readonly libraries = new Set<string>();
+  /** Kutubxona obyektlari: kalit → C++ dagi nomi. */
+  readonly objects = new Map<string, string>();
 }
 
 /** `#include <Servo.h>` → `Servo` (kutubxona ro'yxati uchun). */
 function libraryOf(header: string): string {
   return header.replace(/\.h$/i, "");
+}
+
+/**
+ * Blok e'lon qilgan kutubxonalarni ro'yxatga qo'shadi (§36).
+ *
+ * `#include` dan hisoblash yetarli emas: blok kutubxonani talab qilishi,
+ * lekin sharoitga qarab (masalan komponent topilmaganda) `include`
+ * chiqarmasligi mumkin. `requiresLibrary` esa ta'rifning o'zida turadi,
+ * shuning uchun ro'yxat doim to'liq bo'ladi.
+ */
+function noteLibraries(collector: Collector, def: { requiresLibrary?: readonly string[] }): void {
+  for (const library of def.requiresLibrary ?? []) collector.libraries.add(library);
+}
+
+/** `servo1`, `servo2` … — nom doim raqam bilan tugaydi. */
+function numberedName(collector: Collector, base: string): string {
+  const clean = base.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=\d)/, "_");
+  for (let i = 1; ; i++) {
+    const candidate = `${clean}${i}`;
+    if (!collector.usedNames.has(candidate)) {
+      collector.usedNames.add(candidate);
+      return candidate;
+    }
+  }
 }
 
 /* ─────────────────────────── Generator ─────────────────────────── */
@@ -142,11 +195,57 @@ export function generateProgram(
   const setupBody = startHats[0] ? api.body(ws.blocks[startHats[0]]!, "DO") : [];
   const loopBody = foreverHats[0] ? api.body(ws.blocks[foreverHats[0]]!, "DO") : [];
 
+  ensureSerialBegin(collector, setupBody, loopBody);
+
   return {
     code: assemble(collector, ws.variables, setupBody, loopBody),
     libraries: [...collector.libraries].sort(),
     warnings: collector.warnings,
   };
+}
+
+/* ─────────────────────────── Serial (§25) ─────────────────────────── */
+
+/** `Serial.begin(9600);` uchun tanlangan tezlik — Arduino darsliklaridagi odatiy qiymat. */
+const DEFAULT_BAUD = 9600;
+
+/**
+ * Serial ishlatilgan, lekin ochilmagan bo'lsa `setup()` ni o'zimiz to'ldiramiz.
+ *
+ * Bolaning eng ko'p uchraydigan xatosi shu: `Serial.println` bloki qo'yilgan,
+ * «Serialni ... tezlikda och» bloki esa unutilgan. Kodni jim tuzatib qo'yish
+ * ham, hech narsa chiqmasligi ham yomon — shuning uchun qator qo'shiladi VA
+ * ogohlantirish beriladi.
+ *
+ * Blok turlariga emas, HOSIL BO'LGAN qatorlarga qaraladi: shunda kelajakda
+ * qanday blok `Serial.` chiqarishidan qat'i nazar qoida ishlayveradi va
+ * bajarilmaydigan (yetim) bloklar hisobga olinmaydi.
+ */
+function ensureSerialBegin(
+  collector: Collector,
+  setupBody: readonly string[],
+  loopBody: readonly string[],
+): void {
+  const lines = [
+    ...[...collector.setupLines.values()].flat(),
+    ...[...collector.helpers.values()].flat(),
+    ...setupBody,
+    ...loopBody,
+  ];
+
+  let used = false;
+  for (const line of lines) {
+    if (/\bSerial\.begin\s*\(/.test(line)) return;
+    if (/\bSerial\./.test(line)) used = true;
+  }
+  if (!used) return;
+
+  collector.setupLines.set("serial-auto-begin", [`Serial.begin(${DEFAULT_BAUD});`]);
+  collector.warnings.push({
+    code: "serial-begin-missing",
+    messageKey: "blocks.warn.serialBeginMissing",
+    params: { baud: DEFAULT_BAUD },
+  });
 }
 
 /* ─────────────────────────── API qurilishi ─────────────────────────── */
@@ -166,6 +265,7 @@ function createApi(ws: BlockWorkspace, circuit: Circuit, collector: Collector): 
         const child = ws.blocks[childId];
         const def = child ? getBlockDefinition(child.type) : null;
         if (child && def?.generateValue) {
+          noteLibraries(collector, def);
           const fragment = def.generateValue(child, api);
           return fragment.prec > maxPrec ? `(${fragment.code})` : fragment.code;
         }
@@ -196,7 +296,10 @@ function createApi(ws: BlockWorkspace, circuit: Circuit, collector: Collector): 
       if (childId) {
         const child = ws.blocks[childId];
         const def = child ? getBlockDefinition(child.type) : null;
-        if (child && def?.generateValue) return def.generateValue(child, api).code;
+        if (child && def?.generateValue) {
+          noteLibraries(collector, def);
+          return def.generateValue(child, api).code;
+        }
       }
       return quote(block.fields[name] ?? "");
     },
@@ -208,6 +311,7 @@ function createApi(ws: BlockWorkspace, circuit: Circuit, collector: Collector): 
         const child = ws.blocks[id];
         const def = child ? getBlockDefinition(child.type) : null;
         if (!child || !def?.generateStatement) continue;
+        noteLibraries(collector, def);
         lines.push(...def.generateStatement(child, api));
       }
       return lines;
@@ -246,6 +350,23 @@ function createApi(ws: BlockWorkspace, circuit: Circuit, collector: Collector): 
           return candidate;
         }
       }
+    },
+
+    declareObject(key, base, build, options) {
+      const existing = collector.objects.get(key);
+      if (existing) return existing;
+
+      const name = options?.numbered ? numberedName(collector, base) : api.uniqueName(base);
+      // Nomni AVVAL yozamiz: `build` ichida yana shu kalit so'ralsa
+      // (masalan ichma-ich generatorlarda) cheksiz halqa bo'lmasin.
+      collector.objects.set(key, name);
+
+      const declaration = build(name);
+      if (declaration.include) api.include(declaration.include);
+      if (declaration.global) api.global(`object:${key}`, declaration.global);
+      if (declaration.setup) api.setupLine(`object:${key}`, declaration.setup);
+      if (declaration.helper) api.helper(`object:${key}`, declaration.helper);
+      return name;
     },
 
     warn(warning) {

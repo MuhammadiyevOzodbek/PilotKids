@@ -40,3 +40,27 @@ export type LabKindSlug = keyof typeof LAB_KINDS;
 export function isLabKindSlug(value: string): value is LabKindSlug {
   return value === "onlayn" || value === "offline";
 }
+
+/**
+ * 3D virtual laboratoriya — hozircha tayyorlanmoqda.
+ *
+ * `LAB_KINDS` ga ATAYLAB qo'shilmagan. U yerdagi turlar bazadagi
+ * `lab_project.kind` bilan bog'langan (`lab_project_kind_check` faqat
+ * `online` va `offline` ga ruxsat beradi) va `/lab/[kind]` sahifasi
+ * loyihalar ro'yxatini o'sha ustundan quradi. 3D bo'limida esa hali
+ * loyiha yo'q: uni `LAB_KINDS` ga qo'shish bazada mavjud bo'lmagan
+ * turni qidiradigan, doim bo'sh ro'yxat beradigan sahifa hosil qilardi.
+ *
+ * Shu sababli u mustaqil marshrut — xuddi `/lab/onlayn` simulyatori kabi.
+ */
+export const LAB_3D = {
+  slug: "3d",
+  title: "3D virtual laboratoriya",
+  hint: "Sxemani uch o'lchamda ko'rish — tayyorlanmoqda",
+  long: "Yig'ilgan sxemani uch o'lchamda ko'rish: Arduino, breadboard, sensor va simlar haqiqiy stol ustidagidek turadi. Bo'lim tayyorlanmoqda.",
+  badge: "Tez orada",
+  icon: "view_in_ar",
+  accent: "var(--fun-purple)",
+  accentText: "var(--on-fun-purple)",
+  accentSoft: "var(--fun-purple-soft)",
+} as const;

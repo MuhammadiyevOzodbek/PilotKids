@@ -155,7 +155,7 @@ export function QuizClient({
                 const good = result.correct;
                 bc = good ? "var(--success)" : "var(--danger)";
                 bg = good ? "var(--success-soft)" : "rgba(229,72,77,.1)";
-                tc = good ? "var(--success)" : "var(--danger)";
+                tc = good ? "var(--success-text)" : "var(--danger)";
                 mark = good ? "check_circle" : "cancel";
                 mcol = tc;
               } else {
@@ -224,6 +224,15 @@ export function QuizClient({
 
         {done && result && (
           <div
+            /*
+             * Natija ekran o'quvchiga E'LON qilinadi.
+             *
+             * Ilgari bu oddiy `div` edi: bola variantni bosardi, DOM
+             * o'zgarardi, lekin skrinrider hech nima aytmasdi — natija
+             * faqat rang va ikonka orqali berilardi.
+             */
+            role="status"
+            aria-live="polite"
             style={{
               marginTop: 22,
               padding: "14px 18px",

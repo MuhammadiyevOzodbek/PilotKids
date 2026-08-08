@@ -75,12 +75,53 @@ function checkMemoryLimit(kind: LimitKind, identifier: string): boolean {
   return true;
 }
 
-/** So'rov IP manzili (proxy sarlavhalari orqali). */
+/**
+ * So'rov IP manzili proksi sarlavhalaridan.
+ *
+ * ── Nega birinchi qiymat OLINMAYDI ──────────────────────────────────────
+ * `X-Forwarded-For` — vergul bilan ajratilgan ro'yxat va uning BIRINCHI
+ * qismini klientning o'zi yozadi: proksi faqat oxiriga qo'shadi. Ilgari
+ * shu birinchi qiymat olinardi, ya'ni hujumchi har so'rovda
+ * `X-Forwarded-For: 1.2.3.<tasodifiy>` yuborib, har safar yangi kalit
+ * ostida hisoblanardi va cheklov butunlay ishlamas edi.
+ *
+ * Shuning uchun tartib quyidagicha:
+ *   1. Platforma qo'yadigan va klientnikini QAYTA YOZADIGAN sarlavhalar;
+ *   2. ular yo'q bo'lsa — `X-Forwarded-For` ning OXIRGI qismi, ya'ni
+ *      bizga eng yaqin proksi yozgan qiymat.
+ */
+function ipFromHeaders(get: (name: string) => string | null): string {
+  /*
+   * Bu sarlavhalarni proksining o'zi qayta yozadi, shuning uchun klient
+   * ularga ta'sir o'tkaza olmaydi.
+   */
+  for (const name of ["x-vercel-forwarded-for", "cf-connecting-ip", "x-real-ip"]) {
+    const value = get(name)?.trim();
+    if (value) return value;
+  }
+
+  const forwarded = get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const nearest = parts[parts.length - 1];
+    if (nearest) return nearest;
+  }
+
+  return "anon";
+}
+
+/** So'rov IP manzili (server komponent/action kontekstida). */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  const fwd = h.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return h.get("x-real-ip") ?? "anon";
+  return ipFromHeaders((name) => h.get(name));
+}
+
+/** So'rov IP manzili (route handler kontekstida). */
+export function requestIp(request: Request): string {
+  return ipFromHeaders((name) => request.headers.get(name));
 }
 
 /**
@@ -98,6 +139,55 @@ export async function checkLimit(kind: LimitKind, identifier: string): Promise<b
     console.error("[rate-limit] xato:", err);
     return checkMemoryLimit(kind, identifier);
   }
+}
+
+/* ─────────────────────────── Bir martalik belgilar ─────────────────────────── */
+
+/** Redis yo'q bo'lganda ishlatiladigan zaxira: kalit → tugash vaqti. */
+const usedOnce = new Map<string, number>();
+
+/**
+ * Kalitni BIR MARTA ishlatishga urinadi.
+ *
+ * Birinchi chaqiruvda `true`, o'sha kalit bilan keyingi chaqiruvlarda
+ * (TTL ichida) `false` qaytaradi.
+ *
+ * ── Nima uchun kerak ────────────────────────────────────────────────────
+ * Telegram login callback'i imzolangan query string ko'rinishida keladi
+ * va imzo `auth_date` oynasi tugaguncha (10 daqiqa) haqiqiy bo'lib
+ * qoladi. Bir martalik belgisiz o'sha manzilni kim ochsa — sessiya
+ * oladi. Manzil esa brauzer tarixida, proksi loglarida, ekran suratida
+ * yoki tasodifan yuborilgan havolada qolishi mumkin.
+ *
+ * Redis bo'lsa `SET NX` atomik ishlaydi. Bo'lmasa (lokal dev) jarayon
+ * xotirasidagi zaxira ishlaydi — u ko'p instansiyali muhitda to'liq
+ * kafolat bermaydi, lekin hech qanday himoyasiz qolishdan yaxshiroq.
+ */
+export async function consumeOnce(key: string, ttlSeconds: number): Promise<boolean> {
+  const namespaced = `pk:once:${key}`;
+
+  if (redis) {
+    try {
+      const stored = await redis.set(namespaced, 1, { nx: true, ex: ttlSeconds });
+      return stored === "OK";
+    } catch (err) {
+      console.error("[once] Redis xatosi, xotiradagi zaxiraga o'tildi:", err);
+    }
+  }
+
+  const now = Date.now();
+  // Muddati o'tganlarini tozalaymiz — jadval cheksiz o'smasin.
+  if (usedOnce.size > 5_000) {
+    for (const [stored, expires] of usedOnce) {
+      if (expires <= now) usedOnce.delete(stored);
+    }
+  }
+
+  const expires = usedOnce.get(namespaced);
+  if (expires !== undefined && expires > now) return false;
+
+  usedOnce.set(namespaced, now + ttlSeconds * 1000);
+  return true;
 }
 
 /** Limitdan oshganda tashlanadigan xato — action'lar shuni ushlab foydalanuvchiga ko'rsatadi. */
@@ -133,9 +223,7 @@ export async function limitGuard(
  * qaytaradi, aks holda `null` — chaqiruvchi shuni tekshirib davom etadi.
  */
 export async function authRateLimit(request: Request): Promise<Response | null> {
-  const fwd = request.headers.get("x-forwarded-for");
-  const ip = fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "anon";
-  if (await checkLimit("auth", ip)) return null;
+  if (await checkLimit("auth", requestIp(request))) return null;
   return Response.json(
     { error: "Juda ko'p urinish. Biroz kutib, qayta urinib ko'ring." },
     { status: 429 },

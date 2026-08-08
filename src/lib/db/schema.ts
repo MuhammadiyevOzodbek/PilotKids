@@ -2,10 +2,13 @@ import {
   pgTable,
   text,
   integer,
+  bigint,
   boolean,
+  date,
   timestamp,
   uuid,
   jsonb,
+  index,
   primaryKey,
   unique,
 } from "drizzle-orm/pg-core";
@@ -52,20 +55,39 @@ export const user = pgTable("user", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const session = pgTable("session", {
-  id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at").notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  /** admin plugin — qaysi admin nomidan kirilgan (impersonation). */
-  impersonatedBy: text("impersonated_by"),
-});
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** admin plugin — qaysi admin nomidan kirilgan (impersonation). */
+    impersonatedBy: text("impersonated_by"),
+  },
+  /*
+   * Indekslar SXEMADA turishi SHART.
+   *
+   * Ilgari ular faqat qo'lda yozilgan SQL migratsiyalarida edi. Kimdir
+   * `db:push` ishlatsa, drizzle-kit sxemada ko'rinmagan indekslarni
+   * "ortiqcha" deb topib o'chirishni taklif qilardi — tasdiqlansa
+   * barcha so'rovlar to'liq skanerlashga tushardi.
+   *
+   * Sessiya jadvali eng tez o'sadiganlardan biri: foydalanuvchi ×
+   * qurilma. Superadmin paneli har bir admin uchun uchta
+   * korrelyatsiyalangan pastki so'rov yuboradi.
+   */
+  (t) => [
+    index("session_user_id_idx").on(t.userId),
+    index("session_expires_at_idx").on(t.expiresAt),
+  ],
+);
 
 export const account = pgTable(
   "account",
@@ -96,6 +118,27 @@ export const verification = pgTable("verification", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/**
+ * Better Auth ning brute-force hisoblagichi.
+ *
+ * Hisoblagich BAZADA turishi shart. Standart holatda u jarayon
+ * XOTIRASIDA saqlanadi, ya'ni har bir server nusxasi o'z hisobini
+ * yuritadi — serverless yoki bir nechta instansiyali deploy'da parol
+ * tanlash cheklovi (5 daqiqada 8 urinish) instansiyalar soniga
+ * ko'paytirilgan holda ishlardi.
+ *
+ * Ustun nomlari better-auth kutgan ko'rinishda (`key`, `count`,
+ * `lastRequest`) — ular o'zgartirilsa adapter jadvalni topa olmaydi.
+ */
+export const rateLimit = pgTable("rateLimit", {
+  id: text("id").primaryKey(),
+  /** Cheklov kaliti: `<yo'l>:<IP yoki foydalanuvchi>`. */
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  /** Oxirgi so'rov vaqti — millisekundda (Unix). */
+  lastRequest: bigint("lastRequest", { mode: "number" }).notNull(),
 });
 
 /* ─────────────────────────── Kontent jadvallari (seed) ─────────────────────────── */
@@ -182,15 +225,19 @@ export const labProject = pgTable("lab_project", {
   sortOrder: integer("sort_order").default(0).notNull(),
 });
 
-export const quizQuestion = pgTable("quiz_question", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  courseId: uuid("course_id").references(() => course.id, { onDelete: "cascade" }),
-  lessonId: uuid("lesson_id").references(() => lesson.id, { onDelete: "cascade" }),
-  prompt: text("prompt").notNull(),
-  options: jsonb("options").$type<string[]>().notNull(),
-  correctIndex: integer("correct_index").notNull(),
-  sortOrder: integer("sort_order").default(0).notNull(),
-});
+export const quizQuestion = pgTable(
+  "quiz_question",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseId: uuid("course_id").references(() => course.id, { onDelete: "cascade" }),
+    lessonId: uuid("lesson_id").references(() => lesson.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    options: jsonb("options").$type<string[]>().notNull(),
+    correctIndex: integer("correct_index").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+  },
+  (t) => [index("quiz_question_course_idx").on(t.courseId)],
+);
 
 /* ─────────────────────────── Foydalanuvchi ma'lumotlari ─────────────────────────── */
 
@@ -208,7 +255,10 @@ export const enrollment = pgTable(
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [unique("enrollment_user_course_uq").on(t.userId, t.courseId)],
+  (t) => [
+    unique("enrollment_user_course_uq").on(t.userId, t.courseId),
+    index("enrollment_user_idx").on(t.userId),
+  ],
 );
 
 export const lessonProgress = pgTable(
@@ -223,8 +273,21 @@ export const lessonProgress = pgTable(
       .references(() => lesson.id, { onDelete: "cascade" }),
     status: text("status").default("locked").notNull(), // done | current | locked
     completedAt: timestamp("completed_at"),
+    /**
+     * Shu dars uchun XP berilganmi.
+     *
+     * Faqat `status` ga qarab bo'lmaydi: dars "done" bo'lib, XP beruvchi
+     * so'rov uzilib qolishi mumkin edi — keyingi urinishda tizim
+     * "allaqachon bajarilgan" deb XP ni ABADIY bermay qo'yardi. Bayroq
+     * XP bilan BITTA tranzaksiyada qo'yiladi, shuning uchun ikki marta
+     * ham berilmaydi.
+     */
+    xpAwarded: boolean("xp_awarded").default(false).notNull(),
   },
-  (t) => [unique("lesson_progress_user_lesson_uq").on(t.userId, t.lessonId)],
+  (t) => [
+    unique("lesson_progress_user_lesson_uq").on(t.userId, t.lessonId),
+    index("lesson_progress_user_idx").on(t.userId),
+  ],
 );
 
 export const userBadge = pgTable(
@@ -257,7 +320,10 @@ export const certificate = pgTable(
     sortOrder: integer("sort_order").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [unique("certificate_user_course_uq").on(t.userId, t.courseId)],
+  (t) => [
+    unique("certificate_user_course_uq").on(t.userId, t.courseId),
+    index("certificate_course_idx").on(t.courseId),
+  ],
 );
 
 export const notification = pgTable("notification", {
@@ -270,7 +336,16 @@ export const notification = pgTable("notification", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-/** Haftalik faollik (ota-ona paneli grafigi uchun). */
+/**
+ * Kunlik faollik (ota-ona paneli grafigi va ekran vaqti nazorati uchun).
+ *
+ * ── Nega SANA kerak ─────────────────────────────────────────────────────
+ * Ilgari bu yerda faqat `weekday` (0..6) bor edi va daqiqalar
+ * `minutes + minutes` bilan ustiga qo'shilardi. Ya'ni qiymat HECH QACHON
+ * nolga qaytmasdi: har dushanba 20 daqiqa o'qigan bola o'n hafta o'tib
+ * "bugun 200 daqiqa" ko'rsatardi va kunlik chegara doimiy oshgan bo'lib
+ * turardi. Sana bilan har kun o'z qatorini oladi.
+ */
 export const dailyActivity = pgTable(
   "daily_activity",
   {
@@ -278,10 +353,14 @@ export const dailyActivity = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    weekday: integer("weekday").notNull(), // 0=Du ... 6=Ya
+    /** Kun — `YYYY-MM-DD`. Vaqt mintaqasi Toshkent bo'yicha hisoblanadi. */
+    day: date("day").notNull(),
     minutes: integer("minutes").default(0).notNull(),
   },
-  (t) => [unique("daily_activity_user_day_uq").on(t.userId, t.weekday)],
+  (t) => [
+    unique("daily_activity_user_date_uq").on(t.userId, t.day),
+    index("daily_activity_user_day_idx").on(t.userId, t.day),
+  ],
 );
 
 /** AI Tutor (Robo) suhbat xabarlari. */

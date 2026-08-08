@@ -300,6 +300,21 @@ export class Simulator {
   private dhtPins = new Map<string, number>();
   /** Bir marta aytilgan ogohlantirishlar — jurnal takrordan to'lib ketmasin. */
   private warned = new Set<string>();
+
+  /**
+   * Bir xil ogohlantirishni FAQAT bir marta yozadi.
+   *
+   * `digitalWrite`/`analogWrite` har `loop()` da chaqiriladi, ya'ni
+   * sekundiga o'nlab marta. Ilgari ogohlantirish har chaqiruvda
+   * takrorlanardi: 40 kadrda 64 ta bir xil qator chiqib, bolaning
+   * `Serial.println()` xabarlari ko'rinmay qolardi va 500 qatorlik
+   * chegara foydali loglarni o'chirib yuborardi.
+   */
+  private warnOnce(key: string, message: string) {
+    if (this.warned.has(key)) return;
+    this.warned.add(key);
+    this.log("warning", message);
+  }
   /** Rele chulg'amining oxirgi holati: node id → tortganmi. */
   private relayState = new Map<string, boolean>();
   /**
@@ -613,8 +628,8 @@ export class Simulator {
         const value = num(1) === 0 ? 0 : 1;
         this.assertPin(pin, "digitalWrite");
         if (this.board.modes[pin] !== "output") {
-          this.log(
-            "warning",
+          this.warnOnce(
+            `pinmode:${pin}`,
             `${pin}-pin OUTPUT qilib sozlanmagan — setup() da pinMode(${pin}, OUTPUT) yozing.`,
           );
         }
@@ -642,7 +657,18 @@ export class Simulator {
         const value = Math.max(0, Math.min(255, Math.trunc(num(1))));
         this.assertPin(pin, "analogWrite");
         if (!PWM_PINS.has(pin)) {
-          this.log("warning", `${pin}-pin PWM emas. PWM pinlar: 3, 5, 6, 9, 10, 11.`);
+          this.warnOnce(`pwm:${pin}`, `${pin}-pin PWM emas. PWM pinlar: 3, 5, 6, 9, 10, 11.`);
+          /*
+           * PWM bo'lmagan pinda haqiqiy plata oraliq qiymat BERA OLMAYDI:
+           * u to'liq HIGH yoki LOW bo'ladi. Ilgari bu yerda qiymat
+           * saqlanardi va simulyatorda LED 50% yorqinlikda yonardi —
+           * bola simulyatorda ishlagan kodni haqiqiy platada takrorlay
+           * olmasdi.
+           */
+          this.board.pwm[pin] = value > 127 ? 255 : 0;
+          this.board.digital[pin] = value > 127 ? 1 : 0;
+          this.recordPinDrive(pin, value > 127 ? 1 : 0);
+          return 0;
         }
         this.board.pwm[pin] = value;
         this.board.digital[pin] = value > 127 ? 1 : 0;
@@ -1387,7 +1413,17 @@ export class Simulator {
         if (!pressed) return 1;
         return isGrounded(releasedNetlist, node.id, otherSide) ? 0 : 1;
       }
-      if (!pressed) return this.board.digital[pin] ?? 0;
+      /*
+       * Bo'shatilgan tugmada pin SXEMADAGI kuchlanishni ko'radi.
+       *
+       * Ilgari bu yerda `board.digital[pin]` qaytarilardi — ya'ni tashqi
+       * pull-up rezistori bilan ulangan tugma (5V → 10 kΩ → pin, pin →
+       * tugma → GND) bo'shatilgan holatda ham "0" o'qilardi. Bola
+       * `if (digitalRead(2) == LOW)` yozsa, kod tugmaga tegmasdan doim
+       * ishlab turardi. Pastdagi umumiy yo'l shu holatni to'g'ri
+       * hisoblaydi, shuning uchun bu shox uzilib qolmaydi.
+       */
+      if (!pressed) break;
       return isPowered(releasedNetlist, node.id, otherSide) ? 1 : 0;
     }
 
@@ -1401,12 +1437,31 @@ export class Simulator {
      * sxemadan kelgan signal butunlay e'tiborsiz qolardi.
      */
     const mode = this.board.modes[pin];
-    if (mode === "input" || mode === "input_pullup") {
+    /*
+     * `undefined` ham KIRISH hisoblanadi.
+     *
+     * Haqiqiy Arduino'da pin sukut bo'yicha INPUT: `pinMode()` yozilmasa
+     * ham `digitalRead()` sxemadagi kuchlanishni o'qiydi. Ilgari bu yerda
+     * `mode === undefined` holati tashlab ketilardi va pastdagi
+     * `board.digital[pin] ?? 0` qaytarardi — ya'ni 5V ga rezistor orqali
+     * ulangan pin ham "0" bo'lib chiqardi va bola sxemasi to'g'ri bo'lsa
+     * ham kod ishlamasdi.
+     */
+    if (mode === "input" || mode === "input_pullup" || mode === undefined) {
       const volts = this.voltageOfNet(this.netlist.boardPinNets.get(pin) ?? null);
       // TTL chegarasi: 2.5 V dan yuqorisi HIGH.
       if (volts !== null) return volts >= 2.5 ? 1 : 0;
-      // Ulanmagan pin: pullup bo'lsa HIGH, aks holda noaniq (0).
-      return mode === "input_pullup" ? 1 : 0;
+      if (mode === "input_pullup") return 1;
+      /*
+       * Ulanmagan pin.
+       *
+       * `pinMode` chaqirilmagan bo'lsa oxirgi YOZILGAN qiymat qaytadi:
+       * bola `analogWrite(13, 200)` yozgan bo'lsa (haqiqiy Arduino'da u
+       * pinni o'zi OUTPUT qiladi), pin yoqilgan bo'lib ko'rinishi kerak.
+       * Sof INPUT rejimida esa ulanmagan pin noaniq — 0.
+       */
+      if (mode === undefined) return this.board.digital[pin] ?? 0;
+      return 0;
     }
     return this.board.digital[pin] ?? 0;
   }

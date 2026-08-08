@@ -31,42 +31,47 @@
  * Har kategoriya o'z rangida (§2), lekin ranglar loyihaning palitrasidan
  * chetga chiqmaydi: to'yinganligi bir xil, shuning uchun ish maydoni
  * rangli, ammo shovqinli emas.
+ *
+ * HAR BIR rang oq matn bilan WCAG AA (4.5:1) ni qanoatlantiradi (§40).
+ * Ilgari sariq, zangori, yashil va firuza ranglar 2.6–3.7 oralig'ida
+ * edi — quyoshli xonadagi planshetda blok yozuvi umuman o'qilmasdi.
+ * Yonidagi izohdagi son — oq matn bilan kontrast nisbati.
  */
 .blk-cat-events {
-  --blk-color: #d97706;
+  --blk-color: #b45309; /* 5.02 */
 }
 .blk-cat-control {
-  --blk-color: #ea8a1f;
+  --blk-color: #c2410c; /* 5.18 */
 }
 .blk-cat-pins {
-  --blk-color: #2563eb;
+  --blk-color: #2563eb; /* 5.17 */
 }
 .blk-cat-logic {
-  --blk-color: #0891b2;
+  --blk-color: #0e7490; /* 5.36 */
 }
 .blk-cat-math {
-  --blk-color: #16a34a;
+  --blk-color: #15803d; /* 5.02 */
 }
 .blk-cat-variables {
-  --blk-color: #dc2626;
+  --blk-color: #dc2626; /* 4.83 */
 }
 .blk-cat-sensors {
-  --blk-color: #7c3aed;
+  --blk-color: #7c3aed; /* 5.70 */
 }
 .blk-cat-output {
-  --blk-color: #db2777;
+  --blk-color: #db2777; /* 4.60 */
 }
 .blk-cat-motors {
-  --blk-color: #0d9488;
+  --blk-color: #0f766e; /* 5.47 */
 }
 .blk-cat-display {
-  --blk-color: #4f46e5;
+  --blk-color: #4f46e5; /* 6.29 */
 }
 .blk-cat-serial {
-  --blk-color: #64748b;
+  --blk-color: #475569; /* 7.58 */
 }
 .blk-cat-functions {
-  --blk-color: #b45309;
+  --blk-color: #a16207; /* 4.92 */
 }
 
 /* ═══════════════════ Asboblar paneli ═══════════════════ */
@@ -261,6 +266,120 @@
   cursor: grabbing;
 }
 
+/* ═══════════════════ O'zgaruvchilar paneli ═══════════════════ */
+
+.blk-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.blk-vars-empty {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.blk-var-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blk-var-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 7px;
+  /* «O'zgaruvchilar» kategoriyasining rangi — panel qaysi bo'limga
+     tegishli ekani ranggidan ko'rinib tursin. */
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+}
+
+.blk-var-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.blk-var-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.blk-var-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.blk-var-row button,
+.blk-var-form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.blk-var-row button:hover,
+.blk-var-form button:hover {
+  background: var(--surface-2, rgb(0 0 0 / 8%));
+  color: var(--text);
+}
+
+.blk-var-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.blk-var-create:hover {
+  border-style: solid;
+  background: var(--surface-2, rgb(0 0 0 / 5%));
+}
+
+.blk-var-error {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--danger, #dc2626);
+}
+
 /* ═══════════════════ Ish maydoni ═══════════════════ */
 
 .blk-canvas {
@@ -278,6 +397,25 @@
 
 .blk-canvas:active {
   cursor: grabbing;
+}
+
+/* Ish maydoni klaviatura bilan fokus oladi — o'q tugmalari uchun (§40). */
+.blk-canvas:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* Ekran o'quvchi uchun — ko'zga ko'rinmaydi, lekin o'qiladi. */
+.vlab-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Palitra ustida — blok tashlansa o'chadi. */
@@ -397,14 +535,19 @@
   border-radius: 999px;
 }
 
+/* Shart bloki olti burchakli — «bu yerga faqat shart tushadi» degani. */
 .blk-shape-boolean {
-  border-radius: 4px;
-  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 9px 100%, 0 50%);
 }
 
-.blk-shape-value > .blk-row,
-.blk-shape-boolean > .blk-row {
+.blk-shape-value > .blk-row {
   padding: 4px 12px;
+  min-height: 0;
+}
+
+/* Burchaklar kesilgani uchun yon tomonlarda qo'shimcha joy kerak. */
+.blk-shape-boolean > .blk-row {
+  padding: 4px 16px;
   min-height: 0;
 }
 
@@ -419,14 +562,67 @@
   box-shadow: 0 6px 16px rgb(0 0 0 / 28%);
 }
 
+/*
+ * Sxema bilan bog'liq muammo (§34).
+ *
+ * Rang emas, RAMKA ishlatiladi: blokning o'z kategoriya rangi saqlanib
+ * qoladi, ya'ni bola blok qaysi bo'limdan ekanini yo'qotmaydi. Ramka
+ * ustiga kichik nuqta ham qo'yiladi — faqat rangga tayanmaslik uchun
+ * (rang ko'rmaydigan foydalanuvchi ham ko'radi, §40).
+ */
+.blk.blk-issue-error {
+  outline: 2px solid var(--danger, #dc2626);
+  outline-offset: 1px;
+}
+
+.blk.blk-issue-warning {
+  outline: 2px dashed #d97706;
+  outline-offset: 1px;
+}
+
+.blk.blk-issue-error > .blk-row::after,
+.blk.blk-issue-warning > .blk-row::after {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--danger, #dc2626);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.blk.blk-issue-warning > .blk-row::after {
+  color: #b45309;
+}
+
+/* Tanlangan blok ramkasi muammo ramkasidan ustun turadi. */
+.blk-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* ═══════════════════ Ichki stek ═══════════════════ */
 
+/*
+ * C shakli: yuqorida sarlavha qatori, chapda rangli tirgak, pastda yopuvchi
+ * tirgak. `if/else` da ikkita ichki stek bo'ladi — ular orasida «aks holda»
+ * yorlig'i turadi, yopuvchi tirgak esa faqat oxirgisidan keyin chiziladi.
+ */
 .blk-substack {
   display: flex;
   flex-direction: column;
   align-self: stretch;
   padding-left: var(--blk-indent);
-  background: var(--blk-color, var(--muted));
+  /*
+   * O'z foni YO'Q — u `.blk` ning rangi ustida turadi. Shu sababli blokning
+   * pastki burchaklari `.blk` ning `border-radius` i bilan yumaloq qoladi:
+   * ichki stek ustiga to'rtburchak fon chizsa, burchak kesilib ketardi.
+   */
 }
 
 .blk-substack-body {
@@ -434,8 +630,11 @@
   flex-direction: column;
   align-items: flex-start;
   min-height: 26px;
-  padding: 2px 0 2px 2px;
-  border-left: 3px solid color-mix(in srgb, #000 18%, transparent);
+  padding: 3px 3px 3px 4px;
+  /* Ichkarisi qorayadi — bola "bu bloklar ichida" ekanini darhol ko'radi. */
+  background: color-mix(in srgb, #000 13%, transparent);
+  border-left: 3px solid color-mix(in srgb, #000 22%, transparent);
+  border-radius: 6px 0 0 6px;
 }
 
 .blk-substack-empty {
@@ -445,11 +644,17 @@
   background: color-mix(in srgb, #000 16%, transparent);
 }
 
+.blk-substack-label {
+  padding: 6px 0 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blk-text);
+}
+
 .blk-substack-foot {
-  height: 10px;
+  height: 12px;
+  min-width: 76px;
   margin-left: calc(var(--blk-indent) * -1);
-  border-bottom-left-radius: var(--blk-radius);
-  border-bottom-right-radius: var(--blk-radius);
 }
 
 /* ═══════════════════ Uyalar ═══════════════════ */
@@ -507,6 +712,17 @@
   background: color-mix(in srgb, #000 22%, transparent);
 }
 
+/* Shart uyasi — bo'sh turganda ham olti burchakli, ya'ni nima tushishi aniq. */
+.blk-input-boolean {
+  border-radius: 4px;
+}
+
+.blk-input-boolean > .blk-input-empty {
+  width: 48px;
+  border-radius: 4px;
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 9px 100%, 0 50%);
+}
+
 /* Palitradagi namunada uyalar oddiy yorliq — ular tahrirlanmaydi. */
 .blk-select-static,
 .blk-num-static {
@@ -543,6 +759,41 @@
 
 .blk-warnings li + li {
   margin-top: 4px;
+}
+
+/*
+ * Xato yozuvi bosilsa tegishli blok tanlanadi.
+ *
+ * Ro'yxatdagi matn tugma ichida: klaviatura bilan ham yetib borish
+ * mumkin bo'lsin (§40). Tugma ko'rinishi oddiy matnday qoladi.
+ */
+.blk-issue button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.blk-warnings .blk-issue-error {
+  color: var(--danger, #b91c1c);
+  font-weight: 600;
+}
+
+.blk-locale {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
 }
 
 /* ═══════════════════ Tasdiqlash ═══════════════════ */
@@ -659,5 +910,77 @@
 
   .blk-cats {
     width: 96px;
+  }
+}
+
+/*
+ * Telefon. Uch ustunli tartib (kategoriyalar | bloklar | ish maydoni)
+ * 640 px ga sig'maydi, shuning uchun palitra YUQORIGA chiqadi:
+ * kategoriyalar gorizontal lenta, bloklar esa uning ostida.
+ *
+ * Ish maydoni bunda ekranning kamida yarmini oladi — bola blokni
+ * sudrab tashlaydigan joy qolishi kerak.
+ */
+@media (max-width: 640px) {
+  .blk-body {
+    flex-direction: column;
+  }
+
+  .blk-palette {
+    width: 100%;
+    max-height: 46%;
+    flex-shrink: 1;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .blk-palette-body {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .blk-cats {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    /* Barmoq bilan surilganda lenta silliq to'xtasin. */
+    scroll-snap-type: x proximity;
+  }
+
+  .blk-cat {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  .blk-drawer {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-y: auto;
+  }
+
+  .blk-canvas {
+    min-height: 240px;
+  }
+
+  /* Kod va bloklar yonma-yon sig'maydi — «Ikkalasi» ustma-ust bo'ladi. */
+  .blk-editor[data-mode="split"] .blk-body {
+    flex-direction: column;
+  }
+
+  .blk-code {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    min-height: 200px;
+  }
+
+  /* Asboblar paneli sig'masa o'ralsin, tugmalar qirqilib qolmasin. */
+  .blk-toolbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px;
   }
 }

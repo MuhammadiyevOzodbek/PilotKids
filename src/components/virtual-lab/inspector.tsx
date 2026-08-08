@@ -8,6 +8,7 @@ import {
   getDefinition,
   getPin,
 } from "@/lib/virtual-lab/catalog";
+import { SENSOR_CONTROLS } from "@/lib/virtual-lab/live-controls";
 import type { CircuitIssue, WireColor, WireEndpoint } from "@/lib/virtual-lab/types";
 import { useCircuitStore, useSimulationStore } from "@/stores/virtual-lab";
 import { PIN_COLOR } from "./component-node";
@@ -20,16 +21,13 @@ import { PIN_COLOR } from "./component-node";
  */
 
 /** Sensor qiymati sozlama emas, alohida boshqariladigan komponentlar. */
-const SENSOR_CONTROL: Record<
-  string,
-  { key: string; label: string; min: number; max: number; unit?: string }
-> = {
-  potentiometer: { key: "value", label: "Buralish", min: 0, max: 1023 },
-  ldr: { key: "light", label: "Yorug'lik", min: 0, max: 1023 },
-  ultrasonic: { key: "distance", label: "Masofa", min: 2, max: 400, unit: "sm" },
-  tmp36: { key: "temperature", label: "Harorat", min: -40, max: 125, unit: "°C" },
-  "soil-moisture": { key: "moisture", label: "Namlik", min: 0, max: 100, unit: "%" },
-};
+/*
+ * Sensor slayderlari `lib/virtual-lab/live-controls` dan keladi — o'sha
+ * ro'yxatdan 3D laboratoriya va simulyatsiyani qayta ishga tushirish
+ * tekshiruvi ham foydalanadi. Ilgari u shu yerda alohida yozilgandi va
+ * 3D versiyasi undan bexabar edi.
+ */
+const SENSOR_CONTROL = SENSOR_CONTROLS;
 
 const WIRE_OPTIONS: Array<{ color: WireColor; label: string; value: string }> = [
   { color: "red", label: "Qizil", value: "#ef4444" },

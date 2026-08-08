@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Blocks,
   Code2,
@@ -12,7 +12,17 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { generateProgram, isEmptyWorkspace, t, type GenWarning } from "@/lib/virtual-lab/blocks";
+import {
+  generateProgram,
+  isEmptyWorkspace,
+  issuesByBlock,
+  netlistFor,
+  t,
+  validateWorkspace,
+  type BlockIssue,
+  type BlockLocale,
+  type GenWarning,
+} from "@/lib/virtual-lab/blocks";
 import type { CodeError, Circuit } from "@/lib/virtual-lab/types";
 import { useBlocksStore, type ProgrammingMode } from "@/stores/blocks";
 import { CodeEditor } from "../code-editor";
@@ -30,6 +40,11 @@ import { BlockPalette } from "./block-palette";
  * Kod bloklardan doim BIR TOMONLAMA hosil bo'ladi (§28): blok → kod.
  * Teskarisi yo'q, shuning uchun kod rejimiga o'tishdan oldin ogohlantirish
  * ko'rsatiladi.
+ *
+ * Ikki mustaqil tekshiruv ko'rsatiladi:
+ *   • generator OGOHLANTIRISHLARI — «blok ulanmagan», «uya bo'sh»;
+ *   • sxema MUAMMOLARI (`validateWorkspace`) — «LED ulanmagan», «PWM emas».
+ * Ular alohida hisoblanadi va alohida ko'rinadi (§34).
  */
 
 /** Kodni qayta yig'ishdan oldingi kutish (ms) — har harakatda kompilyatsiya bo'lmasin (§27). */
@@ -57,9 +72,11 @@ export function BlockEditor({
   const workspace = useBlocksStore((s) => s.workspace);
   const mode = useBlocksStore((s) => s.mode);
   const zoom = useBlocksStore((s) => s.zoom);
+  const locale = useBlocksStore((s) => s.locale);
+  const selectedId = useBlocksStore((s) => s.selectedId);
   const setMode = useBlocksStore((s) => s.setMode);
   const setZoom = useBlocksStore((s) => s.setZoom);
-  const setPan = useBlocksStore((s) => s.setPan);
+  const setLocale = useBlocksStore((s) => s.setLocale);
   const undo = useBlocksStore((s) => s.undo);
   const redo = useBlocksStore((s) => s.redo);
   const clear = useBlocksStore((s) => s.clear);
@@ -92,6 +109,24 @@ export function BlockEditor({
     return () => window.clearTimeout(timer);
   }, [workspace, circuit, mode, onCodeChange]);
 
+  /*
+   * Sxema tekshiruvi (§34).
+   *
+   * Kod generatsiyasidan MUSTAQIL: u sxema yoki ish maydoni o'zgarganda
+   * qayta hisoblanadi va hech qachon kod yozmaydi. `useMemo` yetarli —
+   * tekshiruv yengil, kechiktirish kerak emas.
+   */
+  const issues = useMemo<BlockIssue[]>(() => {
+    if (isEmptyWorkspace(workspace)) return [];
+    return validateWorkspace(workspace, {
+      circuit,
+      netlist: netlistFor(circuit),
+      variables: workspace.variables,
+    });
+  }, [workspace, circuit]);
+
+  const issueSeverity = useMemo(() => issuesByBlock(issues), [issues]);
+
   const switchMode = useCallback(
     (next: ProgrammingMode) => {
       // Kod rejimiga birinchi o'tishda ogohlantiramiz.
@@ -105,34 +140,95 @@ export function BlockEditor({
   );
 
   const fitToBlocks = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [setZoom, setPan]);
+    canvasApi.current?.fitToBlocks();
+  }, []);
 
   const pickBlock = useCallback((type: string, event: React.PointerEvent) => {
     canvasApi.current?.startPaletteDrag(type, event);
   }, []);
+
+  /* ─────────────────── Klaviatura yorliqlari (§30) ─────────────────── */
+
+  /*
+   * Yorliqlar `window` da: blok muharriri FAQAT dasturlash ko'rinishida
+   * chiziladi, ya'ni tinglovchi ham o'sha paytdagina mavjud bo'ladi.
+   * Sxema ko'rinishidagi yorliqlar bilan to'qnashmaydi — `workbench.tsx`
+   * o'z tomonidan shu ko'rinishda ularni o'chirib qo'yadi.
+   */
+  useEffect(() => {
+    if (mode === "code") return;
+
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      // Matn kiritilayotgan bo'lsa aralashmaymiz.
+      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (target?.closest(".monaco-editor")) return;
+
+      const store = useBlocksStore.getState();
+      const mod = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
+
+      if (mod && key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) store.redo();
+        else store.undo();
+        return;
+      }
+      if (mod && key === "y") {
+        event.preventDefault();
+        store.redo();
+        return;
+      }
+      if (!store.selectedId && !(mod && key === "v")) return;
+
+      if (mod && key === "d") {
+        event.preventDefault();
+        if (store.selectedId) store.duplicate(store.selectedId);
+        return;
+      }
+      if (mod && key === "c") {
+        if (store.selectedId) store.copy(store.selectedId);
+        return;
+      }
+      if (mod && key === "v") {
+        event.preventDefault();
+        store.paste();
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        if (store.selectedId) store.remove(store.selectedId);
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode]);
 
   return (
     <div className="blk-editor" data-mode={mode}>
       <div className="blk-toolbar">
         <span className="vlab-panel-title">
           <Blocks size={15} />
-          {t("blocks.ui.title")}
+          {t("blocks.ui.title", undefined, locale)}
         </span>
 
-        <div className="blk-modes" role="group" aria-label={t("blocks.ui.title")}>
+        <div
+          className="blk-modes"
+          role="group"
+          aria-label={t("blocks.ui.title", undefined, locale)}
+        >
           <button type="button" aria-pressed={mode === "block"} onClick={() => switchMode("block")}>
             <Blocks size={14} />
-            {t("blocks.ui.mode.block")}
+            {t("blocks.ui.mode.block", undefined, locale)}
           </button>
           <button type="button" aria-pressed={mode === "split"} onClick={() => switchMode("split")}>
             <Columns2 size={14} />
-            {t("blocks.ui.mode.split")}
+            {t("blocks.ui.mode.split", undefined, locale)}
           </button>
           <button type="button" aria-pressed={mode === "code"} onClick={() => switchMode("code")}>
             <Code2 size={14} />
-            {t("blocks.ui.mode.code")}
+            {t("blocks.ui.mode.code", undefined, locale)}
           </button>
         </div>
 
@@ -140,25 +236,47 @@ export function BlockEditor({
 
         {mode !== "code" && (
           <div className="blk-tools">
-            <ToolButton icon={<Undo2 size={14} />} label={t("blocks.ui.undo")} onClick={undo} />
-            <ToolButton icon={<Redo2 size={14} />} label={t("blocks.ui.redo")} onClick={redo} />
+            <select
+              className="blk-locale"
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as BlockLocale)}
+              aria-label={t("blocks.ui.language", undefined, locale)}
+            >
+              <option value="uz">O&apos;zbekcha</option>
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+            <ToolButton
+              icon={<Undo2 size={14} />}
+              label={t("blocks.ui.undo", undefined, locale)}
+              onClick={undo}
+            />
+            <ToolButton
+              icon={<Redo2 size={14} />}
+              label={t("blocks.ui.redo", undefined, locale)}
+              onClick={redo}
+            />
             <ToolButton
               icon={<ZoomOut size={14} />}
-              label={t("blocks.ui.zoomOut")}
+              label={t("blocks.ui.zoomOut", undefined, locale)}
               onClick={() => setZoom(zoom - 0.1)}
             />
             <span className="blk-zoom-value">{Math.round(zoom * 100)}%</span>
             <ToolButton
               icon={<ZoomIn size={14} />}
-              label={t("blocks.ui.zoomIn")}
+              label={t("blocks.ui.zoomIn", undefined, locale)}
               onClick={() => setZoom(zoom + 0.1)}
             />
             <ToolButton
               icon={<Maximize2 size={14} />}
-              label={t("blocks.ui.zoomFit")}
+              label={t("blocks.ui.zoomFit", undefined, locale)}
               onClick={fitToBlocks}
             />
-            <ToolButton icon={<Trash2 size={14} />} label={t("blocks.ui.clear")} onClick={clear} />
+            <ToolButton
+              icon={<Trash2 size={14} />}
+              label={t("blocks.ui.clear", undefined, locale)}
+              onClick={clear}
+            />
           </div>
         )}
       </div>
@@ -167,7 +285,7 @@ export function BlockEditor({
         {mode !== "code" && (
           <>
             <BlockPalette onPickBlock={pickBlock} />
-            <BlockCanvas circuit={circuit} apiRef={canvasApi} />
+            <BlockCanvas circuit={circuit} apiRef={canvasApi} issues={issueSeverity} />
           </>
         )}
 
@@ -185,17 +303,27 @@ export function BlockEditor({
               onReset={onResetCode}
               reveal={reveal}
               readOnly={mode === "split"}
-              title={mode === "split" ? t("blocks.ui.generated") : undefined}
+              title={mode === "split" ? t("blocks.ui.generated", undefined, locale) : undefined}
             />
           </div>
         )}
       </div>
 
-      {mode !== "code" && warnings.length > 0 && (
+      {mode !== "code" && (issues.length > 0 || warnings.length > 0) && (
         <ul className="blk-warnings">
+          {issues.map((issue, index) => (
+            <li
+              key={`i-${issue.blockId}-${index}`}
+              className={`blk-issue blk-issue-${issue.severity}`}
+            >
+              <button type="button" onClick={() => useBlocksStore.getState().select(issue.blockId)}>
+                {t(issue.messageKey, issue.params, locale)}
+              </button>
+            </li>
+          ))}
           {warnings.map((warning, index) => (
-            <li key={`${warning.code}-${warning.blockId ?? index}`}>
-              {t(warning.messageKey, warning.params)}
+            <li key={`w-${warning.code}-${warning.blockId ?? index}`} className="blk-issue">
+              {t(warning.messageKey, warning.params, locale)}
             </li>
           ))}
         </ul>
@@ -203,7 +331,7 @@ export function BlockEditor({
 
       {confirmCodeMode && (
         <div className="blk-confirm" role="alertdialog" aria-modal="true">
-          <p>{t("blocks.ui.codeModeWarning")}</p>
+          <p>{t("blocks.ui.codeModeWarning", undefined, locale)}</p>
           <div className="blk-confirm-actions">
             <button
               type="button"
@@ -214,14 +342,19 @@ export function BlockEditor({
                 setMode("code");
               }}
             >
-              {t("blocks.ui.codeModeContinue")}
+              {t("blocks.ui.codeModeContinue", undefined, locale)}
             </button>
             <button type="button" onClick={() => setConfirmCodeMode(false)}>
-              {t("blocks.ui.codeModeCancel")}
+              {t("blocks.ui.codeModeCancel", undefined, locale)}
             </button>
           </div>
         </div>
       )}
+
+      {/* Tanlangan blok yo'qolib qolmasin — ekran o'quvchi uchun holat. */}
+      <span className="vlab-sr-only" role="status">
+        {selectedId ? t("blocks.ui.selected", undefined, locale) : ""}
+      </span>
     </div>
   );
 }
@@ -236,7 +369,7 @@ function ToolButton({
   onClick: () => void;
 }) {
   return (
-    <button type="button" className="vlab-tool" aria-label={label} onClick={onClick}>
+    <button type="button" className="vlab-tool" aria-label={label} title={label} onClick={onClick}>
       {icon}
     </button>
   );

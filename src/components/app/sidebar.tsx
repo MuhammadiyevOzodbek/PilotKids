@@ -90,6 +90,14 @@ export function Sidebar({ role = "student" }: { role?: string }) {
                 key={n.href}
                 href={n.href}
                 title={n.label}
+                /*
+                 * Faol bo'lim DASTURIY tarzda ham belgilanadi.
+                 *
+                 * Ilgari u faqat fon va rang bilan farqlanardi — ekran
+                 * o'quvchi foydalanuvchisi qaysi sahifada turganini
+                 * navigatsiyadan bila olmasdi.
+                 */
+                aria-current={active ? "page" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -127,7 +135,12 @@ export function Sidebar({ role = "student" }: { role?: string }) {
               borderRadius: 13,
               marginBottom: 10,
               background: "var(--fun-amber-soft)",
-              color: "var(--fun-amber)",
+              /*
+               * `--fun-amber` o'zining yumshoq foni ustida 1.86:1 —
+               * havola amalda oq-sariq fonda yo'qolib ketardi va admin
+               * o'z paneliga kiruvchi yagona havolani ko'rmasdi.
+               */
+              color: "var(--fun-amber-text)",
               fontWeight: 700,
               fontSize: 15,
             }}

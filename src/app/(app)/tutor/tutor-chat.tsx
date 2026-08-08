@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useOptimistic, useTransition } from "react";
 import { Icon } from "@/components/icon";
-import { sendChatMessage } from "@/lib/actions/chat";
+import { clearChatHistory, sendChatMessage } from "@/lib/actions/chat";
 import { quickChips } from "@/lib/data";
 
 export type ChatMsg = { id?: string; role: string; text: string };
@@ -53,8 +53,65 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
         boxShadow: "var(--shadow-sm)",
       }}
     >
+      {/*
+        Tarixni tozalash.
+
+        Faqat xabar bo'lganda ko'rinadi. Bu amal orqaga qaytmaydi,
+        shuning uchun tasdiqlash so'raladi.
+      */}
+      {messages.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "10px 14px 0",
+          }}
+        >
+          <button
+            type="button"
+            className="tap-inline"
+            disabled={isPending}
+            onClick={() => {
+              if (!window.confirm("Robo bilan butun suhbat tarixi o'chirilsinmi?")) return;
+              startTransition(async () => {
+                const res = await clearChatHistory();
+                if (!res.ok) setError(res.error);
+              });
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              background: "transparent",
+              color: "var(--text-2)",
+              cursor: "pointer",
+              fontSize: 13,
+              padding: "5px 10px",
+            }}
+          >
+            <Icon name="delete_sweep" size={16} />
+            Tarixni tozalash
+          </button>
+        </div>
+      )}
+
+      {/*
+        `role="log"` + `aria-live` — Robo javobi ekran o'quvchiga E'LON
+        qilinishi uchun. Ularsiz ko'zi ojiz bola savol yuborardi, DOM
+        o'zgarardi, lekin hech narsa eshitilmasdi.
+
+        `tabIndex` — uzun tarixni klaviatura bilan ham aylantirish
+        mumkin bo'lsin (WCAG 2.1.1).
+      */}
       <div
         ref={listRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="Robo bilan suhbat"
+        tabIndex={0}
         style={{
           flex: 1,
           overflowY: "auto",
@@ -243,9 +300,11 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
               padding: "10px 0",
             }}
           />
+          {/* Ikonka `aria-hidden` — nomsiz tugma skrinriderda "button" deb o'qilardi. */}
           <button
             type="submit"
             disabled={isPending}
+            aria-label={isPending ? "Yuborilmoqda" : "Yuborish"}
             style={{
               width: 44,
               height: 44,

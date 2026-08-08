@@ -13,12 +13,15 @@ import {
   duplicateSubtree,
   emptyWorkspace,
   moveTopBlock,
+  remapSubtree,
   removeBlock,
   removeVariable,
   renameVariable,
   sanitizeWorkspace,
   setField,
   type BlockLevel,
+  type BlockLocale,
+  type BlockNode,
   type BlockWorkspace,
   type WorkspaceVariable,
 } from "@/lib/virtual-lab/blocks";
@@ -46,6 +49,14 @@ interface BlocksState {
 
   mode: ProgrammingMode;
   level: BlockLevel;
+  /**
+   * Blok matnlarining tili (§41).
+   *
+   * Ish maydonining O'ZIDA saqlanmaydi: til — foydalanuvchining ko'rinish
+   * sozlamasi, loyihaning bir qismi emas. Shu sababli boshqa tilda
+   * saqlangan loyiha ochilganda til o'zgarib ketmaydi.
+   */
+  locale: BlockLocale;
   selectedId: string | null;
   /** Ochiq kategoriya — palitrada. */
   category: string;
@@ -67,12 +78,29 @@ interface BlocksState {
    * yozilmaydi.
    */
   dragActive: boolean;
+  /**
+   * Hozir sudralayotgan blok.
+   *
+   * Store'da, komponent holatida emas: `BlockView` uni ID bo'yicha
+   * selektor bilan oladi va shu sababli sudrash paytida faqat AYNAN
+   * sudralayotgan blok qayta chiziladi (§39).
+   */
+  draggingId: string | null;
+  /**
+   * Nusxa olingan blok daraxti (§30).
+   *
+   * Ish maydonida emas, store'da yashaydi: ish maydoni tozalansa ham
+   * nusxa qoladi va boshqa loyihaga joylash mumkin bo'ladi.
+   */
+  clipboard: { blocks: BlockNode[]; rootId: string } | null;
 
   beginDrag: () => void;
   endDrag: () => void;
+  setDragging: (id: string | null) => void;
 
   setMode: (mode: ProgrammingMode) => void;
   setLevel: (level: BlockLevel) => void;
+  setLocale: (locale: BlockLocale) => void;
   setCategory: (category: string) => void;
   select: (id: string | null) => void;
   setZoom: (zoom: number) => void;
@@ -94,6 +122,10 @@ interface BlocksState {
   remove: (id: string) => void;
   duplicate: (id: string) => void;
   changeField: (id: string, name: string, value: string) => void;
+
+  copy: (id: string) => void;
+  paste: () => void;
+  canPaste: () => boolean;
 
   addVar: (name: string, type?: WorkspaceVariable["type"]) => void;
   renameVar: (id: string, name: string) => void;
@@ -125,18 +157,23 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
 
   mode: "block",
   level: "beginner",
+  locale: "uz",
   selectedId: null,
   category: "events",
   zoom: 1,
   pan: { x: 0, y: 0 },
   codeDirty: false,
   dragActive: false,
+  draggingId: null,
+  clipboard: null,
 
   beginDrag: () => set((s) => (s.dragActive ? s : { ...pushHistory(s), dragActive: true })),
-  endDrag: () => set({ dragActive: false }),
+  endDrag: () => set({ dragActive: false, draggingId: null }),
+  setDragging: (draggingId) => set((s) => (s.draggingId === draggingId ? s : { draggingId })),
 
   setMode: (mode) => set({ mode }),
   setLevel: (level) => set({ level }),
+  setLocale: (locale) => set({ locale }),
   setCategory: (category) => set({ category }),
   select: (selectedId) => set((s) => (s.selectedId === selectedId ? s : { selectedId })),
   setZoom: (zoom) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom)) }),
@@ -204,6 +241,32 @@ export const useBlocksStore = create<BlocksState>((set, get) => ({
       if (workspace === s.workspace) return s;
       return { ...pushHistory(s), workspace };
     }),
+
+  /*
+   * Nusxa olishda daraxt DARHOL yangi ID'lar bilan ko'chiriladi.
+   * Shunda manba blok o'chirilsa ham nusxa yaroqli qoladi — buferda
+   * "yo'q blokka havola" qolib ketmaydi.
+   */
+  copy: (id) => {
+    const copy = duplicateSubtree(get().workspace, id);
+    if (copy) set({ clipboard: copy });
+  },
+
+  paste: () => {
+    const { clipboard, workspace } = get();
+    if (!clipboard) return;
+
+    // Har joylashda yangi ID kerak: bitta nusxani ikki marta joylash mumkin.
+    const fresh = remapSubtree(clipboard.blocks, clipboard.rootId);
+    const at = workspace.tops[get().selectedId ?? ""] ?? { x: 40, y: 40 };
+    set((s) => ({
+      ...pushHistory(s),
+      workspace: addSubtree(s.workspace, fresh.blocks, fresh.rootId, at.x + 32, at.y + 32),
+      selectedId: fresh.rootId,
+    }));
+  },
+
+  canPaste: () => get().clipboard !== null,
 
   addVar: (name, type = "int") =>
     set((s) => {

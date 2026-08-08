@@ -20,6 +20,17 @@ function getTransport(): nodemailer.Transporter {
     // 465 — implicit TLS, qolganlari STARTTLS bilan ko'tariladi.
     secure: port === 465,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
+    /*
+     * Muddat chegaralari SHART.
+     *
+     * Nodemailer standart qiymatlari juda uzun (bir necha daqiqa). SMTP
+     * server javob bermay qolsa, email kod so'ragan har bir so'rov shu
+     * muddatgacha osilib turardi va serverless funksiya vaqti tugaguncha
+     * resursni band qilardi.
+     */
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
   return transport;
 }

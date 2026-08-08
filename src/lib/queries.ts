@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
-import { eq, desc, asc, and, count, sql } from "drizzle-orm";
+import { eq, desc, asc, and, count, inArray, sql } from "drizzle-orm";
+import { labelForDay, recentDays } from "@/lib/day";
 import { db } from "@/lib/db";
 import {
   user,
@@ -434,17 +435,26 @@ async function getUserCertificates_impl(userId: string) {
     .orderBy(asc(certificate.sortOrder));
 }
 
+/**
+ * Oxirgi yetti kunning faolligi — chapda eng eski kun, o'ngda bugun.
+ *
+ * Sana bo'yicha o'qiladi, hafta kuni bo'yicha emas: aks holda o'tgan
+ * haftalarning daqiqalari bugungisiga qo'shilib ketardi. Oynadan
+ * tashqaridagi eski qatorlar tabiiy ravishda tushib qoladi.
+ */
 async function getWeekActivity_impl(userId: string) {
+  const days = recentDays(7);
   const rows = await db
     .select()
     .from(dailyActivity)
-    .where(eq(dailyActivity.userId, userId))
-    .orderBy(asc(dailyActivity.weekday));
-  const labels = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
-  const max = Math.max(1, ...rows.map((r) => r.minutes));
-  return labels.map((d, i) => {
-    const row = rows.find((r) => r.weekday === i);
-    return { d, h: row ? Math.round((row.minutes / max) * 100) : 0, minutes: row?.minutes ?? 0 };
+    .where(and(eq(dailyActivity.userId, userId), inArray(dailyActivity.day, days)));
+
+  const minutesByDay = new Map(rows.map((row) => [row.day, row.minutes]));
+  const max = Math.max(1, ...rows.map((row) => row.minutes));
+
+  return days.map((day) => {
+    const minutes = minutesByDay.get(day) ?? 0;
+    return { day, d: labelForDay(day), h: Math.round((minutes / max) * 100), minutes };
   });
 }
 
@@ -457,17 +467,46 @@ async function getNotifications_impl(userId: string) {
     .limit(20);
 }
 
+/**
+ * Suhbat tarixi — oxirgi xabarlar.
+ *
+ * Cheklov SHART: har savol ikkita qator yozadi va tarix hech qachon
+ * avtomatik tozalanmaydi. Cheklovsiz faol o'quvchining ming xabarli
+ * tarixi `/tutor` ochilishida ham, HAR bir yangi savolda ham to'liq
+ * o'qilardi — modelga esa baribir oxirgi o'ntasi yuboriladi.
+ *
+ * Natija eskisidan yangisiga tartiblanadi: chat shu tartibda chiziladi.
+ */
+const CHAT_HISTORY_LIMIT = 50;
+
 async function getChatMessages_impl(userId: string) {
-  return db
+  const rows = await db
     .select()
     .from(chatMessage)
     .where(eq(chatMessage.userId, userId))
-    .orderBy(asc(chatMessage.createdAt));
+    .orderBy(desc(chatMessage.createdAt))
+    .limit(CHAT_HISTORY_LIMIT);
+  return rows.reverse();
 }
 
+/**
+ * Sozlamalar — yozuv bo'lmasa sxemadagi standart qiymatlar.
+ *
+ * Zaxira obyekt sxema bilan TO'LIQ mos bo'lishi kerak. Ilgari unda
+ * `dailyLimitMin` yo'q edi va ota-ona paneliga `undefined` uzatilib,
+ * ekran vaqti ko'rsatkichi buzilardi.
+ */
 async function getUserSettings_impl(userId: string) {
   const rows = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1);
-  return rows[0] ?? { userId, notificationsEnabled: true, theme: "light" };
+  return (
+    rows[0] ?? {
+      userId,
+      notificationsEnabled: true,
+      theme: "light",
+      dailyLimitMin: 90,
+      language: "uz",
+    }
+  );
 }
 
 /* ─────────────────────────── Keshlangan eksportlar ───────────────────────────

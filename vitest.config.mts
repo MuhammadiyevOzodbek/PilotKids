@@ -14,7 +14,15 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    /*
+     * `.tsx` ham ro'yxatda.
+     *
+     * Ilgari faqat `.ts` qidirilardi va `*.test.tsx` fayli JIMGINA ishga
+     * tushmasdi — hech qanday xato bermasdan. `node` muhitida komponent
+     * testi baribir ishlamaydi, lekin noto'g'ri kengaytmali test endi
+     * yo'qolib qolmaydi: u ishga tushadi va aniq xato beradi.
+     */
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
   resolve: {
     alias: {

@@ -1,0 +1,927 @@
+/**
+ * 3D laboratoriya interfeysi.
+ *
+ * Ranglar loyihaning umumiy tokenlaridan (`--surface`, `--border`, `--text`)
+ * olinadi, shuning uchun yorug' va tungi mavzu o'z-o'zidan ishlaydi (§36).
+ * 3D sahnaning O'ZI doim quyuq: elektronika stoli yorqin oq fonda emas,
+ * ustaxona sharoitida ko'rinishi kerak va komponent ranglari shunda aniq
+ * ajraladi.
+ */
+
+/* ═══════════════════ Sahifaga o'rnashish ═══════════════════ */
+
+/*
+ * Laboratoriya butun ekranni oladi — xuddi 2D dagidek (`.vlab-page`).
+ *
+ * Manfiy chekka `.app-main` ning ichki bo'shlig'ini bekor qiladi: usiz
+ * laboratoriya bo'shliq ichida turib, ekrandan pastga tushib ketardi va
+ * ish uchun aylantirish kerak bo'lardi.
+ */
+.lab3d-page {
+  margin: -34px -32px -60px;
+}
+
+/*
+ * Ilova sarlavhasi olib tashlanadi.
+ *
+ * Laboratoriyaning O'Z asboblar paneli bor; ustida yana qidiruv va XP
+ * bilan panel turgani balandlikni ~76 px ga qisqartirardi. 3D stol uchun
+ * esa aynan balandlik kerak.
+ *
+ * `:has()` ishlatilgan, chunki sarlavha `(app)` layoutida — server
+ * komponentda. Bu fayl faqat 3D laboratoriya sahifasida yuklanadi, ya'ni
+ * qoida boshqa sahifalarga yetib bormaydi.
+ */
+body:has(.lab3d-page) .app-header {
+  /* Sarlavhaning `display: flex` qiymati inline stilda — `!important` shart. */
+  display: none !important;
+}
+
+/* Desktopda yon panel ikonkalarga qisqaradi — ish maydoniga joy qoladi. */
+@media (min-width: 1025px) {
+  body:has(.lab3d-page) .app-sidebar {
+    width: 68px;
+    padding: 18px 10px;
+    overflow: visible;
+  }
+
+  body:has(.lab3d-page) .app-nav-label,
+  body:has(.lab3d-page) .app-parent-card {
+    display: none;
+  }
+
+  body:has(.lab3d-page) .app-sidebar a {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body:has(.lab3d-page) .app-sidebar > a:first-of-type {
+    padding: 6px 0 18px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .lab3d-page {
+    margin: -24px -20px -48px;
+  }
+}
+
+/* ═══════════════════ Ish stoli ═══════════════════ */
+
+.lab3d {
+  display: flex;
+  flex-direction: column;
+  /*
+   * Toast shu qutiga nisbatan joylashadi. Bunisiz u sahifaning eng
+   * yaqin joylashtirilgan ajdodiga tayanardi va laboratoriya tashqarisiga
+   * chiqib ketishi mumkin edi.
+   */
+  position: relative;
+  /*
+   * Balandlik QAT'IY: ichkaridagi hamma narsa (palitra, 3D sahna, kod
+   * muharriri) `flex: 1` + `min-height: 0` zanjiri orqali shu o'lchamni
+   * bo'lishadi. Balandlik berilmasa zanjir uzilib, panellar mazmuni
+   * bo'yicha cho'ziladi va sahifa aylantiriladigan bo'lib qoladi.
+   */
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ═══════════════════ Yuqori panel ═══════════════════ */
+
+.lab3d-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.lab3d-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+}
+
+.lab3d-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/*
+ * Hover FAQAT oddiy tugmalarga.
+ *
+ * `.lab3d-btn:hover` ning aniqligi (0,2,0), `.lab3d-btn-primary` niki esa
+ * (0,1,0) — ya'ni oddiy hover qoidasi tartibdan qat'i nazar to'ldirilgan
+ * tugmaning fonini yengib ketadi. Fon ochiq kulrangga aylanadi, matn esa
+ * `--on-primary` (oq) bo'lib qolaveradi va tugma o'qilmay qoladi.
+ *
+ * Shuning uchun turlangan tugmalar bu qoidadan chiqarib tashlanadi va
+ * ularning o'z hover holati quyida alohida yoziladi.
+ */
+.lab3d-btn:not(.lab3d-btn-primary, .lab3d-btn-danger):hover {
+  background: var(--surface-2, rgb(0 0 0 / 6%));
+}
+
+.lab3d-btn[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.lab3d-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+/* To'ldirilgan tugma hover'da bir oz to'qlashadi — kontrast saqlanadi. */
+.lab3d-btn-primary:hover {
+  background: color-mix(in srgb, var(--primary) 86%, #000);
+  border-color: color-mix(in srgb, var(--primary) 86%, #000);
+}
+
+.lab3d-btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.lab3d-btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger);
+}
+
+/* Klaviatura bilan yurganda ham tugma ko'rinib tursin (§37). */
+.lab3d-btn:focus-visible,
+.lab3d-group button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Ikonkali kichik tugmalar guruhi */
+.lab3d-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.lab3d-group button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lab3d-group button + button {
+  border-left: 1px solid var(--border);
+}
+
+.lab3d-group button:hover {
+  background: var(--surface-2, rgb(0 0 0 / 6%));
+  color: var(--text);
+}
+
+.lab3d-group button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Sim ranglari */
+.lab3d-colors {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.lab3d-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lab3d-swatch[aria-pressed="true"] {
+  border-color: var(--text);
+  transform: scale(1.15);
+}
+
+.lab3d-swatch:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════ Tana ═══════════════════ */
+
+.lab3d-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/*
+ * O'rta ustun: sahna + Serial Monitor.
+ *
+ * Monitor sahnaning USTIGA emas, OSTIGA qo'yiladi — u matn oqimi va uni
+ * o'qish uchun kenglik kerak. Sahna qolgan balandlikni oladi.
+ */
+.lab3d-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lab3d-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  /*
+   * Sahna yuklanguncha ko'rinadigan fon — osmon rangida.
+   *
+   * Mavzudan QAT'I NAZAR yorug': laboratoriya ochiq havoda va bu rang
+   * WebGL kanvasi paydo bo'lgunicha turadi. Quyuq fon bo'lsa har
+   * ochilishda ko'zni qamashtiradigan sakrash bo'lardi.
+   */
+  background: linear-gradient(#a8d4f2, #dff0fb);
+}
+
+/*
+ * Serial Monitor.
+ *
+ * Komponentning O'ZI 2D bilan bitta va u yopilganda mazmunini yashiradi,
+ * lekin `.vlab-panel` da `height: 100%` turadi — ya'ni QUTI baribir
+ * o'lchamini saqlab qolardi va ekranda bo'sh oq maydon qolardi. 2D da
+ * buni grid ota-elementi hal qiladi (`.vlab-center[data-serial="off"]`),
+ * bu yerda esa flex — shuning uchun balandlik shu yerda beriladi.
+ */
+.lab3d-stage > .vlab-panel {
+  flex: 0 0 auto;
+  height: 34%;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Yopilgan holatda faqat sarlavha chizig'i qoladi. */
+.lab3d-stage[data-serial="off"] > .vlab-panel {
+  height: var(--vlab-head);
+  overflow: hidden;
+}
+
+.lab3d-stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+.lab3d-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  /* Yorug' osmon fonida quyuq matn — kontrast AA talabidan yuqori. */
+  color: #23415c;
+  background: linear-gradient(#a8d4f2, #dff0fb);
+}
+
+.lab3d-loading .lab3d-btn {
+  color: #1b3450;
+  border-color: rgb(35 65 92 / 30%);
+  background: rgb(255 255 255 / 70%);
+}
+
+/* ═══════════════════ Komponent paneli ═══════════════════ */
+
+.lab3d-palette {
+  display: flex;
+  flex-direction: column;
+  width: 236px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  min-height: 0;
+}
+
+.lab3d-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.lab3d-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.lab3d-search input:focus {
+  outline: none;
+}
+
+.lab3d-palette-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.lab3d-palette-body h3 {
+  margin: 12px 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3, var(--muted));
+}
+
+.lab3d-part {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 3px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lab3d-part:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+.lab3d-part-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ═══════════════════ O'ng ustun ═══════════════════ */
+
+.lab3d-side {
+  display: flex;
+  flex-direction: column;
+  /* 340 px da muharrir sarlavhasi («Arduino kod», shrift, tiklash) sig'masdi. */
+  width: 366px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  min-height: 0;
+}
+
+/*
+ * Inspektor yuqorining ko'pi bilan yarmini oladi, qolgani muharrirga.
+ *
+ * `max-height` foizda: qat'iy piksel bergan bo'lsak, past ekranda
+ * muharrir uchun joy qolmasdi.
+ */
+.lab3d-inspector {
+  flex: 0 1 auto;
+  max-height: 48%;
+  overflow-y: auto;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.lab3d-inspector h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.lab3d-inspector h3 {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3, var(--muted));
+}
+
+.lab3d-inspector dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.lab3d-inspector dt {
+  color: var(--muted);
+}
+
+.lab3d-inspector dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lab3d-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: 13px;
+}
+
+.lab3d-field > span:first-child {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.lab3d-field select,
+.lab3d-field input[type="range"] {
+  min-width: 0;
+}
+
+/*
+ * Jonli boshqaruv — oddiy sozlamadan ajralib tursin.
+ *
+ * Bu qiymat simulyatsiya PAYTIDA o'zgaradi va natijasi darhol ko'rinadi,
+ * qolganlari esa sxemaning bir qismi. Farqni ko'rsatmasak bola nima
+ * uchun bittasi ishlab, ikkinchisi simulyatsiyani to'xtatishini
+ * tushunmasdi.
+ */
+.lab3d-field-live {
+  padding: 7px 9px;
+  margin-bottom: 11px;
+  border-radius: 9px;
+  border-left: 3px solid var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+}
+
+.lab3d-field-live > span:first-child {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lab3d-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lab3d-slider output {
+  min-width: 46px;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab3d-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+}
+
+.lab3d-links button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lab3d-links button:hover {
+  background: var(--surface-2, rgb(0 0 0 / 6%));
+}
+
+.lab3d-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.lab3d-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/*
+ * Kod muharriri 2D bilan bitta komponent (`CodeEditor`).
+ *
+ * U `.vlab-panel` bo'lib chiziladi va o'sha sinf `height: 100%` talab
+ * qiladi — ya'ni ota element ANIQ balandlikka ega bo'lishi shart. Aks
+ * holda muharrir mazmuni bo'yicha cho'ziladi va ichki `overflow` ishlamay
+ * qoladi.
+ */
+.lab3d-code {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.lab3d-code > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lab3d-empty {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ═══════════════════ Sahna ustidagi qatlamlar ═══════════════════ */
+
+/* Komponent nomi (drei `Html` ichida) */
+.lab3d-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: rgb(12 16 22 / 88%);
+  color: #eef2f7;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/*
+ * Yurish tugmalari — pastki O'NG burchakda.
+ *
+ * Chap tomonda muammolar ro'yxati chiqadi; ikkalasi bir burchakda
+ * bo'lsa ustma-ust tushardi.
+ */
+.lab3d-keyhint {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 7px 11px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 10px;
+  background: rgb(12 16 22 / 55%);
+  color: #97a3b2;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+
+/* Sahna ustida sichqoncha bo'lsa yaxshiroq o'qilsin */
+.lab3d-viewport:hover .lab3d-keyhint {
+  opacity: 1;
+}
+
+.lab3d-keyhint span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.lab3d-keyhint kbd,
+.lab3d-onboarding kbd {
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 7%);
+  color: #dbe3ec;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab3d-keyhint {
+    transition: none;
+  }
+}
+
+/*
+ * Pin ustidagi izoh (§17).
+ *
+ * Sahna ichida `<Html>` orqali chiziladi, shuning uchun uslub CSS'da —
+ * matn brauzer shrifti bilan har qanday masshtabda tiniq qoladi.
+ */
+.lab3d-pin-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 128px;
+  padding: 6px 10px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 9px;
+  background: rgb(12 16 22 / 94%);
+  color: #dbe3ec;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.lab3d-pin-tip strong {
+  color: #7fb0ff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lab3d-pin-tip-live {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  color: #9fe6bd;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab3d-onboarding {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(400px, calc(100% - 40px));
+  padding: 22px 24px;
+  border-radius: 18px;
+  background: rgb(22 27 34 / 96%);
+  border: 1px solid #2e3742;
+  color: #e8ecf2;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 45%);
+}
+
+.lab3d-onboarding h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.lab3d-onboarding ol {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #b8c2ce;
+}
+
+.lab3d-onboarding .lab3d-btn {
+  color: #e8ecf2;
+  border-color: #39414d;
+}
+
+.lab3d-errors {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: min(52%, 480px);
+}
+
+.lab3d-errors li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 13px;
+  margin-top: 6px;
+  border-radius: 11px;
+  background: rgb(159 40 44 / 94%);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* Ogohlantirish — xatodan farqli rangda: u ishga tushirishga to'sqinlik qilmaydi */
+.lab3d-errors li[data-kind="warning"] {
+  background: rgb(146 96 12 / 94%);
+}
+
+.lab3d-errors li[data-kind="more"] {
+  background: rgb(20 25 32 / 92%);
+  font-size: 11.5px;
+}
+
+.lab3d-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  transform: translateX(-50%);
+  padding: 9px 16px;
+  border-radius: 99px;
+  background: rgb(12 16 22 / 92%);
+  color: #eef2f7;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* ═══════════════════ Pastki qator ═══════════════════ */
+
+.lab3d-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.lab3d-status [data-state="running"] {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.lab3d-status [data-state="error"] {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.lab3d-status [data-state="clean"] {
+  color: var(--success);
+}
+
+/* Tezlik tugmalari holat qatorida — kichikroq */
+.lab3d-speed button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* ═══════════════════ Loyiha boshqaruvi ═══════════════════ */
+
+/* Tayyor sxema — oddiy komponentdan ajralib tursin */
+.lab3d-template {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+
+.lab3d-template .lab3d-part-name {
+  font-weight: 600;
+}
+
+.lab3d-project {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lab3d-project-name,
+.lab3d-project-open {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  min-width: 0;
+}
+
+.lab3d-project-name {
+  width: 150px;
+  font-weight: 600;
+}
+
+/* Saqlanmagan o'zgarish — nom chetida ingichka belgi */
+.lab3d-project-name[data-dirty="yes"] {
+  border-color: var(--warning, #d98324);
+}
+
+.lab3d-project-open {
+  width: 132px;
+}
+
+.lab3d-project-name:focus-visible,
+.lab3d-project-open:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.lab3d-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ═══════════════════ Tor ekran (§35) ═══════════════════ */
+
+@media (max-width: 1100px) {
+  .lab3d-side {
+    width: 288px;
+  }
+
+  .lab3d-palette {
+    width: 200px;
+  }
+}
+
+/*
+ * Planshet va telefon: uch ustun sig'maydi, shuning uchun panellar
+ * sahna USTIDA suzadi. 3D maydon esa to'liq kenglikda qoladi — u
+ * asosiy ish joyi.
+ */
+@media (max-width: 820px) {
+  .lab3d-body {
+    flex-direction: column;
+  }
+
+  /*
+   * Ustunlar ustma-ust taxlanadi. Balandliklar YIG'INDISI 100 % dan
+   * oshmasligi shart: `.lab3d` da `overflow: hidden` bor va oshib ketgan
+   * qism ko'rinmay qolardi. Shu bois panellar ulush oladi, 3D maydon esa
+   * qolganini to'ldiradi.
+   */
+  .lab3d-palette,
+  .lab3d-side {
+    width: 100%;
+    flex: 0 1 auto;
+    border-right: 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .lab3d-palette {
+    max-height: 26%;
+  }
+
+  .lab3d-side {
+    max-height: 38%;
+  }
+
+  .lab3d-inspector {
+    max-height: 50%;
+  }
+
+  /* 3D stol qolgan joyni oladi, lekin juda ingichka bo'lib qolmaydi. */
+  .lab3d-stage {
+    flex: 1 1 auto;
+    min-height: 180px;
+  }
+
+  .lab3d-toolbar {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+}

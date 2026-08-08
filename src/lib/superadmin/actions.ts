@@ -107,15 +107,29 @@ export async function clearLearningContent(confirmText: string): Promise<Result>
     .select({ questionsBefore: sql<number>`count(*)::int` })
     .from(quizQuestion);
 
-  await db.delete(quizAttempt);
-  await db.delete(quizQuestion);
-  await db.delete(lessonNote);
-  await db.delete(lessonProgress);
-  await db.delete(enrollment);
-  await db.delete(certificate).where(sql`${certificate.courseId} is not null`);
-  await db.delete(lesson);
-  await db.delete(course);
-  await db.delete(certificate).where(sql`${certificate.courseId} is null`);
+  /*
+   * To'qqizala o'chirish BITTA tranzaksiyada.
+   *
+   * Ilgari ular ketma-ket alohida so'rovlar edi va o'rtasida uzilish
+   * bo'lsa baza aralash holatda qolardi: darslar va kurslar joyida,
+   * lekin hech kim ularga yozilmagan, sertifikatlarning yarmi o'chgan.
+   * Superadmin "tozalash" tugmasini bosgan, xato ko'rgan — lekin nima
+   * o'chib, nima qolganini bilmasdi.
+   *
+   * Tartib SAQLANADI: `db.batch` iboralarni ketma-ket bajaradi, ya'ni
+   * tashqi kalit bog'liqliklari buzilmaydi.
+   */
+  await db.batch([
+    db.delete(quizAttempt),
+    db.delete(quizQuestion),
+    db.delete(lessonNote),
+    db.delete(lessonProgress),
+    db.delete(enrollment),
+    db.delete(certificate).where(sql`${certificate.courseId} is not null`),
+    db.delete(lesson),
+    db.delete(course),
+    db.delete(certificate).where(sql`${certificate.courseId} is null`),
+  ]);
 
   await writeSuperadminAudit({
     actor: me,

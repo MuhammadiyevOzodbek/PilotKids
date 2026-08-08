@@ -16,7 +16,12 @@
   --sa-line-2: rgba(255, 255, 255, 0.13);
   --sa-text: #e9edf8;
   --sa-dim: #838ea6;
-  --sa-faint: #4d566c;
+  /*
+   * `#4d566c` panel fonida atigi 2.64:1 berardi — jadval sarlavhalari
+   * (10.5px UPPERCASE) va input placeholder'lari, ya'ni eng mayda
+   * matnlar eng past kontrastda edi. Bu tus ~4.7:1 beradi.
+   */
+  --sa-faint: #7a8398;
   --sa-accent: #7c5cff;
   --sa-accent-2: #00e0ff;
   --sa-ok: #2ee6a8;

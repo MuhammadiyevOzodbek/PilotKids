@@ -120,6 +120,16 @@ export const auth = betterAuth({
   // Better Auth ichki rate limiter — brute-force'ga qarshi birinchi qator.
   rateLimit: {
     enabled: true,
+    /*
+     * Hisoblagich BAZADA saqlanadi, jarayon xotirasida emas.
+     *
+     * Standart qiymat `memory`, ya'ni har bir server jarayoni o'z
+     * hisobini yuritadi. Serverless yoki bir nechta instansiyali
+     * deploy'da bu cheklovni instansiyalar soniga ko'paytirib yuborardi:
+     * hujumchining so'rovlari turli jarayonlarga tushib, 5 daqiqada 8 ta
+     * emas, ancha ko'p parol urinishi o'tib ketardi.
+     */
+    storage: "database",
     window: 60,
     max: 30,
     customRules: {

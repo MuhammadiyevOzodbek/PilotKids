@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { t, type BlockWorkspace } from "@/lib/virtual-lab/blocks";
+import { t, type BlockIssueSeverity } from "@/lib/virtual-lab/blocks";
 import type { Circuit } from "@/lib/virtual-lab/types";
 import { ZOOM_MAX, ZOOM_MIN, useBlocksStore } from "@/stores/blocks";
-import { BlockEditorProvider, BlockView } from "./block-view";
+import { BlockEditorProvider, BlockStateProvider, BlockView } from "./block-view";
 import { elementOf, findDropTarget, toWorkspacePoint, type DropTarget } from "./block-dnd";
 
 /**
@@ -21,6 +21,8 @@ import { elementOf, findDropTarget, toWorkspacePoint, type DropTarget } from "./
 const DRAG_THRESHOLD = 4;
 /** Palitradan tashlanganda blok kursorning shu nuqtasida ushlanadi. */
 const PALETTE_GRAB = { x: 24, y: 14 };
+/** «Sig'dirish» dan keyin bloklar atrofida qoladigan bo'sh joy (px). */
+const FIT_PADDING = 40;
 
 interface DragState {
   id: string;
@@ -36,6 +38,8 @@ interface DragState {
 export interface BlockCanvasApi {
   /** Palitradan yangi blok sudralib chiqarilganda chaqiriladi. */
   startPaletteDrag: (type: string, event: React.PointerEvent) => void;
+  /** Hamma blok ekranga sig'adigan masshtab va surilishni tanlaydi (§31). */
+  fitToBlocks: () => void;
 }
 
 /** Nuqta palitra ustidami — sudralgan blok shu yerga tashlansa o'chadi. */
@@ -46,14 +50,19 @@ function isOverPalette(clientX: number, clientY: number): boolean {
 export function BlockCanvas({
   circuit,
   apiRef,
+  issues,
 }: {
   circuit: Circuit;
   apiRef?: React.RefObject<BlockCanvasApi | null>;
+  /** Blok id → eng jiddiy muammo darajasi (§34). */
+  issues: Map<string, BlockIssueSeverity>;
 }) {
   const workspace = useBlocksStore((s) => s.workspace);
   const zoom = useBlocksStore((s) => s.zoom);
   const pan = useBlocksStore((s) => s.pan);
   const selectedId = useBlocksStore((s) => s.selectedId);
+  const locale = useBlocksStore((s) => s.locale);
+  const level = useBlocksStore((s) => s.level);
 
   const select = useBlocksStore((s) => s.select);
   const setZoom = useBlocksStore((s) => s.setZoom);
@@ -61,6 +70,7 @@ export function BlockCanvas({
   const addBlock = useBlocksStore((s) => s.addBlock);
   const beginDrag = useBlocksStore((s) => s.beginDrag);
   const endDrag = useBlocksStore((s) => s.endDrag);
+  const setDragging = useBlocksStore((s) => s.setDragging);
   const detach = useBlocksStore((s) => s.detach);
   const moveTop = useBlocksStore((s) => s.moveTop);
   const attachAfter = useBlocksStore((s) => s.attachAfter);
@@ -77,8 +87,15 @@ export function BlockCanvas({
     startY: number;
     origin: { x: number; y: number };
   } | null>(null);
+  /**
+   * Ekranga tekkan barmoqlar.
+   *
+   * Ikki barmoq bo'lganda ular orasidagi masofa masshtabga aylanadi
+   * (§31). Bitta barmoq — oddiy surish, ya'ni alohida kod kerak emas.
+   */
+  const touchRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
 
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   /**
    * Ulanish joyi ko'rsatkichi — TAYYOR koordinatalarda.
    *
@@ -152,14 +169,74 @@ export function BlockCanvas({
         startClientY: event.clientY,
         started: true,
       };
-      setDraggingId(id);
+      setDragging(id);
     },
-    [zoom, pan, addBlock, beginDrag, endDrag],
+    [zoom, pan, addBlock, beginDrag, endDrag, setDragging],
   );
 
+  /* ─────────────────── Bloklarga sig'dirish (§31) ─────────────────── */
+
+  /**
+   * Ildiz bloklarning DOM o'lchamlaridan chegara to'rtburchagini hisoblaydi.
+   *
+   * O'lchamni oldindan bilib bo'lmaydi: blokning kengligi yorliq matniga,
+   * ya'ni tilga bog'liq (§41). Shuning uchun brauzerdan so'raladi va
+   * joriy masshtabga bo'linadi — natija ish maydoni birligida chiqadi.
+   */
+  const fitToBlocks = useCallback(() => {
+    const surface = surfaceRef.current;
+    const state = useBlocksStore.getState();
+    const ids = Object.keys(state.workspace.tops).filter((id) => state.workspace.blocks[id]);
+    if (!surface || ids.length === 0) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const id of ids) {
+      const at = state.workspace.tops[id]!;
+      const element = elementOf("block", id);
+      const rect = element?.getBoundingClientRect();
+      const width = rect ? rect.width / state.zoom : 160;
+      const height = rect ? rect.height / state.zoom : 40;
+      minX = Math.min(minX, at.x);
+      minY = Math.min(minY, at.y);
+      maxX = Math.max(maxX, at.x + width);
+      maxY = Math.max(maxY, at.y + height);
+    }
+
+    const view = surface.getBoundingClientRect();
+    const boundsWidth = Math.max(1, maxX - minX);
+    const boundsHeight = Math.max(1, maxY - minY);
+
+    // 1 dan katta masshtab qilinmaydi: bitta blokni ekranga cho'zish
+    // «sig'dirish» emas, kattalashtirish bo'lardi.
+    const nextZoom = Math.min(
+      1,
+      Math.max(
+        ZOOM_MIN,
+        Math.min(
+          (view.width - FIT_PADDING * 2) / boundsWidth,
+          (view.height - FIT_PADDING * 2) / boundsHeight,
+        ),
+      ),
+    );
+
+    setZoom(nextZoom);
+    setPan({
+      x: (view.width - boundsWidth * nextZoom) / 2 - minX * nextZoom,
+      y: (view.height - boundsHeight * nextZoom) / 2 - minY * nextZoom,
+    });
+  }, [setZoom, setPan]);
+
   useEffect(() => {
-    if (apiRef) apiRef.current = { startPaletteDrag };
-  }, [apiRef, startPaletteDrag]);
+    if (apiRef) apiRef.current = { startPaletteDrag, fitToBlocks };
+  }, [apiRef, startPaletteDrag, fitToBlocks]);
 
   /* ─────────────────── Sudrash va tashlash ─────────────────── */
 
@@ -167,6 +244,16 @@ export function BlockCanvas({
     const onMove = (event: PointerEvent) => {
       const surface = surfaceRef.current;
       if (!surface) return;
+
+      // Ikki barmoq — masshtab (§31).
+      const touches = touchRef.current;
+      if (touches.has(event.pointerId)) {
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touches.size === 2) {
+          applyPinch(surface, touches, pinchRef, setZoom, setPan);
+          return;
+        }
+      }
 
       const panning = panRef.current;
       if (panning && panning.pointerId === event.pointerId) {
@@ -189,7 +276,7 @@ export function BlockCanvas({
         if (moved < DRAG_THRESHOLD) return;
         drag.started = true;
         beginDrag();
-        setDraggingId(drag.id);
+        setDragging(drag.id);
       }
 
       const pointer = toWorkspacePoint(surface, event.clientX, event.clientY, zoom, pan);
@@ -207,6 +294,8 @@ export function BlockCanvas({
     };
 
     const onUp = (event: PointerEvent) => {
+      touchRef.current.delete(event.pointerId);
+      if (touchRef.current.size < 2) pinchRef.current = null;
       if (panRef.current?.pointerId === event.pointerId) panRef.current = null;
 
       const drag = dragRef.current;
@@ -236,7 +325,7 @@ export function BlockCanvas({
       }
 
       endDrag();
-      setDraggingId(null);
+      setDragging(null);
       setDropHint(null);
       setOverTrash(false);
     };
@@ -253,6 +342,7 @@ export function BlockCanvas({
     zoom,
     pan,
     setPan,
+    setZoom,
     beginDrag,
     endDrag,
     detach,
@@ -262,13 +352,25 @@ export function BlockCanvas({
     attachValue,
     remove,
     select,
+    setDragging,
   ]);
 
   /* ─────────────────── Surish va masshtab ─────────────────── */
 
   const startPan = useCallback(
     (event: React.PointerEvent) => {
-      if (event.button !== 0) return;
+      if (event.pointerType === "touch") {
+        touchRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        // Ikkinchi barmoq tushdi — surish to'xtaydi, masshtab boshlanadi.
+        if (touchRef.current.size >= 2) {
+          panRef.current = null;
+          pinchRef.current = null;
+          return;
+        }
+      } else if (event.button !== 0) {
+        return;
+      }
+
       select(null);
       panRef.current = {
         pointerId: event.pointerId,
@@ -308,40 +410,76 @@ export function BlockCanvas({
     [zoom, pan, setPan, setZoom],
   );
 
+  /* ─────────────────── Klaviatura bilan ko'chirish (§40) ─────────────────── */
+
+  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
+    const state = useBlocksStore.getState();
+    const id = state.selectedId;
+    if (!id) return;
+
+    const at = state.workspace.tops[id];
+    if (!at) return;
+
+    // Shift bilan — yirik qadam: katta ish maydonida tez ko'chirish uchun.
+    const step = event.shiftKey ? 40 : 8;
+    const delta: Record<string, [number, number]> = {
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+    };
+    const move = delta[event.key];
+    if (!move) return;
+
+    event.preventDefault();
+    state.moveTop(id, at.x + move[0], at.y + move[1], true);
+  }, []);
+
   const editorContext = useMemo(
     () => ({
-      workspace,
       circuit,
-      selectedId,
-      draggingId,
+      locale,
+      level,
       onGrab: grab,
       onSelect: select,
       onFieldChange: changeField,
     }),
-    [workspace, circuit, selectedId, draggingId, grab, select, changeField],
+    [circuit, locale, level, grab, select, changeField],
+  );
+
+  const blockState = useMemo(
+    () => ({ workspace, selectedId, issues }),
+    [workspace, selectedId, issues],
   );
 
   return (
     <div
-      className={`blk-canvas${overTrash ? "blk-canvas-trash" : ""}`}
+      className={["blk-canvas", overTrash && "blk-canvas-trash"].filter(Boolean).join(" ")}
       ref={surfaceRef}
       onPointerDown={startPan}
       onWheel={onWheel}
+      onKeyDown={onKeyDown}
+      // Ish maydoni fokus oladi — o'q tugmalari bilan blok ko'chirish uchun.
+      tabIndex={0}
+      role="application"
+      aria-label={t("blocks.ui.canvas", undefined, locale)}
     >
       <div
         className="blk-surface"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
       >
         <BlockEditorProvider value={editorContext}>
-          {topIds.map((id) => (
-            <div
-              key={id}
-              className="blk-top"
-              style={{ left: workspace.tops[id]!.x, top: workspace.tops[id]!.y }}
-            >
-              <BlockView id={id} />
-            </div>
-          ))}
+          <BlockStateProvider value={blockState}>
+            {topIds.map((id) => (
+              <div
+                key={id}
+                className="blk-top"
+                style={{ left: workspace.tops[id]!.x, top: workspace.tops[id]!.y }}
+              >
+                <BlockView id={id} />
+              </div>
+            ))}
+          </BlockStateProvider>
         </BlockEditorProvider>
 
         {dropHint && (
@@ -352,14 +490,52 @@ export function BlockCanvas({
         )}
       </div>
 
-      {isEmpty(workspace) && <p className="blk-empty">{t("blocks.ui.emptyWorkspace")}</p>}
-      {overTrash && <div className="blk-trash-hint">{t("blocks.ui.deleteHint")}</div>}
+      {topIds.length === 0 && (
+        <p className="blk-empty">{t("blocks.ui.emptyWorkspace", undefined, locale)}</p>
+      )}
+      {overTrash && (
+        <div className="blk-trash-hint">{t("blocks.ui.deleteHint", undefined, locale)}</div>
+      )}
     </div>
   );
 }
 
-function isEmpty(workspace: BlockWorkspace): boolean {
-  return Object.keys(workspace.blocks).length === 0;
+/* ─────────────────────────── Masshtab (ikki barmoq) ─────────────────────────── */
+
+function applyPinch(
+  surface: HTMLDivElement,
+  touches: Map<number, { x: number; y: number }>,
+  pinchRef: React.RefObject<{ distance: number; zoom: number } | null>,
+  setZoom: (zoom: number) => void,
+  setPan: (pan: { x: number; y: number }) => void,
+): void {
+  const [a, b] = [...touches.values()];
+  if (!a || !b) return;
+
+  const distance = Math.hypot(a.x - b.x, a.y - b.y);
+  const state = useBlocksStore.getState();
+
+  // Birinchi kadr — faqat boshlang'ich masofani eslab qolamiz.
+  if (!pinchRef.current) {
+    pinchRef.current = { distance, zoom: state.zoom };
+    return;
+  }
+  if (pinchRef.current.distance < 1) return;
+
+  const nextZoom = Math.max(
+    ZOOM_MIN,
+    Math.min(ZOOM_MAX, (pinchRef.current.zoom * distance) / pinchRef.current.distance),
+  );
+
+  // Barmoqlar orasidagi nuqta joyida qolsin.
+  const rect = surface.getBoundingClientRect();
+  const cx = (a.x + b.x) / 2 - rect.left;
+  const cy = (a.y + b.y) / 2 - rect.top;
+  setPan({
+    x: cx - ((cx - state.pan.x) / state.zoom) * nextZoom,
+    y: cy - ((cy - state.pan.y) / state.zoom) * nextZoom,
+  });
+  setZoom(nextZoom);
 }
 
 /** Ulanish joyi ko'rsatkichining ish maydonidagi o'rni (DOM o'lchamlaridan). */
