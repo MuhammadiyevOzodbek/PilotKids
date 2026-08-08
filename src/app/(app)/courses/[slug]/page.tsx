@@ -19,7 +19,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const course = await getCourseBySlug(slug);
   return {
-    title: course ? `${course.title} — PilotKids` : "Kurs topilmadi — PilotKids",
+    title: course ? `${course.title}` : "Kurs topilmadi",
     description: course?.description ?? undefined,
   };
 }
@@ -346,6 +346,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
               courseId={course.id}
               enrolled={enrolled}
               continueHref={nextLesson ? `/lesson/${nextLesson.id}` : null}
+              lessonCount={lessons.length}
             />
 
             <div style={{ height: 1, background: "var(--border)", margin: "22px 0" }} />

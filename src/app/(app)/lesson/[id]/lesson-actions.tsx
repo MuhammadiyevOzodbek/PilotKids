@@ -74,7 +74,7 @@ export function CompleteButton({
               borderRadius: 14,
               border: "none",
               background: "var(--primary)",
-              color: "#fff",
+              color: "var(--on-primary)",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: "15.5px",
@@ -126,7 +126,7 @@ export function CompleteButton({
       {error && (
         <p
           role="alert"
-          style={{ color: "#E5484D", fontWeight: 600, fontSize: 14, margin: "14px 0 0" }}
+          style={{ color: "var(--danger)", fontWeight: 600, fontSize: 14, margin: "14px 0 0" }}
         >
           {error}
         </p>
@@ -218,7 +218,7 @@ export function LessonNote({ lessonId, initial }: { lessonId: string; initial: s
           </span>
         )}
         {error && (
-          <span style={{ color: "#E5484D", fontSize: 14.5, fontWeight: 600 }}>{error}</span>
+          <span style={{ color: "var(--danger)", fontSize: 14.5, fontWeight: 600 }}>{error}</span>
         )}
       </div>
     </div>

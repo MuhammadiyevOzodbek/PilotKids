@@ -191,7 +191,7 @@ export function PhoneLoginForm({ next, devHint = false }: { next: string; devHin
 
   if (!sent) {
     return (
-      <form onSubmit={send}>
+      <form noValidate onSubmit={send}>
         <FormError>{error}</FormError>
         <Field
           label="Telefon raqami"
@@ -211,7 +211,7 @@ export function PhoneLoginForm({ next, devHint = false }: { next: string; devHin
   }
 
   return (
-    <form onSubmit={verify}>
+    <form noValidate onSubmit={verify}>
       <FormError>{error}</FormError>
       <DevCodeHint show={devHint} />
       <Field
@@ -312,7 +312,7 @@ export function EmailOtpForm({ next, devHint = false }: { next: string; devHint?
 
   if (!sent) {
     return (
-      <form onSubmit={send}>
+      <form noValidate onSubmit={send}>
         <FormError>{error}</FormError>
         <Field
           label="Email manzil"
@@ -331,7 +331,7 @@ export function EmailOtpForm({ next, devHint = false }: { next: string; devHint?
   }
 
   return (
-    <form onSubmit={verify}>
+    <form noValidate onSubmit={verify}>
       <FormError>{error}</FormError>
       <DevCodeHint show={devHint} />
       <Field

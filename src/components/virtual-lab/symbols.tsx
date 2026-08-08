@@ -1,6 +1,17 @@
 import { formatOhms, resistorOhms } from "@/lib/virtual-lab/catalog";
 import type { ComponentRuntimeState } from "@/lib/virtual-lab/types";
 import { BatterySymbol } from "./battery";
+import {
+  CapacitorSymbol,
+  DiodeSymbol,
+  JoystickSymbol,
+  KeypadSymbol,
+  L298nSymbol,
+  NpnTransistorSymbol,
+  SevenSegmentSymbol,
+  ShiftRegisterSymbol,
+} from "./symbols-modules";
+import { BreadboardSymbol } from "./breadboard";
 import { ArduinoBoardSvg, type BoardDetail, type BoardPinState } from "./uno";
 
 /**
@@ -43,6 +54,14 @@ export interface SymbolProps {
   hasError?: boolean;
   /** Plataning RESET tugmasi bosilganda. */
   onReset?: () => void;
+  /**
+   * Chizma ichidan sozlamani o'zgartirish.
+   *
+   * Klaviatura tugmalari uchun kerak: bola tugmani sichqoncha bilan bosib
+   * turgan paytda kontakt yopiq bo'lishi kerak, ya'ni holat inspektordan
+   * emas, chizmaning o'zidan keladi.
+   */
+  onSetting?: (key: string, value: string | number | boolean) => void;
 }
 
 /* ─────────────────────────── PilotKids UNO ─────────────────────────── */
@@ -438,30 +457,203 @@ function DcMotor({ width, height, runtime }: SymbolProps) {
 
 /* ─────────────────────────── Breadboard ─────────────────────────── */
 
-function Breadboard({ width, height }: SymbolProps) {
-  const holes = [];
-  for (let row = 0; row < 6; row++) {
-    for (let col = 0; col < 24; col++) {
-      holes.push(
-        <rect
-          key={`${row}-${col}`}
-          x={14 + col * 11.5}
-          y={row < 3 ? 18 + row * 11 : 60 + (row - 3) * 11}
-          width="4"
-          height="4"
-          rx="1"
-          fill="#9aa4b2"
-        />,
-      );
-    }
-  }
+/** Chizma alohida modulda — teshiklar geometriyasi u yerda. */
+function Breadboard({ width, height, showDetail }: SymbolProps) {
+  return <BreadboardSymbol width={width} height={height} showDetail={showDetail} />;
+}
+
+/* ─────────────────────────── DHT11 ─────────────────────────── */
+
+function Dht11({ width, height, settings, showDetail = true }: SymbolProps) {
+  const t = typeof settings.temperature === "number" ? settings.temperature : 22;
+  const h = typeof settings.humidity === "number" ? settings.humidity : 55;
   return (
-    <svg width={width} height={height} viewBox="0 0 300 120" aria-hidden>
-      <rect x="2" y="2" width="296" height="116" rx="6" fill="#eef1f6" />
-      <rect x="10" y="52" width="280" height="14" fill="#dde3ec" />
-      <rect x="6" y="8" width="288" height="3" fill="#e5484d" opacity="0.7" />
-      <rect x="6" y="109" width="288" height="3" fill="#2f6bf3" opacity="0.7" />
-      {holes}
+    <svg width={width} height={height} viewBox="0 0 80 90" aria-label="DHT11 sensori">
+      {/* Ko'k korpus va old tomondagi panjara — haqiqiy DHT11 shunday */}
+      <rect x="12" y="8" width="56" height="54" rx="4" fill="#2f6bf3" />
+      <rect x="12" y="8" width="56" height="6" rx="3" fill="#5a91ff" opacity="0.6" />
+      {[0, 1, 2].map((r) =>
+        [0, 1, 2, 3, 4].map((c) => (
+          <rect
+            key={`${r}-${c}`}
+            x={20 + c * 9}
+            y={18 + r * 9}
+            width="5"
+            height="5"
+            rx="1"
+            fill="#14306b"
+          />
+        )),
+      )}
+      {/*
+       * Joriy qiymat korpusning o'zida ko'rinadi. Ilgari u oyoqlar ustiga
+       * tushib, o'qilmay qolardi.
+       */}
+      {showDetail && (
+        <>
+          <rect x="17" y="45" width="46" height="13" rx="3" fill="#e8eefb" />
+          <text
+            x="40"
+            y="55"
+            textAnchor="middle"
+            fontFamily="ui-monospace, monospace"
+            fontSize="10"
+            fontWeight="700"
+            fill="#14306b"
+          >
+            {Math.round(t)}° {Math.round(h)}%
+          </text>
+        </>
+      )}
+      {/* Oyoqlar — markazlari pin nuqtalariga (0.2 / 0.5 / 0.8) mos */}
+      <rect x="14.5" y="62" width="3" height="16" fill="#9aa4b2" />
+      <rect x="38.5" y="62" width="3" height="16" fill="#9aa4b2" />
+      <rect x="62.5" y="62" width="3" height="16" fill="#9aa4b2" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────── LCD 16×2 ─────────────────────────── */
+
+function Lcd1602({ width, height, settings, runtime }: SymbolProps) {
+  const backlight = settings.backlight !== false;
+  const powered = runtime?.powered === true;
+  const lit = backlight && powered;
+  const lines = runtime?.lines ?? [];
+
+  return (
+    <svg
+      className="vlab-lcd"
+      data-lit={lit ? "true" : "false"}
+      width={width}
+      height={height}
+      viewBox="0 0 240 120"
+      role="img"
+      aria-label={
+        lines.some((l) => l.trim()) ? `LCD: ${lines.join(" / ").trim()}` : "LCD displey (bo'sh)"
+      }
+    >
+      {/* Yashil plata */}
+      <rect x="2" y="2" width="236" height="102" rx="6" fill="var(--lcd-board)" />
+      {/* Ekran oynasi */}
+      <rect
+        x="18"
+        y="16"
+        width="204"
+        height="70"
+        rx="3"
+        fill={lit ? "var(--lcd-screen-on)" : "var(--lcd-screen-off)"}
+      />
+      {/*
+       * Belgilar monospace shriftda va aniq qadam bilan chiziladi:
+       * `setCursor` bilan qo'yilgan probel ham o'z o'rnini egallashi kerak.
+       */}
+      {lit &&
+        LCD_LINES.map((row) => {
+          const text = lines[row] ?? "";
+          return [...text].map((char, col) =>
+            char === " " ? null : (
+              <text
+                key={`${row}-${col}`}
+                x={26 + col * 12.2}
+                y={44 + row * 28}
+                fontFamily="ui-monospace, SFMono-Regular, monospace"
+                fontSize="17"
+                fontWeight="600"
+                fill="var(--lcd-text)"
+              >
+                {char}
+              </text>
+            ),
+          );
+        })}
+      {/* Ulanish pinlari */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <rect key={i} x={17 + i * 28.8} y="104" width="4" height="14" fill="#9aa4b2" />
+      ))}
+    </svg>
+  );
+}
+
+const LCD_LINES = [0, 1];
+
+/* ─────────────────────────── Rele ─────────────────────────── */
+
+function Relay({ width, height, runtime }: SymbolProps) {
+  const on = runtime?.active === true;
+  return (
+    <svg
+      className="vlab-relay"
+      data-on={on ? "true" : "false"}
+      width={width}
+      height={height}
+      viewBox="0 0 140 110"
+      role="img"
+      aria-label={on ? "Rele: COM–NO ulangan" : "Rele: COM–NC ulangan"}
+    >
+      {/* Modul platasi */}
+      <rect x="4" y="14" width="132" height="82" rx="5" fill="#1d5c3a" />
+
+      {/*
+       * Kalit sxemasi tepada, aynan o'z pinlari ostida: NC chapda (28),
+       * COM o'rtada (70), NO o'ngda (112). Tilcha chulg'am tortganda
+       * NC dan NO ga o'tadi — bola qaysi kontakt ulanganini ko'rib turadi.
+       * Farq faqat rangda emas, joylashuvda ham.
+       */}
+      <g stroke="var(--relay-contact)" strokeWidth="2.5" strokeLinecap="round" fill="none">
+        <path d="M28 18 L28 30" />
+        <path d="M112 18 L112 30" />
+        <path d="M70 18 L70 44" />
+        <circle cx="28" cy="31" r="3.5" fill="var(--relay-contact)" stroke="none" />
+        <circle cx="112" cy="31" r="3.5" fill="var(--relay-contact)" stroke="none" />
+        <circle cx="70" cy="44" r="4" fill="var(--relay-contact)" stroke="none" />
+        <path d={on ? "M70 44 L110 33" : "M70 44 L30 33"} />
+      </g>
+      {/* Kontakt yozuvlari — rang ko'rmasa ham o'qib bilsin */}
+      <g
+        fill="#a7d3bb"
+        fontFamily="var(--font-sans), system-ui, sans-serif"
+        fontSize="8"
+        fontWeight="700"
+        textAnchor="middle"
+      >
+        <text x="28" y="45">
+          NC
+        </text>
+        <text x="112" y="45">
+          NO
+        </text>
+        <text x="70" y="58">
+          COM
+        </text>
+      </g>
+
+      {/* Chulg'am korpusi (past) */}
+      <rect x="18" y="60" width="76" height="30" rx="3" fill="#2f6bf3" />
+      <rect x="18" y="60" width="76" height="6" rx="3" fill="#5a91ff" opacity="0.6" />
+      <text
+        x="56"
+        y="82"
+        textAnchor="middle"
+        fontFamily="var(--font-sans), system-ui, sans-serif"
+        fontSize="12"
+        fontWeight="800"
+        fill="#dbe7ff"
+      >
+        RELE
+      </text>
+
+      {/* Ishlash indikatori */}
+      <circle className="vlab-relay-led" cx="118" cy="80" r="5" />
+
+      {/* Boshqaruv pinlari (past): 0.14 / 0.36 / 0.58 nisbatlariga mos */}
+      {[17.6, 48.4, 79.2].map((x) => (
+        <rect key={`c-${x}`} x={x} y="96" width="4" height="12" fill="#9aa4b2" />
+      ))}
+      {/* Kommutatsiya pinlari (tepa): 0.2 / 0.5 / 0.8 */}
+      {[26, 68, 110].map((x) => (
+        <rect key={`s-${x}`} x={x} y="2" width="4" height="12" fill="#9aa4b2" />
+      ))}
     </svg>
   );
 }
@@ -579,9 +771,21 @@ const SYMBOLS: Record<string, (p: SymbolProps) => React.ReactElement> = {
   servo: Servo,
   "dc-motor": DcMotor,
   battery: Battery,
+  dht11: Dht11,
+  lcd1602: Lcd1602,
+  relay: Relay,
   "power-5v": Power5V,
   ground: Ground,
   multimeter: Multimeter,
+  // Faza B — alohida modulda chizilgan.
+  diode: DiodeSymbol,
+  capacitor: CapacitorSymbol,
+  "npn-transistor": NpnTransistorSymbol,
+  joystick: JoystickSymbol,
+  "seven-segment": SevenSegmentSymbol,
+  "shift-register": ShiftRegisterSymbol,
+  l298n: L298nSymbol,
+  "keypad-4x4": KeypadSymbol,
 };
 
 /** Komponent turiga mos SVG. Topilmasa — oddiy quti. */

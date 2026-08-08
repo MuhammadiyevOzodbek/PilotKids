@@ -8,8 +8,8 @@ import { LabSection } from "../lab-section";
 
 export async function generateMetadata({ params }: { params: Promise<{ kind: string }> }) {
   const { kind } = await params;
-  if (!isLabKindSlug(kind)) return { title: "Laboratoriya — PilotKids" };
-  return { title: `${LAB_KINDS[kind].title} — PilotKids` };
+  if (!isLabKindSlug(kind)) return { title: "Laboratoriya" };
+  return { title: `${LAB_KINDS[kind].title}` };
 }
 
 /** Tanlangan turdagi laboratoriya loyihalari. */

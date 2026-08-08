@@ -111,6 +111,12 @@ export function AdminsView({ admins }: { admins: AdminRow[] }) {
           icon="bolt"
           tint="var(--sa-accent-2)"
         />
+        <Stat
+          label="Hozir ochiq sessiya"
+          value={String(admins.reduce((s, a) => s + a.liveSessions, 0))}
+          icon="devices"
+          tint="var(--sa-ok)"
+        />
       </div>
 
       <Panel

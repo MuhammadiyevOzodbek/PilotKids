@@ -1,0 +1,663 @@
+/**
+ * Blokli dasturlash — vizual tizim.
+ *
+ * `virtual-lab.css` dagi qoidalar shu yerda ham amal qiladi: ranglar
+ * loyihaning umumiy tokenlaridan (`--surface`, `--border`, `--text`…)
+ * olinadi, shuning uchun yorug' va tungi mavzu o'z-o'zidan ishlaydi.
+ * Faqat bloklarga xos qiymatlar `--blk-*` sifatida e'lon qilinadi.
+ *
+ * Bloklar SVG emas, oddiy DOM elementlari. Shakl `border-radius` va
+ * `clip-path` bilan beriladi, o'lchamni esa brauzer hisoblaydi — yorliq
+ * tarjima qilinganda blok o'zi kengayadi.
+ */
+
+.blk-editor {
+  --blk-radius: 10px;
+  --blk-row-pad: 8px;
+  --blk-indent: 18px;
+  --blk-text: #fff;
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+}
+
+/* ═══════════════════ Kategoriya ranglari ═══════════════════ */
+
+/*
+ * Har kategoriya o'z rangida (§2), lekin ranglar loyihaning palitrasidan
+ * chetga chiqmaydi: to'yinganligi bir xil, shuning uchun ish maydoni
+ * rangli, ammo shovqinli emas.
+ */
+.blk-cat-events {
+  --blk-color: #d97706;
+}
+.blk-cat-control {
+  --blk-color: #ea8a1f;
+}
+.blk-cat-pins {
+  --blk-color: #2563eb;
+}
+.blk-cat-logic {
+  --blk-color: #0891b2;
+}
+.blk-cat-math {
+  --blk-color: #16a34a;
+}
+.blk-cat-variables {
+  --blk-color: #dc2626;
+}
+.blk-cat-sensors {
+  --blk-color: #7c3aed;
+}
+.blk-cat-output {
+  --blk-color: #db2777;
+}
+.blk-cat-motors {
+  --blk-color: #0d9488;
+}
+.blk-cat-display {
+  --blk-color: #4f46e5;
+}
+.blk-cat-serial {
+  --blk-color: #64748b;
+}
+.blk-cat-functions {
+  --blk-color: #b45309;
+}
+
+/* ═══════════════════ Asboblar paneli ═══════════════════ */
+
+.blk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--vlab-head);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.blk-modes,
+.blk-level {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.blk-modes button,
+.blk-level button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.blk-modes button + button,
+.blk-level button + button {
+  border-left: 1px solid var(--border);
+}
+
+.blk-modes button:hover,
+.blk-level button:hover {
+  background: var(--surface-2, rgb(0 0 0 / 5%));
+  color: var(--text);
+}
+
+.blk-modes button[aria-pressed="true"],
+.blk-level button[aria-pressed="true"] {
+  background: var(--primary);
+  color: #fff;
+}
+
+.blk-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.blk-zoom-value {
+  min-width: 38px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ═══════════════════ Tana ═══════════════════ */
+
+.blk-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.blk-editor[data-mode="code"] .blk-body {
+  display: block;
+}
+
+.blk-code {
+  flex: 1 1 40%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border-left: 1px solid var(--border);
+  display: flex;
+}
+
+.blk-editor[data-mode="code"] .blk-code {
+  border-left: 0;
+  height: 100%;
+}
+
+.blk-code > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ═══════════════════ Palitra ═══════════════════ */
+
+.blk-palette {
+  display: flex;
+  flex-direction: column;
+  width: 274px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  min-height: 0;
+}
+
+.blk-palette .blk-level {
+  margin: 8px;
+}
+
+.blk-palette-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.blk-cats {
+  display: flex;
+  flex-direction: column;
+  width: 116px;
+  flex-shrink: 0;
+  padding: 4px;
+  gap: 1px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+.blk-cat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.blk-cat:hover:not(:disabled) {
+  background: var(--surface-2, rgb(0 0 0 / 5%));
+}
+
+.blk-cat[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--blk-color) 16%, transparent);
+  font-weight: 600;
+}
+
+.blk-cat:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.blk-cat-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blk-color, var(--muted));
+  flex-shrink: 0;
+}
+
+.blk-drawer {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.blk-drawer-item {
+  cursor: grab;
+  /* Sudrash paytida matn belgilanib qolmasin. */
+  user-select: none;
+  touch-action: none;
+  max-width: 100%;
+}
+
+.blk-drawer-item:active {
+  cursor: grabbing;
+}
+
+/* ═══════════════════ Ish maydoni ═══════════════════ */
+
+.blk-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--bg);
+  touch-action: none;
+  cursor: grab;
+}
+
+.blk-canvas:active {
+  cursor: grabbing;
+}
+
+/* Palitra ustida — blok tashlansa o'chadi. */
+.blk-canvas-trash {
+  cursor: not-allowed;
+}
+
+.blk-surface {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  /* Bloklar maydondan tashqariga chiqsa ham ko'rinsin. */
+  overflow: visible;
+}
+
+.blk-top {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.blk-empty {
+  position: absolute;
+  inset: auto 0 auto 0;
+  top: 42%;
+  margin: 0 auto;
+  max-width: 340px;
+  padding: 0 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.blk-trash-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--danger, #dc2626);
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Ulanish joyi ko'rsatkichi. */
+.blk-drop-hint {
+  position: absolute;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+  pointer-events: none;
+}
+
+/* ═══════════════════ Blok ═══════════════════ */
+
+.blk {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--blk-color, var(--muted));
+  color: var(--blk-text);
+  border-radius: var(--blk-radius);
+  /* Soya yengil — §42: juda kuchli bo'lmasin. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  font-size: 13px;
+  line-height: 1.2;
+  user-select: none;
+  max-width: 100%;
+}
+
+.blk-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--blk-row-pad) 12px;
+  min-height: 32px;
+  cursor: grab;
+  touch-action: none;
+  flex-wrap: wrap;
+}
+
+.blk-row:active {
+  cursor: grabbing;
+}
+
+.blk-text {
+  white-space: pre-wrap;
+}
+
+/* Boshlanish bloki — tepasi yumaloq, ustiga hech narsa ulanmaydi. */
+.blk-shape-hat {
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+}
+
+.blk-shape-hat > .blk-row {
+  padding-top: 12px;
+  font-weight: 600;
+}
+
+/* Qiymat bloklari matn ichida turadi — ular oval yoki olti burchakli. */
+.blk-shape-value,
+.blk-shape-boolean {
+  display: inline-flex;
+  flex-direction: row;
+  box-shadow: none;
+  vertical-align: middle;
+}
+
+.blk-shape-value {
+  border-radius: 999px;
+}
+
+.blk-shape-boolean {
+  border-radius: 4px;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+
+.blk-shape-value > .blk-row,
+.blk-shape-boolean > .blk-row {
+  padding: 4px 12px;
+  min-height: 0;
+}
+
+.blk-selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Sudralayotgan blok biroz shaffof — ostidagi ulanish joyi ko'rinsin. */
+.blk-dragging {
+  opacity: 0.86;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 28%);
+}
+
+/* ═══════════════════ Ichki stek ═══════════════════ */
+
+.blk-substack {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  padding-left: var(--blk-indent);
+  background: var(--blk-color, var(--muted));
+}
+
+.blk-substack-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 26px;
+  padding: 2px 0 2px 2px;
+  border-left: 3px solid color-mix(in srgb, #000 18%, transparent);
+}
+
+.blk-substack-empty {
+  width: 92px;
+  height: 22px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #000 16%, transparent);
+}
+
+.blk-substack-foot {
+  height: 10px;
+  margin-left: calc(var(--blk-indent) * -1);
+  border-bottom-left-radius: var(--blk-radius);
+  border-bottom-right-radius: var(--blk-radius);
+}
+
+/* ═══════════════════ Uyalar ═══════════════════ */
+
+.blk-field {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 6px;
+  min-width: 0;
+  max-width: 160px;
+}
+
+.blk-field:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.blk-select {
+  padding-right: 4px;
+  cursor: pointer;
+}
+
+/* Sxemadan yo'qolgan komponentga ishora qilayotgan uya (§33). */
+.blk-field-missing {
+  background: #fee2e2;
+  color: #991b1b;
+  box-shadow: inset 0 0 0 2px #dc2626;
+}
+
+.blk-num {
+  width: 62px;
+  text-align: center;
+}
+
+.blk-textfield {
+  width: 116px;
+}
+
+.blk-input {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 999px;
+}
+
+.blk-input-empty {
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 22%, transparent);
+}
+
+/* Palitradagi namunada uyalar oddiy yorliq — ular tahrirlanmaydi. */
+.blk-select-static,
+.blk-num-static {
+  display: inline-block;
+  background: #fff;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 12px;
+}
+
+.blk-preview {
+  cursor: grab;
+}
+
+.blk-preview .blk-row {
+  cursor: inherit;
+}
+
+/* ═══════════════════ Ogohlantirishlar ═══════════════════ */
+
+.blk-warnings {
+  margin: 0;
+  padding: 8px 14px;
+  list-style: none;
+  max-height: 96px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, #f59e0b 12%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.blk-warnings li + li {
+  margin-top: 4px;
+}
+
+/* ═══════════════════ Tasdiqlash ═══════════════════ */
+
+.blk-confirm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  max-width: 380px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--vlab-radius, 12px);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 26%);
+}
+
+.blk-confirm p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.blk-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.blk-confirm-actions button {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.blk-confirm-ok {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* ═══════════════════ Ish stoliga o'rnashish ═══════════════════ */
+
+/*
+ * Dasturlash ko'rinishida uch ustunli tartib bitta ustunga aylanadi.
+ *
+ * Sabab: blok muharririning O'Z uch qismi bor (kategoriyalar, ish maydoni,
+ * kod). Uni 392px lik yon ustunga siqish palitrani ham, ish maydonini ham
+ * ishlatib bo'lmaydigan qilardi.
+ */
+.vlab-body[data-view="program"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Yuqori paneldagi «Sxema ↔ Dasturlash» tanlagichi. */
+.vlab-view-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.vlab-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vlab-view-switch button + button {
+  border-left: 1px solid var(--border);
+}
+
+.vlab-view-switch button:hover {
+  color: var(--text);
+}
+
+.vlab-view-switch button[aria-pressed="true"] {
+  background: var(--primary);
+  color: #fff;
+}
+
+.vlab-program {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.vlab-program > .blk-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ═══════════════════ Tor ekran ═══════════════════ */
+
+@media (max-width: 900px) {
+  .blk-palette {
+    width: 210px;
+  }
+
+  .blk-cats {
+    width: 96px;
+  }
+}

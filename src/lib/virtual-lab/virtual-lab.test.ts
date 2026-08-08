@@ -8,12 +8,17 @@ import {
   BATTERY_DEFAULT_VOLTAGE,
   BATTERY_PRESETS,
   CATALOG,
+  DHT11_RANGE,
+  LCD_COLUMNS,
   RESISTOR_PRESETS,
   batteryVoltage,
   formatOhms,
+  getDefinition,
   resistorOhms,
 } from "./catalog";
 import { boardPinFor, buildNetlist, netFor, resistanceToSource, supplyVoltage } from "./netlist";
+import { solveCircuit } from "./solver";
+import { BB_VIEWBOX, breadboardHoles } from "./breadboard-layout";
 import { pinPoint } from "./geometry";
 import {
   UNO_BOARD,
@@ -793,7 +798,8 @@ describe("simulyator", () => {
     const issues = validateCircuit(circuit);
     expect(sim.getLogs().some((l) => l.text === "0")).toBe(true);
     expect(issues.some((i) => i.message.includes("VCC/5V"))).toBe(true);
-    expect(issues.some((i) => i.message.includes("GND pini"))).toBe(true);
+    // Xabar matni aniqlashtirildi: endi natijasi ham aytiladi.
+    expect(issues.some((i) => i.message.includes("yerga ulanmagan"))).toBe(true);
   });
 
   it("yordamchi funksiyani bajaradi", () => {
@@ -3269,7 +3275,15 @@ describe("yangi komponentlar", () => {
     sim.advance(20);
     const motor = sim.getRuntimeState().mot;
     expect(motor?.active).toBe(true);
-    expect(motor?.speed).toBeGreaterThan(0.9);
+    /*
+     * Aylanadi, lekin to'liq tezlikda EMAS. Arduino pinining ichki
+     * qarshiligi (~25 Ω) motorning qarshiligi bilan bir tartibda, shuning
+     * uchun kuchlanishning bir qismi pinning o'zida yo'qoladi. Aynan shu
+     * sabab quyidagi "motor drayveri ishlating" ogohlantirishini keltirib
+     * chiqaradi — endi ogohlantirish ham, raqam ham bir xil narsani aytadi.
+     */
+    expect(motor?.speed).toBeGreaterThan(0.3);
+    expect(motor?.speed).toBeLessThan(0.9);
 
     const issues = validateCircuit(circuit);
     expect(
@@ -3299,5 +3313,734 @@ describe("canvas geometriyasi", () => {
     expect(normal.y).toBeCloseTo(76);
     expect(rotated.x).toBeCloseTo(40.8);
     expect(rotated.y).toBeCloseTo(4);
+  });
+});
+
+/* ═══════════════════ Faza A — komponent kutubxonasi ═══════════════════ */
+
+/** Kod bilan ishlaydigan sxemani bir necha kadr davomida yuritadi. */
+function runSketch(circuit: Circuit, code: string, ms = 60): Simulator {
+  const parsed = parseSketch(code);
+  if (!parsed.ok) {
+    throw new Error(`kod tahlil qilinmadi: ${parsed.errors.map((e) => e.message).join("; ")}`);
+  }
+  const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: {} });
+  sim.start();
+  sim.advance(ms);
+  return sim;
+}
+
+/** Komponentni Arduino'ning 5V va GND piniga ulaydigan ikkita sim. */
+function powerWires(nodeId: string): Circuit["wires"] {
+  return [
+    {
+      id: `${nodeId}-v`,
+      from: { nodeId, pinId: "vcc" },
+      to: { nodeId: "uno", pinId: "5V" },
+      color: "red",
+    },
+    {
+      id: `${nodeId}-g`,
+      from: { nodeId, pinId: "gnd" },
+      to: { nodeId: "uno", pinId: "GND1" },
+      color: "black",
+    },
+  ];
+}
+
+describe("breadboard", () => {
+  const def = getDefinition("breadboard")!;
+
+  it("ustundagi besh teshik bir tugunda, kanalning ikki tomoni ajratilgan", () => {
+    const circuit: Circuit = {
+      nodes: [{ id: "bb", type: "breadboard", x: 0, y: 0, rotation: 0, settings: {} }],
+      wires: [],
+    };
+    const net = buildNetlist(circuit);
+
+    expect(netFor(net, "bb", "t7-1")).toBe(netFor(net, "bb", "t7-5"));
+    // Kanal ajratadi: yuqori yarim va pastki yarim bir ustunda ham alohida.
+    expect(netFor(net, "bb", "t7-1")).not.toBe(netFor(net, "bb", "b7-1"));
+    // Qo'shni ustunlar ham alohida.
+    expect(netFor(net, "bb", "t7-1")).not.toBe(netFor(net, "bb", "t8-1"));
+  });
+
+  it("quvvat relsi butun uzunligi bo'ylab ulangan", () => {
+    const circuit: Circuit = {
+      nodes: [{ id: "bb", type: "breadboard", x: 0, y: 0, rotation: 0, settings: {} }],
+      wires: [],
+    };
+    const net = buildNetlist(circuit);
+
+    expect(netFor(net, "bb", "pt1")).toBe(netFor(net, "bb", "pt24"));
+    // Musbat va manfiy relslar bir-biriga ulanmagan — aks holda har bir
+    // sxema qisqa tutashuv bo'lardi.
+    expect(netFor(net, "bb", "pt1")).not.toBe(netFor(net, "bb", "nt1"));
+    // Yuqori va pastki relslar ham alohida (haqiqiy taxtadagidek).
+    expect(netFor(net, "bb", "pt1")).not.toBe(netFor(net, "bb", "pb1"));
+  });
+
+  it("relsga ulangan 5V butun rels bo'ylab tarqaladi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "bb", type: "breadboard", x: 0, y: 400, rotation: 0, settings: {} },
+        { id: "led", type: "led", x: 600, y: 400, rotation: 0, settings: { color: "red" } },
+        { id: "r", type: "resistor", x: 500, y: 400, rotation: 0, settings: { ohms: 220 } },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "uno", pinId: "5V" },
+          to: { nodeId: "bb", pinId: "pt1" },
+          color: "red",
+        },
+        // Rezistor relsning boshqa uchidan oziqlanadi.
+        {
+          id: "w2",
+          from: { nodeId: "bb", pinId: "pt20" },
+          to: { nodeId: "r", pinId: "a" },
+          color: "red",
+        },
+        {
+          id: "w3",
+          from: { nodeId: "r", pinId: "b" },
+          to: { nodeId: "led", pinId: "anode" },
+          color: "red",
+        },
+        {
+          id: "w4",
+          from: { nodeId: "led", pinId: "cathode" },
+          to: { nodeId: "uno", pinId: "GND1" },
+          color: "black",
+        },
+      ],
+    };
+    const sim = runSketch(circuit, "void setup() {} void loop() {}");
+    expect(sim.getRuntimeState().led?.brightness).toBeGreaterThan(0.9);
+  });
+
+  it("chizma va pinlar bitta geometriyadan olinadi", () => {
+    // Teshik markazi 0–1 nisbatga o'girilganda chizmadagi joyiga tushishi
+    // kerak: aks holda sim ko'rinib turgan teshikdan chetga tushardi.
+    const holes = breadboardHoles();
+    expect(holes).toHaveLength(def.pins.length);
+    const first = holes[0]!;
+    const pin = def.pins.find((p) => p.id === first.id)!;
+    expect(pin.x).toBeCloseTo(first.x / BB_VIEWBOX.width, 6);
+    expect(pin.y).toBeCloseTo(first.y / BB_VIEWBOX.height, 6);
+  });
+});
+
+describe("DHT11 sensori", () => {
+  const circuit = (): Circuit => ({
+    nodes: [
+      { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+      {
+        id: "dht",
+        type: "dht11",
+        x: 400,
+        y: 0,
+        rotation: 0,
+        settings: { temperature: 31, humidity: 72 },
+      },
+    ],
+    wires: [
+      ...powerWires("dht"),
+      {
+        id: "w-data",
+        from: { nodeId: "dht", pinId: "data" },
+        to: { nodeId: "uno", pinId: "D2" },
+        color: "green",
+      },
+    ],
+  });
+
+  const CODE = `
+#include <DHT.h>
+DHT dht(2, DHT11);
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+  Serial.println(dht.readTemperature());
+  Serial.println(dht.readHumidity());
+}
+void loop() {}
+`;
+
+  it("katalogda haqiqiy o'lchov chegaralari bilan e'lon qilingan", () => {
+    const def = getDefinition("dht11")!;
+    expect(def.category).toBe("sensor");
+    expect(def.pins.map((p) => p.id)).toEqual(["vcc", "data", "gnd"]);
+    const temp = def.settings.find((s) => s.key === "temperature")!;
+    if (temp.kind !== "number") throw new Error("harorat raqamli sozlama bo'lishi kerak");
+    expect(temp.min).toBe(DHT11_RANGE.temperature.min);
+    expect(temp.max).toBe(DHT11_RANGE.temperature.max);
+  });
+
+  it("kod sensordan harorat va namlikni o'qiydi", () => {
+    const sim = runSketch(circuit(), CODE);
+    const text = sim.getLogs().map((l) => l.text);
+    // Simulyator sonlarni butun ko'rinishda chiqaradi (Arduino float emas).
+    expect(text).toContain("31");
+    expect(text).toContain("72");
+  });
+
+  it("quvvatsiz sensordan o'qilganda ogohlantiradi", () => {
+    const unpowered = circuit();
+    // 5V simini olib tashlaymiz — haqiqiy sensor ham javob bermaydi.
+    unpowered.wires = unpowered.wires.filter((w) => w.id !== "dht-v");
+    const sim = runSketch(unpowered, CODE);
+    expect(sim.getLogs().some((l) => l.level === "warning" && l.text.includes("DHT11"))).toBe(true);
+  });
+});
+
+describe("LCD 16×2 displey", () => {
+  const circuit = (): Circuit => ({
+    nodes: [
+      { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+      { id: "lcd", type: "lcd1602", x: 400, y: 0, rotation: 0, settings: { backlight: true } },
+    ],
+    wires: [
+      ...powerWires("lcd"),
+      ...(
+        [
+          ["rs", "D12"],
+          ["e", "D11"],
+          ["d4", "D5"],
+          ["d5", "D4"],
+          ["d6", "D3"],
+          ["d7", "D2"],
+        ] as const
+      ).map(([pinId, boardPin]) => ({
+        id: `w-${pinId}`,
+        from: { nodeId: "lcd", pinId },
+        to: { nodeId: "uno", pinId: boardPin },
+        color: "green" as const,
+      })),
+    ],
+  });
+
+  const CODE = `
+#include <LiquidCrystal.h>
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+void setup() {
+  lcd.begin(16, 2);
+  lcd.print("Salom");
+  lcd.setCursor(0, 1);
+  lcd.print("PilotKids");
+}
+void loop() {}
+`;
+
+  it("konstruktorli e'lonni tahlil qiladi", () => {
+    const parsed = parseSketch(CODE);
+    expect(parsed.ok).toBe(true);
+  });
+
+  it("yozilgan matn ekranda ko'rinadi", () => {
+    const lines = runSketch(circuit(), CODE).getRuntimeState().lcd?.lines ?? [];
+    expect(lines[0]?.trimEnd()).toBe("Salom");
+    expect(lines[1]?.trimEnd()).toBe("PilotKids");
+  });
+
+  it("setCursor matnni to'g'ri ustundan boshlaydi", () => {
+    const code = CODE.replace("lcd.setCursor(0, 1);", "lcd.setCursor(3, 1);");
+    const lines = runSketch(circuit(), code).getRuntimeState().lcd?.lines ?? [];
+    expect(lines[1]).toBe("   PilotKids    ");
+  });
+
+  it("clear() ekranni bo'shatadi", () => {
+    const code = CODE.replace('lcd.print("PilotKids");', "lcd.clear();");
+    const lines = runSketch(circuit(), code).getRuntimeState().lcd?.lines ?? [];
+    expect(lines.every((l) => l.trim() === "")).toBe(true);
+  });
+
+  it("qatordan oshib ketgan matn kesiladi", () => {
+    const code = CODE.replace('lcd.print("Salom");', 'lcd.print("0123456789ABCDEFGHIJ");');
+    const lines = runSketch(circuit(), code).getRuntimeState().lcd?.lines ?? [];
+    expect(lines[0]).toHaveLength(LCD_COLUMNS);
+    expect(lines[0]).toBe("0123456789ABCDEF");
+  });
+
+  it("simi yetishmagan displey uchun ogohlantiradi", () => {
+    const partial = circuit();
+    partial.wires = partial.wires.filter((w) => w.id !== "w-d7");
+    const issues = validateCircuit(partial);
+    expect(issues.some((i) => i.message.includes("D7"))).toBe(true);
+  });
+});
+
+describe("rele", () => {
+  /** IN → D8; COM → 5V; NO → LED anodi; LED katodi → GND. */
+  const circuit = (): Circuit => ({
+    nodes: [
+      { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+      { id: "rl", type: "relay", x: 400, y: 0, rotation: 0, settings: {} },
+      { id: "r", type: "resistor", x: 600, y: 0, rotation: 0, settings: { ohms: 220 } },
+      { id: "led", type: "led", x: 700, y: 0, rotation: 0, settings: { color: "red" } },
+    ],
+    wires: [
+      ...powerWires("rl"),
+      {
+        id: "w-in",
+        from: { nodeId: "rl", pinId: "in" },
+        to: { nodeId: "uno", pinId: "D8" },
+        color: "green",
+      },
+      {
+        id: "w-com",
+        from: { nodeId: "rl", pinId: "com" },
+        to: { nodeId: "uno", pinId: "5V" },
+        color: "red",
+      },
+      {
+        id: "w-no",
+        from: { nodeId: "rl", pinId: "no" },
+        to: { nodeId: "r", pinId: "a" },
+        color: "red",
+      },
+      {
+        id: "w-r",
+        from: { nodeId: "r", pinId: "b" },
+        to: { nodeId: "led", pinId: "anode" },
+        color: "red",
+      },
+      {
+        id: "w-gnd",
+        from: { nodeId: "led", pinId: "cathode" },
+        to: { nodeId: "uno", pinId: "GND2" },
+        color: "black",
+      },
+    ],
+  });
+
+  const withPin = (level: "HIGH" | "LOW") => `
+void setup() {
+  pinMode(8, OUTPUT);
+  digitalWrite(8, ${level});
+}
+void loop() {}
+`;
+
+  it("IN LOW bo'lganda COM–NO uzilgan, LED yonmaydi", () => {
+    const sim = runSketch(circuit(), withPin("LOW"));
+    expect(sim.getRuntimeState().rl?.active).toBe(false);
+    expect(sim.getRuntimeState().led?.brightness ?? 0).toBe(0);
+  });
+
+  it("IN HIGH bo'lganda kontakt NO ga o'tadi va LED yonadi", () => {
+    const sim = runSketch(circuit(), withPin("HIGH"));
+    expect(sim.getRuntimeState().rl?.active).toBe(true);
+    expect(sim.getRuntimeState().led?.brightness ?? 0).toBeGreaterThan(0.9);
+  });
+
+  it("quvvatlanmagan rele kontaktni almashtirmaydi", () => {
+    const noPower = circuit();
+    noPower.wires = noPower.wires.filter((w) => w.id !== "rl-v");
+    const sim = runSketch(noPower, withPin("HIGH"));
+    expect(sim.getRuntimeState().rl?.active).toBe(false);
+  });
+
+  it("chulg'am tortmaganda COM NC kontaktida turadi", () => {
+    const net = buildNetlist({
+      nodes: [{ id: "rl", type: "relay", x: 0, y: 0, rotation: 0, settings: {} }],
+      wires: [],
+    });
+    expect(netFor(net, "rl", "com")).toBe(netFor(net, "rl", "nc"));
+    expect(netFor(net, "rl", "com")).not.toBe(netFor(net, "rl", "no"));
+  });
+
+  it("COM ulanmagan bo'lsa ogohlantiradi", () => {
+    const open = circuit();
+    open.wires = open.wires.filter((w) => w.id !== "w-com");
+    const issues = validateCircuit(open);
+    expect(issues.some((i) => i.hint.includes("COM"))).toBe(true);
+  });
+});
+
+/* ═══════════════════ Faza B — sim tortish tajribasi ═══════════════════ */
+
+describe("tok o'tayotgan simlar", () => {
+  const wire = (
+    id: string,
+    a: [string, string],
+    b: [string, string],
+  ): Circuit["wires"][number] => ({
+    id,
+    from: { nodeId: a[0], pinId: a[1] },
+    to: { nodeId: b[0], pinId: b[1] },
+    color: "blue",
+  });
+
+  /** Batareya → rezistor → LED → batareya. Arduino ishtirok etmaydi. */
+  const loop = (ohms = 220): Circuit => ({
+    nodes: [
+      { id: "bat", type: "battery", x: 0, y: 0, rotation: 0, settings: { voltage: 5 } },
+      { id: "r", type: "resistor", x: 200, y: 0, rotation: 0, settings: { ohms } },
+      { id: "led", type: "led", x: 400, y: 0, rotation: 0, settings: { color: "red" } },
+    ],
+    wires: [
+      wire("w1", ["bat", "plus"], ["r", "a"]),
+      wire("w2", ["r", "b"], ["led", "anode"]),
+      wire("w3", ["led", "cathode"], ["bat", "minus"]),
+    ],
+  });
+
+  const liveOf = (circuit: Circuit): string[] => {
+    const parsed = parseSketch("void setup() {} void loop() {}");
+    if (!parsed.ok) throw new Error("bo'sh eskiz tahlil qilinmadi");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(30);
+    return Object.keys(sim.getWireFlow()).sort();
+  };
+
+  it("yopiq zanjirdagi HAMMA sim jonli bo'ladi", () => {
+    // Yer tomonidagi sim ham tok o'tkazadi — bola zanjirni butun halqa
+    // sifatida ko'rishi kerak, faqat "musbat tomon" emas.
+    expect(liveOf(loop())).toEqual(["w1", "w2", "w3"]);
+  });
+
+  it("zanjir uzilgan bo'lsa hech bir sim jonli emas", () => {
+    const open = loop();
+    open.wires = open.wires.filter((w) => w.id !== "w3");
+    expect(liveOf(open)).toEqual([]);
+  });
+
+  it("LED teskari ulanganda tok yurmaydi", () => {
+    const reversed = loop();
+    reversed.wires = [
+      wire("w1", ["bat", "plus"], ["r", "a"]),
+      wire("w2", ["r", "b"], ["led", "cathode"]),
+      wire("w3", ["led", "anode"], ["bat", "minus"]),
+    ];
+    expect(liveOf(reversed)).toEqual([]);
+  });
+
+  it("o'chirilgan batareya zanjirni jonlantirmaydi", () => {
+    const off = loop();
+    off.nodes = off.nodes.map((n) =>
+      n.id === "bat" ? { ...n, settings: { ...n.settings, enabled: false } } : n,
+    );
+    expect(liveOf(off)).toEqual([]);
+  });
+
+  it("Arduino pini LOW bo'lsa sim jonli emas, HIGH bo'lsa jonli", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "r", type: "resistor", x: 300, y: 0, rotation: 0, settings: { ohms: 220 } },
+        { id: "led", type: "led", x: 500, y: 0, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        wire("w1", ["uno", "D13"], ["r", "a"]),
+        wire("w2", ["r", "b"], ["led", "anode"]),
+        wire("w3", ["led", "cathode"], ["uno", "GND1"]),
+      ],
+    };
+
+    const run = (level: "HIGH" | "LOW") => {
+      const sim = runSketch(
+        circuit,
+        `void setup() { pinMode(13, OUTPUT); digitalWrite(13, ${level}); } void loop() {}`,
+      );
+      return Object.keys(sim.getWireFlow()).sort();
+    };
+
+    expect(run("LOW")).toEqual([]);
+    expect(run("HIGH")).toEqual(["w1", "w2", "w3"]);
+  });
+
+  it("breadboard relsi orqali yig'ilgan zanjir ham jonli bo'ladi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "bat", type: "battery", x: 0, y: 0, rotation: 0, settings: { voltage: 5 } },
+        { id: "bb", type: "breadboard", x: 0, y: 300, rotation: 0, settings: {} },
+        { id: "r", type: "resistor", x: 600, y: 0, rotation: 0, settings: { ohms: 220 } },
+        { id: "led", type: "led", x: 800, y: 0, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        // Batareya relsning bir uchiga, yuk esa boshqa uchiga ulangan.
+        wire("w1", ["bat", "plus"], ["bb", "pt1"]),
+        wire("w2", ["bb", "pt20"], ["r", "a"]),
+        wire("w3", ["r", "b"], ["led", "anode"]),
+        wire("w4", ["led", "cathode"], ["bat", "minus"]),
+      ],
+    };
+    expect(liveOf(circuit)).toEqual(["w1", "w2", "w3", "w4"]);
+  });
+
+  it("rele ochiq bo'lsa yuk zanjiri jonli emas", () => {
+    const build = (): Circuit => ({
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "rl", type: "relay", x: 400, y: 0, rotation: 0, settings: {} },
+        { id: "r", type: "resistor", x: 700, y: 0, rotation: 0, settings: { ohms: 220 } },
+        { id: "led", type: "led", x: 900, y: 0, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        ...powerWires("rl"),
+        wire("w-in", ["rl", "in"], ["uno", "D8"]),
+        wire("w-com", ["rl", "com"], ["uno", "5V"]),
+        wire("w-no", ["rl", "no"], ["r", "a"]),
+        wire("w-r", ["r", "b"], ["led", "anode"]),
+        wire("w-gnd", ["led", "cathode"], ["uno", "GND2"]),
+      ],
+    });
+
+    const run = (level: "HIGH" | "LOW") => {
+      const sim = runSketch(
+        build(),
+        `void setup() { pinMode(8, OUTPUT); digitalWrite(8, ${level}); } void loop() {}`,
+      );
+      return Object.keys(sim.getWireFlow());
+    };
+
+    expect(run("LOW")).not.toContain("w-no");
+    expect(run("HIGH")).toContain("w-no");
+  });
+});
+
+describe("elektr tuguni (net) ajratish", () => {
+  /*
+   * Sxemadagi ajratib ko'rsatish canvas'da tugun identifikatoriga tayanadi:
+   * bitta tugundagi hamma pin va sim birga yonadi. Shu bog'lanishning
+   * asosi — netlist, quyida aynan shu tekshiriladi.
+   */
+  it("breadboard ustuniga ulangan ikkita komponent bitta tugunda bo'ladi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "bb", type: "breadboard", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "r1", type: "resistor", x: 0, y: 400, rotation: 0, settings: { ohms: 220 } },
+        { id: "r2", type: "resistor", x: 200, y: 400, rotation: 0, settings: { ohms: 220 } },
+      ],
+      wires: [
+        {
+          id: "w1",
+          from: { nodeId: "r1", pinId: "a" },
+          to: { nodeId: "bb", pinId: "t3-1" },
+          color: "blue",
+        },
+        {
+          id: "w2",
+          from: { nodeId: "r2", pinId: "a" },
+          to: { nodeId: "bb", pinId: "t3-5" },
+          color: "blue",
+        },
+      ],
+    };
+    const net = buildNetlist(circuit);
+
+    // Ikkala rezistor bir-biriga to'g'ridan-to'g'ri ulanmagan, lekin
+    // breadboard ustuni ularni bitta tugunga qo'shadi.
+    const shared = netFor(net, "r1", "a");
+    expect(shared).toBe(netFor(net, "r2", "a"));
+    expect(shared).toBe(netFor(net, "bb", "t3-3"));
+    // Tugundagi nuqtalar soni tooltipda ko'rsatiladi.
+    expect((net.pinsOf.get(shared!) ?? []).length).toBe(7);
+  });
+
+  it("qo'shni ustun boshqa tugun bo'lib qoladi", () => {
+    const circuit: Circuit = {
+      nodes: [{ id: "bb", type: "breadboard", x: 0, y: 0, rotation: 0, settings: {} }],
+      wires: [],
+    };
+    const net = buildNetlist(circuit);
+    expect(netFor(net, "bb", "t3-1")).not.toBe(netFor(net, "bb", "t4-1"));
+  });
+});
+
+/* ═══════════════════ Faza C — elektr yechuvchisi ═══════════════════ */
+
+/** Qisqa sim yozuvi — quyidagi sxemalar uzun bo'lib ketmasin. */
+function wireOf(id: string, a: [string, string], b: [string, string]): Circuit["wires"][number] {
+  return {
+    id,
+    from: { nodeId: a[0], pinId: a[1] },
+    to: { nodeId: b[0], pinId: b[1] },
+    color: "blue",
+  };
+}
+
+describe("DC yechuvchi", () => {
+  const R = (id: string, a: string, b: string, ohms: number) =>
+    ({ id, kind: "resistor", a, b, ohms }) as const;
+  const V = (id: string, a: string, b: string, volts: number, ohms = 0.01) =>
+    ({ id, kind: "source", a, b, volts, ohms }) as const;
+
+  it("Om qonuni: 10 V va 100 Ω → 0.1 A", () => {
+    const out = solveCircuit(
+      [V("bat", "n1", "gnd", 10), R("r", "n1", "gnd", 100)],
+      new Set(["gnd"]),
+    );
+    expect(out.voltage.get("n1")).toBeCloseTo(10, 2);
+    // Tok `a` dan `b` ga musbat: rezistorda n1 → gnd.
+    expect(out.current.get("r")).toBeCloseTo(0.1, 3);
+  });
+
+  it("kuchlanish bo'luvchi o'rtasida yarim kuchlanish beradi", () => {
+    const out = solveCircuit(
+      [V("bat", "top", "gnd", 9), R("r1", "top", "mid", 1000), R("r2", "mid", "gnd", 1000)],
+      new Set(["gnd"]),
+    );
+    expect(out.voltage.get("mid")).toBeCloseTo(4.5, 2);
+  });
+
+  it("nomutanosib bo'luvchi to'g'ri nisbatda bo'ladi", () => {
+    const out = solveCircuit(
+      [V("bat", "top", "gnd", 10), R("r1", "top", "mid", 1000), R("r2", "mid", "gnd", 3000)],
+      new Set(["gnd"]),
+    );
+    expect(out.voltage.get("mid")).toBeCloseTo(7.5, 2);
+  });
+
+  it("parallel qarshiliklar tokni bo'lib oladi", () => {
+    const out = solveCircuit(
+      [V("bat", "top", "gnd", 6), R("r1", "top", "gnd", 100), R("r2", "top", "gnd", 200)],
+      new Set(["gnd"]),
+    );
+    expect(out.current.get("r1")).toBeCloseTo(0.06, 3);
+    expect(out.current.get("r2")).toBeCloseTo(0.03, 3);
+    // Manba ikkalasining yig'indisini beradi (belgisi manfiy — tashqariga).
+    expect(out.current.get("bat")).toBeCloseTo(-0.09, 3);
+  });
+
+  it("ketma-ket ulangan ikkita manba qo'shiladi", () => {
+    const out = solveCircuit(
+      [V("b1", "mid", "gnd", 1.5), V("b2", "top", "mid", 1.5), R("r", "top", "gnd", 100)],
+      new Set(["gnd"]),
+    );
+    expect(out.voltage.get("top")).toBeCloseTo(3, 2);
+  });
+
+  it("diod teskari yo'nalishda o'tkazmaydi", () => {
+    const out = solveCircuit(
+      [
+        V("bat", "gnd2", "top", 5),
+        { id: "d", kind: "diode", a: "top", b: "gnd2", vf: 1.8, ohms: 12 },
+      ],
+      new Set(["gnd2"]),
+    );
+    expect(Math.abs(out.current.get("d") ?? 0)).toBeLessThan(1e-6);
+  });
+
+  it("ochilish kuchlanishidan past manbada diod yonmaydi", () => {
+    const out = solveCircuit(
+      [
+        V("bat", "top", "gnd", 1.5),
+        { id: "d", kind: "diode", a: "top", b: "gnd", vf: 1.8, ohms: 12 },
+      ],
+      new Set(["gnd"]),
+    );
+    expect(out.current.get("d")).toBeCloseTo(0, 6);
+  });
+
+  it("elementsiz sxema bo'sh natija qaytaradi", () => {
+    const out = solveCircuit([], new Set());
+    expect(out.voltage.size).toBe(0);
+  });
+});
+
+describe("yechuvchi sxemada", () => {
+  /** Ikkita LED bitta 5V manbadan parallel oziqlanadi. */
+  const parallelLeds = (ohms1: number, ohms2: number): Circuit => ({
+    nodes: [
+      { id: "bat", type: "battery", x: 0, y: 0, rotation: 0, settings: { voltage: 5 } },
+      { id: "r1", type: "resistor", x: 0, y: 0, rotation: 0, settings: { ohms: ohms1 } },
+      { id: "r2", type: "resistor", x: 0, y: 0, rotation: 0, settings: { ohms: ohms2 } },
+      { id: "led1", type: "led", x: 0, y: 0, rotation: 0, settings: { color: "red" } },
+      { id: "led2", type: "led", x: 0, y: 0, rotation: 0, settings: { color: "red" } },
+    ],
+    wires: [
+      wireOf("a1", ["bat", "plus"], ["r1", "a"]),
+      wireOf("a2", ["r1", "b"], ["led1", "anode"]),
+      wireOf("a3", ["led1", "cathode"], ["bat", "minus"]),
+      wireOf("b1", ["bat", "plus"], ["r2", "a"]),
+      wireOf("b2", ["r2", "b"], ["led2", "anode"]),
+      wireOf("b3", ["led2", "cathode"], ["bat", "minus"]),
+    ],
+  });
+
+  const runtimeOf = (circuit: Circuit) => {
+    const parsed = parseSketch("void setup() {} void loop() {}");
+    if (!parsed.ok) throw new Error("bo'sh eskiz tahlil qilinmadi");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    return sim.getRuntimeState();
+  };
+
+  it("parallel LEDlar bir-birining yorqinligini o'zgartirmaydi", () => {
+    /*
+     * Eski modelda ikkinchi shox "eng kichik qarshilik" sifatida tanlanib,
+     * birinchi LEDning yorqinligini ham o'zgartirib yuborardi. Parallel
+     * shoxlar bir-biridan mustaqil bo'lishi kerak.
+     */
+    const alone = runtimeOf(parallelLeds(220, 220)).led1?.brightness ?? 0;
+    const withDim = runtimeOf(parallelLeds(220, 10000)).led1?.brightness ?? 0;
+    expect(withDim).toBeCloseTo(alone, 3);
+    // Ikkinchi shox esa xira bo'lib qoladi.
+    expect(runtimeOf(parallelLeds(220, 10000)).led2?.brightness ?? 0).toBeLessThan(0.2);
+  });
+
+  it("potensiometr kuchlanish bo'luvchi sifatida ishlaydi", () => {
+    const circuit = (value: number): Circuit => ({
+      nodes: [
+        { id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} },
+        { id: "pot", type: "potentiometer", x: 0, y: 0, rotation: 0, settings: { value } },
+        { id: "meter", type: "multimeter", x: 0, y: 0, rotation: 0, settings: {} },
+      ],
+      wires: [
+        wireOf("w1", ["pot", "vcc"], ["uno", "5V"]),
+        wireOf("w2", ["pot", "gnd"], ["uno", "GND1"]),
+        wireOf("w3", ["meter", "probe-plus"], ["pot", "wiper"]),
+        wireOf("w4", ["meter", "probe-minus"], ["uno", "GND1"]),
+      ],
+    });
+
+    // O'rtada — yarmi; oxirida — deyarli to'liq; boshida — deyarli nol.
+    expect(runtimeOf(circuit(512)).meter?.voltage ?? 0).toBeCloseTo(2.5, 1);
+    expect(runtimeOf(circuit(1023)).meter?.voltage ?? 0).toBeGreaterThan(4.9);
+    expect(runtimeOf(circuit(0)).meter?.voltage ?? 0).toBeLessThan(0.1);
+  });
+
+  it("plataning uchala GND pini ichkaridan ulangan", () => {
+    // Haqiqiy Uno'da ular bitta mis qatlamda. Ilgari GND2 ga ulangan
+    // komponent GND1 dagi zanjirni "ko'rmasdi".
+    const net = buildNetlist({
+      nodes: [{ id: "uno", type: "arduino-uno", x: 0, y: 0, rotation: 0, settings: {} }],
+      wires: [],
+    });
+    expect(netFor(net, "uno", "GND1")).toBe(netFor(net, "uno", "GND2"));
+    expect(netFor(net, "uno", "GND1")).toBe(netFor(net, "uno", "GND3"));
+    expect(netFor(net, "uno", "GND1")).not.toBe(netFor(net, "uno", "5V"));
+  });
+
+  it("tok yo'nalishi ikki nuqtali tugunlarda aniqlanadi", () => {
+    const circuit: Circuit = {
+      nodes: [
+        { id: "bat", type: "battery", x: 0, y: 0, rotation: 0, settings: { voltage: 5 } },
+        { id: "r", type: "resistor", x: 0, y: 0, rotation: 0, settings: { ohms: 220 } },
+        { id: "led", type: "led", x: 0, y: 0, rotation: 0, settings: { color: "red" } },
+      ],
+      wires: [
+        wireOf("w1", ["bat", "plus"], ["r", "a"]),
+        wireOf("w2", ["r", "b"], ["led", "anode"]),
+        wireOf("w3", ["led", "cathode"], ["bat", "minus"]),
+      ],
+    };
+    const parsed = parseSketch("void setup() {} void loop() {}");
+    if (!parsed.ok) throw new Error("bo'sh eskiz tahlil qilinmadi");
+    const sim = new Simulator({ circuit, sketch: parsed.sketch, sensors: {} });
+    sim.start();
+    sim.advance(20);
+    const flow = sim.getWireFlow();
+
+    // Batareyadan rezistorga: tok `from` dan `to` ga oqadi.
+    expect(flow.w1?.direction).toBe(1);
+    // Halqadagi tok hamma joyda bir xil (ketma-ket ulanish).
+    expect(flow.w1?.milliamps).toBeCloseTo(flow.w3?.milliamps ?? 0, 3);
+    expect(flow.w1?.milliamps).toBeGreaterThan(10);
   });
 });

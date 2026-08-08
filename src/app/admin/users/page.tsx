@@ -100,7 +100,7 @@ export default async function AdminUsersPage({
             borderRadius: 13,
             border: "none",
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-primary)",
             fontWeight: 700,
             fontSize: 15,
             cursor: "pointer",

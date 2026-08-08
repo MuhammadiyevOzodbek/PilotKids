@@ -68,8 +68,16 @@ export function Button({
   children?: ReactNode;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const palette: Record<string, CSSProperties> = {
-    primary: { background: "var(--primary)", color: "#fff", border: "1px solid transparent" },
-    success: { background: "var(--success)", color: "#fff", border: "1px solid transparent" },
+    primary: {
+      background: "var(--primary)",
+      color: "var(--on-primary)",
+      border: "1px solid transparent",
+    },
+    success: {
+      background: "var(--success)",
+      color: "var(--on-primary)",
+      border: "1px solid transparent",
+    },
     danger: {
       background: "var(--danger-soft)",
       color: "var(--danger)",

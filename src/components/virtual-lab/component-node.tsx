@@ -4,7 +4,7 @@ import { Fragment, memo, useCallback, useMemo } from "react";
 import { Handle, Position, useStore, type NodeProps } from "@xyflow/react";
 import { getDefinition } from "@/lib/virtual-lab/catalog";
 import type { ComponentPin, ComponentRuntimeState, PinMode } from "@/lib/virtual-lab/types";
-import { useCircuitStore, useSimulationStore } from "@/stores/virtual-lab";
+import { useCircuitStore, useHighlightStore, useSimulationStore } from "@/stores/virtual-lab";
 import { ComponentSymbol } from "./symbols";
 import type { BoardDetail, BoardPinState } from "./uno";
 
@@ -67,6 +67,10 @@ export interface ComponentNodeData extends Record<string, unknown> {
    * `undefined` — hozir hech narsa tortilmayapti.
    */
   connectable?: Record<string, boolean>;
+  /** Pin → elektr tuguni. Tugunni ajratib ko'rsatish uchun. */
+  netOfPin?: Record<string, string>;
+  /** Tugundagi ulanishlar soni — tooltipda ko'rsatiladi. */
+  netSize?: Record<string, number>;
 }
 
 /** Pinning hozirgi holati — ko'rinishi shunga qarab o'zgaradi. */
@@ -109,6 +113,14 @@ function pinTooltipLines(pin: ComponentPin, data: ComponentNodeData): string[] {
   if (target) lines.push(`Ulangan: ${target}`);
   else if (data.connected?.includes(pin.id)) lines.push("Ulangan");
   else lines.push("Ulanmagan");
+
+  /*
+   * Tugundagi nuqtalar soni. Breadboardda bu eng muhim ma'lumot: teshik
+   * "ulanmagan" ko'rinsa ham, uning ustuni orqali boshqa nuqtalar bilan
+   * bitta tugunda bo'lishi mumkin.
+   */
+  const size = data.netSize?.[pin.id];
+  if (size !== undefined && size > 1) lines.push(`Tugunda ${size} ta nuqta`);
 
   return lines;
 }
@@ -164,6 +176,34 @@ function ComponentNodeInner({ id, data, selected }: NodeProps) {
   const requestReset = useCallback(() => {
     useSimulationStore.getState().requestReset();
   }, []);
+
+  /**
+   * Chizma ichidan sozlamani o'zgartirish (klaviatura tugmalari).
+   *
+   * Store'ga to'g'ridan-to'g'ri murojaat qilinadi, `useCallback` esa
+   * `id` dan boshqa hech narsaga bog'lanmagan — shuning uchun tugma
+   * bosilishi butun sxemani qayta chizishga sabab bo'lmaydi.
+   */
+  const setSetting = useCallback(
+    (key: string, value: string | number | boolean) => {
+      useCircuitStore.getState().updateSetting(id, key, value);
+    },
+    [id],
+  );
+
+  /*
+   * Shu komponentdagi tugunlar. Selektor faqat MOS keladigan tugunni
+   * qaytaradi, shuning uchun boshqa komponentlar sichqoncha harakatida
+   * umuman qayta chizilmaydi.
+   */
+  const ownNets = useMemo(
+    () => new Set(Object.values(nodeData.netOfPin ?? {})),
+    [nodeData.netOfPin],
+  );
+  const activeNet = useHighlightStore((s) =>
+    s.hoveredNet !== null && ownNets.has(s.hoveredNet) ? s.hoveredNet : null,
+  );
+  const setHoveredNet = useHighlightStore((s) => s.setHoveredNet);
 
   const pinStates = useMemo(() => {
     if (!def?.isBoard) return undefined;
@@ -259,12 +299,15 @@ function ComponentNodeInner({ id, data, selected }: NodeProps) {
         pinStates={pinStates}
         hasError={nodeData.issue === "error"}
         onReset={requestReset}
+        onSetting={setSetting}
       />
 
       {def.pins.map((pin) => {
         const state = pinStateOf(pin, nodeData);
         const lines = pinTooltipLines(pin, nodeData);
         const side = handleSide(pin, def.category);
+        const netId = nodeData.netOfPin?.[pin.id];
+        const inActiveNet = netId !== undefined && netId === activeNet;
         const pinStyle = {
           left: `${pin.x * 100}%`,
           top: `${pin.y * 100}%`,
@@ -281,6 +324,7 @@ function ComponentNodeInner({ id, data, selected }: NodeProps) {
               position={side}
               className={`vlab-pin vlab-pin-target vlab-pin-${state} nodrag nopan`}
               data-shape={def.category === "board" ? "socket" : "lead"}
+              data-net={inActiveNet ? "on" : undefined}
               isConnectable={pin.connectable}
               aria-hidden
               tabIndex={-1}
@@ -292,6 +336,7 @@ function ComponentNodeInner({ id, data, selected }: NodeProps) {
               position={side}
               className={`vlab-pin vlab-pin-source vlab-pin-${state} nodrag nopan`}
               data-shape={def.category === "board" ? "socket" : "lead"}
+              data-net={inActiveNet ? "on" : undefined}
               isConnectable={pin.connectable}
               aria-label={lines.join("; ")}
               tabIndex={0}
@@ -303,6 +348,10 @@ function ComponentNodeInner({ id, data, selected }: NodeProps) {
                 useCircuitStore.getState().setSelection([id]);
               }}
               onClick={() => useCircuitStore.getState().setSelection([id])}
+              onMouseEnter={() => setHoveredNet(netId ?? null)}
+              onMouseLeave={() => setHoveredNet(null)}
+              onFocus={() => setHoveredNet(netId ?? null)}
+              onBlur={() => setHoveredNet(null)}
               style={pinStyle}
             >
               <span

@@ -194,6 +194,9 @@ export function CodeEditor({
   onChange,
   onFontSize,
   onReset,
+  reveal,
+  readOnly = false,
+  title,
 }: {
   code: string;
   fontSize: number;
@@ -201,6 +204,23 @@ export function CodeEditor({
   onChange: (value: string) => void;
   onFontSize: (size: number) => void;
   onReset: () => void;
+  /**
+   * Muammolar ro'yxatidan kelgan "shu qatorga o't" so'rovi.
+   *
+   * `token` — har bosishda ortadigan hisoblagich: bir xil qatorga ikki
+   * marta bosilganda ham muharrir yana o'sha yerga sakraydi.
+   */
+  reveal?: { line: number; token: number } | null;
+  /**
+   * Faqat o'qish uchun.
+   *
+   * Blok rejimida kod BLOKLARDAN hosil bo'ladi: bu yerda yozilgani
+   * keyingi qayta yig'ishda yo'qolardi, shuning uchun muharrir
+   * qulflanadi (§27).
+   */
+  readOnly?: boolean;
+  /** Sarlavha — "Arduino kod" o'rniga "Hosil bo'lgan Arduino kod". */
+  title?: string;
 }) {
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -220,6 +240,16 @@ export function CodeEditor({
       active = false;
     };
   }, []);
+
+  // Muammolar ro'yxatidan tanlangan qatorga o'tamiz.
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed || !reveal) return;
+    const line = Math.max(1, reveal.line);
+    ed.revealLineInCenter(line);
+    ed.setPosition({ lineNumber: line, column: 1 });
+    ed.focus();
+  }, [reveal]);
 
   // Parser xatolarini muharrirda qizil chizib ko'rsatamiz.
   useEffect(() => {
@@ -250,7 +280,7 @@ export function CodeEditor({
       <div className="vlab-panel-head">
         <span className="vlab-panel-title">
           <FileCode2 size={15} />
-          Arduino kod
+          {title ?? "Arduino kod"}
         </span>
         {errorCount > 0 && <span className="vlab-badge vlab-badge-error">{errorCount} xato</span>}
 
@@ -273,10 +303,12 @@ export function CodeEditor({
         >
           <Plus size={14} />
         </button>
-        <button type="button" onClick={onReset} className="vlab-tool" aria-label="Kodni tiklash">
-          <RotateCcw size={14} />
-          <span className="vlab-tip">Boshlang&apos;ich kod</span>
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={onReset} className="vlab-tool" aria-label="Kodni tiklash">
+            <RotateCcw size={14} />
+            <span className="vlab-tip">Boshlang&apos;ich kod</span>
+          </button>
+        )}
       </div>
 
       <div className="vlab-editor">
@@ -289,6 +321,7 @@ export function CodeEditor({
             theme="vs-dark"
             options={{
               fontSize,
+              readOnly,
               minimap: { enabled: false },
               lineNumbers: "on",
               scrollBeyondLastLine: false,
@@ -314,6 +347,7 @@ export function CodeEditor({
           <textarea
             value={code}
             onChange={(e) => onChange(e.target.value)}
+            readOnly={readOnly}
             spellCheck={false}
             aria-label="Arduino kod"
             className="vlab-editor-fallback"

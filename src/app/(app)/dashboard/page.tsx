@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import {
@@ -11,7 +10,7 @@ import {
   firstName,
 } from "@/lib/queries";
 
-export const metadata = { title: "Boshqaruv paneli — PilotKids" };
+export const metadata = { title: "Boshqaruv paneli" };
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -20,9 +19,6 @@ export default async function DashboardPage() {
     getUserCourses(user.id),
     getCurrentLesson(user.id),
   ]);
-  if (stats.role === "superadmin") redirect("/superadmin");
-  if (stats.role === "admin") redirect("/admin");
-
   const homeStats = [
     {
       icon: "bolt",
@@ -51,6 +47,36 @@ export default async function DashboardPage() {
     courses.length > 0
       ? courses
       : (await getAllCourses()).map((c) => ({ ...c, progressPercent: 0 }));
+
+  /*
+   * Bosh kartochkaning uchta holati bor. Ilgari faqat ikkitasi hisobga
+   * olinardi: dars bor / yo'q. Natijada kursga allaqachon yozilgan, ammo
+   * darslari hali qo'shilmagan bola «Birinchi kursingizni tanlang» degan —
+   * o'ziga tegishli bo'lmagan — taklifni ko'rardi.
+   */
+  const hero = current
+    ? {
+        badge: "DAVOM ETTIRISH",
+        title: current.title,
+        note: `${current.sortOrder}-dars · ${current.durationMin} daqiqa · ${current.courseTitle}`,
+        href: `/lesson/${current.id}`,
+        cta: "Darsni ochish",
+      }
+    : courses.length > 0
+      ? {
+          badge: "TAYYORLANMOQDA",
+          title: "Darslar tez orada qo'shiladi",
+          note: "Siz yozilgan kursning darslari hozircha tayyorlanmoqda. Shu orada laboratoriyada tajriba qilib turing.",
+          href: "/lab",
+          cta: "Laboratoriyaga",
+        }
+      : {
+          badge: "BOSHLASH",
+          title: "Birinchi kursingizni tanlang",
+          note: "Robototexnika, Scratch, micro:bit va Python — qaysi biri qiziq?",
+          href: "/courses",
+          cta: "Kurslarni ko'rish",
+        };
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", animation: "fadeUp .5s ease both" }}>
       <div
@@ -133,7 +159,7 @@ export default async function DashboardPage() {
                 color: "#8fb2ff",
               }}
             >
-              {current ? "DAVOM ETTIRISH" : "BOSHLASH"}
+              {hero.badge}
             </div>
             <h2
               style={{
@@ -143,13 +169,9 @@ export default async function DashboardPage() {
                 margin: "16px 0 6px",
               }}
             >
-              {current ? current.title : "Birinchi kursingizni tanlang"}
+              {hero.title}
             </h2>
-            <p style={{ color: "#AEBBD4", fontSize: 14.5, margin: 0 }}>
-              {current
-                ? `${current.sortOrder}-dars · ${current.durationMin} daqiqa · ${current.courseTitle}`
-                : "Robototexnika, Scratch, micro:bit va Python — qaysi biri qiziq?"}
-            </p>
+            <p style={{ color: "#AEBBD4", fontSize: 14.5, margin: 0 }}>{hero.note}</p>
           </div>
           <div style={{ position: "relative", marginTop: 20 }}>
             <div
@@ -171,7 +193,7 @@ export default async function DashboardPage() {
               />
             </div>
             <Link
-              href={current ? `/lesson/${current.id}` : "/courses"}
+              href={hero.href}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -189,7 +211,7 @@ export default async function DashboardPage() {
               }}
             >
               <Icon name="play_arrow" size={20} />
-              {current ? "Davom etish" : "Kurslarni ko'rish"}
+              {hero.cta}
             </Link>
           </div>
         </div>

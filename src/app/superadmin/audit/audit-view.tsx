@@ -68,7 +68,9 @@ export function AuditView({ audit }: { audit: AuditRow[] }) {
           icon="key"
           tint="var(--sa-accent)"
         />
-        <Stat label="Saqlash muddati" value="24" unit="oy" icon="lock_clock" tint="var(--sa-ok)" />
+        {/* Jurnal yozuvlari hech qachon o'chirilmaydi — tozalash vazifasi yo'q.
+            Ilgari "24 oy" deb turardi, bu esa haqiqatga mos emas edi. */}
+        <Stat label="Saqlash muddati" value="Cheksiz" icon="lock_clock" tint="var(--sa-ok)" />
       </div>
 
       <Panel

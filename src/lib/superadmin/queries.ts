@@ -36,8 +36,11 @@ function clock(d: Date | null | undefined) {
   }).format(d);
 }
 
-function dateLabel(d: Date | null | undefined) {
+function dateLabel(d: Date | string | number | null | undefined) {
   if (!d) return "—";
+  // Xom SQL ustuni matn bo'lib kelsa `Intl` xato tashlaydi — avval `Date` qilamiz.
+  const date = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("uz-UZ", {
     timeZone: "Asia/Tashkent",
     day: "2-digit",
@@ -45,7 +48,7 @@ function dateLabel(d: Date | null | undefined) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(d);
+  }).format(date);
 }
 
 function adminLevel(role: string): AdminLevel {
@@ -234,13 +237,36 @@ export async function getAdmins(): Promise<AdminRow[]> {
       email: user.email,
       role: user.role,
       banned: user.banned,
+      /*
+       * Ustunlar ATAYLAB to'liq nom bilan yozilgan.
+       *
+       * `${session.userId}` shakli drizzle'da prefikssiz `"user_id"` bo'lib
+       * chiqadi va ichki so'rovda `"id"` tashqi `user` emas, ichki `session`
+       * jadvaliga tegishli bo'lib qoladi: shart `session.user_id = session.id`
+       * ko'rinishini oladi va HECH QACHON rost bo'lmaydi. Natijada har bir
+       * admin uchun «Sessiya yo'q» va 0 ko'rsatilardi.
+       */
       sessions30d: sql<number>`(
-        select count(*)::int from ${session}
-        where ${session.userId} = ${user.id} and ${session.createdAt} >= ${since}
+        select count(*)::int from "session" s
+        where s.user_id = "user".id and s.created_at >= ${since}
       )`,
-      lastSeen: sql<Date | null>`(
-        select max(${session.updatedAt}) from ${session}
-        where ${session.userId} = ${user.id}
+      /*
+       * Sana MILLISEKUND sifatida olinadi.
+       *
+       * Xom SQL ustuni drizzle'dan `Date` emas, `"2026-08-07 16:45:22.039"`
+       * ko'rinishidagi MATN bo'lib qaytadi: `Intl.DateTimeFormat.format()`
+       * uni qabul qilmay sahifani yiqitardi. Bundan tashqari bunday matnda
+       * vaqt mintaqasi yo'q — `new Date()` uni mahalliy vaqt deb o'qib,
+       * natijani 5 soatga surib yuborardi. Epoch esa bir ma'noli.
+       */
+      lastSeenMs: sql<number | null>`(
+        select (extract(epoch from max(s.updated_at)) * 1000)::bigint
+        from "session" s where s.user_id = "user".id
+      )`,
+      /** Hozir amal qilayotgan (muddati tugamagan) sessiyalar. */
+      liveSessions: sql<number>`(
+        select count(*)::int from "session" s
+        where s.user_id = "user".id and s.expires_at > now()
       )`,
     })
     .from(user)
@@ -253,8 +279,9 @@ export async function getAdmins(): Promise<AdminRow[]> {
     email: r.email,
     level: adminLevel(r.role),
     region: "Kiritilmagan",
-    lastSeen: r.lastSeen ? dateLabel(r.lastSeen) : "Sessiya yo'q",
+    lastSeen: r.lastSeenMs ? dateLabel(new Date(Number(r.lastSeenMs))) : "Sessiya yo'q",
     actions30d: r.sessions30d,
+    liveSessions: r.liveSessions,
     twoFactor: false,
     status: r.banned ? "suspended" : "active",
   }));
@@ -274,7 +301,13 @@ export async function getAdminSessions(): Promise<SessionRow[]> {
     })
     .from(session)
     .innerJoin(user, eq(session.userId, user.id))
-    .where(sql`${user.role} in ('admin', 'superadmin')`)
+    /*
+     * Muddati tugagan sessiya ham ro'yxatda turardi: sahifa «FAOL ADMIN
+     * SESSIYALARI» deb 16 ta yozuv ko'rsatardi, aslida amaldagisi 6 ta edi.
+     * Xavfsizlik sahifasida bu shunchaki noto'g'ri son emas — bosh admin
+     * allaqachon o'lik sessiyani "tugatish"ga urinardi.
+     */
+    .where(sql`${user.role} in ('admin', 'superadmin') and ${session.expiresAt} > now()`)
     .orderBy(desc(session.updatedAt))
     .limit(20);
 

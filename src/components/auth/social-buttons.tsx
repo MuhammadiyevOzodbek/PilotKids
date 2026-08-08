@@ -106,7 +106,7 @@ export function GoogleButton({
   label,
   onError,
   configured = true,
-  callbackURL = "/dashboard",
+  callbackURL = "/boshlash",
 }: {
   label: string;
   onError: (m: string) => void;
@@ -149,7 +149,7 @@ export function TelegramButton({
   label,
   onError,
   configured = true,
-  callbackURL = "/dashboard",
+  callbackURL = "/boshlash",
 }: {
   botUsername: string;
   label: string;

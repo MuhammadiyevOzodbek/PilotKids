@@ -80,7 +80,7 @@ export function ErrorView({
             borderRadius: 13,
             border: "none",
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-primary)",
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: 15,

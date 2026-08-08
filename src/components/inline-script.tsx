@@ -12,9 +12,10 @@
  *
  * Bu naqsh Next.js hujjatidan olingan (guides/preventing-flash-before-hydration).
  */
-export function InlineScript({ html }: { html: string }) {
+export function InlineScript({ html, nonce }: { html: string; nonce?: string }) {
   return (
     <script
+      nonce={nonce}
       type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
       suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: html }}

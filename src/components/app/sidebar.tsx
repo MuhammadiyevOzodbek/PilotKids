@@ -75,7 +75,7 @@ export function Sidebar({ role = "student" }: { role?: string }) {
             <Icon name="smart_toy" size={22} color="#fff" />
           </div>
           <span
-            className="font-display"
+            className="font-display app-nav-label"
             style={{ fontWeight: 800, fontSize: 19, color: "var(--text)" }}
           >
             PilotKids
@@ -89,6 +89,7 @@ export function Sidebar({ role = "student" }: { role?: string }) {
               <Link
                 key={n.href}
                 href={n.href}
+                title={n.label}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -102,7 +103,9 @@ export function Sidebar({ role = "student" }: { role?: string }) {
                 }}
               >
                 <Icon name={n.icon} size={22} />
-                <span style={{ fontWeight: 600, fontSize: 15 }}>{n.label}</span>
+                <span className="app-nav-label" style={{ fontWeight: 600, fontSize: 15 }}>
+                  {n.label}
+                </span>
               </Link>
             );
           })}
@@ -115,6 +118,7 @@ export function Sidebar({ role = "student" }: { role?: string }) {
         {isAdmin && (
           <Link
             href="/admin"
+            title={isSuperAdmin ? "Bosh admin panel" : "Admin panel"}
             style={{
               display: "flex",
               alignItems: "center",
@@ -129,12 +133,15 @@ export function Sidebar({ role = "student" }: { role?: string }) {
             }}
           >
             <Icon name="admin_panel_settings" size={21} />
-            {isSuperAdmin ? "Bosh admin panel" : "Admin panel"}
+            <span className="app-nav-label">
+              {isSuperAdmin ? "Bosh admin panel" : "Admin panel"}
+            </span>
           </Link>
         )}
 
         {showParentMode && (
           <div
+            className="app-parent-card"
             style={{
               background: "linear-gradient(135deg,#12203f,#0B1220)",
               borderRadius: 18,
@@ -172,6 +179,7 @@ export function Sidebar({ role = "student" }: { role?: string }) {
 
         <Link
           href="/settings"
+          title="Sozlamalar"
           style={{
             display: "flex",
             alignItems: "center",
@@ -182,7 +190,9 @@ export function Sidebar({ role = "student" }: { role?: string }) {
           }}
         >
           <Icon name="settings" size={21} />
-          <span style={{ fontWeight: 600, fontSize: 15 }}>Sozlamalar</span>
+          <span className="app-nav-label" style={{ fontWeight: 600, fontSize: 15 }}>
+            Sozlamalar
+          </span>
         </Link>
       </aside>
     </>

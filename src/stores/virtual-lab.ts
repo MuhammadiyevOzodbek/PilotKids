@@ -20,6 +20,7 @@ import type {
   SimulationStatus,
   WireColor,
   WireConnection,
+  WireFlow,
 } from "@/lib/virtual-lab/types";
 
 /**
@@ -106,6 +107,48 @@ function normalizeSettingValue(
   return Math.max(setting.min, Math.min(setting.max, value));
 }
 
+/** Komponentlar orasidagi eng kichik bo'shliq (px) — simlar sig'ishi uchun. */
+const NODE_GAP = 24;
+
+/**
+ * Bo'sh joy topadi.
+ *
+ * Kutubxonadan bosib qo'shilgan komponentlar bir xil nuqtaga tushardi va
+ * bir-birining ustiga yig'ilib qolardi: pastdagisining pinlariga umuman
+ * yetib bo'lmasdi. Endi band joy o'ngga, keyin pastga siljitiladi —
+ * xuddi stol ustiga detal qo'yayotgandek.
+ */
+function freeSpot(
+  nodes: readonly CircuitNode[],
+  def: { width: number; height: number },
+  x: number,
+  y: number,
+): { x: number; y: number } {
+  const overlaps = (px: number, py: number) =>
+    nodes.some((n) => {
+      const other = getDefinition(n.type);
+      if (!other) return false;
+      return (
+        px < n.x + other.width + NODE_GAP &&
+        px + def.width + NODE_GAP > n.x &&
+        py < n.y + other.height + NODE_GAP &&
+        py + def.height + NODE_GAP > n.y
+      );
+    });
+
+  let px = Math.round(x);
+  let py = Math.round(y);
+  // Cheklov: juda ko'p komponentda qidiruv cheksiz davom etmasin.
+  for (let step = 0; step < 60 && overlaps(px, py); step++) {
+    px += def.width + NODE_GAP;
+    if (px > Math.round(x) + 1600) {
+      px = Math.round(x);
+      py += def.height + NODE_GAP;
+    }
+  }
+  return { x: px, y: py };
+}
+
 export const useCircuitStore = create<CircuitState>((set, get) => ({
   circuit: { nodes: [], wires: [] },
   selectedIds: [],
@@ -118,6 +161,7 @@ export const useCircuitStore = create<CircuitState>((set, get) => ({
     const def = getDefinition(type);
     if (!def) return;
     if (get().circuit.nodes.length >= MAX_NODES) return;
+    const spot = freeSpot(get().circuit.nodes, def, x, y);
     set((s) => ({
       ...pushHistory(s),
       circuit: {
@@ -127,8 +171,8 @@ export const useCircuitStore = create<CircuitState>((set, get) => ({
           {
             id: nextId(type),
             type,
-            x: Math.round(x),
-            y: Math.round(y),
+            x: spot.x,
+            y: spot.y,
             rotation: 0,
             settings: { ...def.defaults },
           },
@@ -212,9 +256,23 @@ export const useCircuitStore = create<CircuitState>((set, get) => ({
    * `onSelectionChange` yana ishlaydi… Natijada "Maximum update depth
    * exceeded" xatosi chiqardi. Solishtirish shu halqani uzadi.
    */
+  /**
+   * Tanlovni yozadi.
+   *
+   * Taqqoslash TARTIBGA BOG'LIQ EMAS. Bu muhim: React Flow tanlovni
+   * o'zgarishlar to'plami sifatida beradi, ular esa bir xil to'plamni
+   * boshqa tartibda hosil qilishi mumkin (masalan element avval olib
+   * tashlanib, keyin qayta qo'shilsa). Tartib bo'yicha solishtirilsa,
+   * mazmuni o'zgarmagan tanlov ham yangi massiv hosil qilardi — undan
+   * sxema qayta chizilardi, React Flow yana o'zgarish yuborardi va halqa
+   * yopilardi ("Maximum update depth exceeded").
+   */
   setSelection: (ids) => {
     const current = get().selectedIds;
-    if (current.length === ids.length && current.every((id, i) => id === ids[i])) return;
+    if (current.length === ids.length) {
+      const currentSet = new Set(current);
+      if (ids.every((id) => currentSet.has(id))) return;
+    }
     set({ selectedIds: ids });
   },
 
@@ -369,6 +427,13 @@ interface SimulationState {
   time: number;
   logs: SerialLogEntry[];
   runtime: Record<string, ComponentRuntimeState>;
+  /**
+   * Sim → undagi tok va yo'nalish.
+   *
+   * Sxemada jonli chiziq bilan ko'rsatiladi: bola zanjir yopilganini
+   * "LED yondi" degan bitta belgidan emas, butun yo'l bo'ylab ko'radi.
+   */
+  wireFlow: Record<string, WireFlow>;
   /** Foydalanuvchi boshqaradigan sensor qiymatlari: node id → qiymat. */
   sensors: Record<string, number>;
   errors: string[];
@@ -382,6 +447,7 @@ interface SimulationState {
     time: number;
     logs: SerialLogEntry[];
     runtime: SimulationState["runtime"];
+    wireFlow: Record<string, WireFlow>;
   }) => void;
   setErrors: (errors: string[]) => void;
   clearLogs: () => void;
@@ -398,12 +464,55 @@ interface SimulationState {
   resetToken: number;
 }
 
+/* ─────────────────────────── Tugun ajratish ─────────────────────────── */
+
+interface HighlightState {
+  /**
+   * Sichqoncha ostidagi elektr tuguni.
+   *
+   * Bu — Faza B ning o'zagi: bola breadboarddagi bitta teshikka tegsa,
+   * u bilan ELEKTR JIHATDAN bir xil bo'lgan hamma nuqta yonadi. "Nega bu
+   * ikki teshik ulangan?" degan savolga javob ekranda ko'rinadi.
+   *
+   * Alohida store — sichqoncha harakatida sxema store'i o'zgarmasin va
+   * undan oziqlanadigan hamma narsa qayta chizilmasin.
+   */
+  hoveredNet: string | null;
+  setHoveredNet: (net: string | null) => void;
+}
+
+export const useHighlightStore = create<HighlightState>((set) => ({
+  hoveredNet: null,
+  setHoveredNet: (hoveredNet) => set((s) => (s.hoveredNet === hoveredNet ? s : { hoveredNet })),
+}));
+
+/**
+ * Ikki oqim jadvali amalda bir xilmi.
+ *
+ * Tok kuchi doim bir oz tebranadi (PWM, sensor), shuning uchun aniq
+ * tenglik emas, ko'rinadigan farq tekshiriladi: 0.1 mA dan kichik
+ * o'zgarish ekranda umuman sezilmaydi.
+ */
+function sameWireFlow(a: Record<string, WireFlow>, b: Record<string, WireFlow>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  for (const key of keys) {
+    const x = a[key];
+    const y = b[key];
+    if (!y || !x) return false;
+    if (x.direction !== y.direction) return false;
+    if (Math.abs(x.milliamps - y.milliamps) > 0.1) return false;
+  }
+  return true;
+}
+
 export const useSimulationStore = create<SimulationState>((set) => ({
   status: "stopped",
   speed: 1,
   time: 0,
   logs: [],
   runtime: {},
+  wireFlow: {},
   sensors: {},
   errors: [],
   resetToken: 0,
@@ -412,10 +521,18 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setSpeed: (speed) => set({ speed }),
   setSensor: (nodeId, value) => set((s) => ({ sensors: { ...s.sensors, [nodeId]: value } })),
   setSensors: (sensors) => set({ sensors: { ...sensors } }),
-  publish: ({ time, logs, runtime }) => set({ time, logs, runtime }),
+  publish: ({ time, logs, runtime, wireFlow }) =>
+    set((s) => ({
+      time,
+      logs,
+      runtime,
+      // Odatda oqim o'zgarmaydi — havolani saqlab qolsak, sxema har
+      // kadrda qayta chizilmaydi.
+      wireFlow: sameWireFlow(s.wireFlow, wireFlow) ? s.wireFlow : wireFlow,
+    })),
   setErrors: (errors) => set({ errors }),
   clearLogs: () => set({ logs: [] }),
-  reset: () => set({ status: "stopped", time: 0, logs: [], runtime: {}, errors: [] }),
+  reset: () => set({ status: "stopped", time: 0, logs: [], runtime: {}, wireFlow: {}, errors: [] }),
   requestReset: () => set((s) => ({ resetToken: s.resetToken + 1 })),
 }));
 

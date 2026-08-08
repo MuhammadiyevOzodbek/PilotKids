@@ -41,6 +41,7 @@ export default function ShartlarPage() {
       >
         <div className="sec-x" style={{ maxWidth: 820, margin: "0 auto", padding: "28px 0 56px" }}>
           <Link
+            className="tap"
             href="/"
             style={{
               display: "inline-flex",
@@ -145,7 +146,11 @@ export default function ShartlarPage() {
           ishlaydi. Uning javoblari <strong>xato bo&apos;lishi mumkin</strong> va u o&apos;qituvchi,
           shifokor yoki ota-ona maslahati o&apos;rnini bosmaydi. Tutorga shaxsiy ma&apos;lumot
           yozmang. Suhbatlar qanday qayta ishlanishi{" "}
-          <Link href="/maxfiylik" style={{ color: "var(--primary)", fontWeight: 600 }}>
+          <Link
+            href="/maxfiylik"
+            className="tap-inline"
+            style={{ color: "var(--primary)", fontWeight: 600 }}
+          >
             Maxfiylik siyosati
           </Link>{" "}
           hujjatida batafsil yozilgan.
@@ -204,6 +209,7 @@ export default function ShartlarPage() {
           }}
         >
           <Link
+            className="tap"
             href="/maxfiylik"
             style={{
               fontSize: 14,
@@ -215,6 +221,7 @@ export default function ShartlarPage() {
             Maxfiylik siyosati
           </Link>
           <Link
+            className="tap"
             href="/"
             style={{
               fontSize: 14,

@@ -83,7 +83,7 @@ export function LabCardActions({
       {error && (
         <p
           role="alert"
-          style={{ color: "#E5484D", fontSize: 14, fontWeight: 600, margin: "8px 0 0" }}
+          style={{ color: "var(--danger)", fontSize: 14, fontWeight: 600, margin: "8px 0 0" }}
         >
           {error}
         </p>

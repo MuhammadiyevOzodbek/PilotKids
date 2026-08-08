@@ -9,7 +9,7 @@ import {
 } from "@/lib/queries";
 import { ScreenTime } from "./screen-time";
 
-export const metadata = { title: "Ota-onalar uchun — PilotKids" };
+export const metadata = { title: "Ota-onalar uchun" };
 
 /** Sana farqini "2 kun oldin" ko'rinishida beradi. */
 function timeAgo(date: Date): string {

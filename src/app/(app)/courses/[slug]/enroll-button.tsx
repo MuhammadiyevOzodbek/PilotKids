@@ -10,10 +10,13 @@ export function EnrollButton({
   courseId,
   enrolled,
   continueHref,
+  lessonCount,
 }: {
   courseId: string;
   enrolled: boolean;
   continueHref: string | null;
+  /** Kursdagi darslar soni — 0 bo'lsa kurs «tugallandi» emas, hali tayyor emas. */
+  lessonCount: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -26,7 +29,7 @@ export function EnrollButton({
     borderRadius: 14,
     border: "none",
     background: "var(--primary)",
-    color: "#fff",
+    color: "var(--on-primary)",
     fontFamily: "var(--font-display)",
     fontWeight: 700,
     fontSize: 15.5,
@@ -55,19 +58,34 @@ export function EnrollButton({
 
   return (
     <>
-      <button type="button" onClick={handleClick} disabled={isPending} style={baseStyle}>
+      {/* Yozilgan, lekin boradigan darsi yo'q — tugma bosilsa hech nima
+          bo'lmaydi, shuning uchun uni o'chirib qo'yamiz. */}
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending || (enrolled && !continueHref)}
+        style={baseStyle}
+      >
         {isPending
           ? "Yozilmoqda…"
           : enrolled
             ? continueHref
               ? "Kursni davom ettirish"
-              : "Kurs tugallandi 🎉"
+              : /*
+                 * Keyingi dars yo'qligi ikki xil ma'noni anglatishi mumkin edi:
+                 * hammasi tugatilgan yoki kursda umuman dars yo'q. Ilgari
+                 * ikkalasi ham «Kurs tugallandi 🎉» deb ko'rsatilardi — bo'sh
+                 * kursga yozilgan bola darrov tabrik olardi.
+                 */
+                lessonCount > 0
+                ? "Kurs tugallandi 🎉"
+                : "Darslar tayyorlanmoqda"
             : "Kursga yozilish"}
       </button>
       {error && (
         <p
           role="alert"
-          style={{ color: "#E5484D", fontSize: 15, fontWeight: 600, margin: "0 0 12px" }}
+          style={{ color: "var(--danger)", fontSize: 15, fontWeight: 600, margin: "0 0 12px" }}
         >
           {error}
         </p>

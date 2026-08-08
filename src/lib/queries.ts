@@ -23,6 +23,20 @@ import {
   labProgress,
 } from "@/lib/db/schema";
 
+/**
+ * Manzildan kelgan identifikator UUID ekanini tekshiradi.
+ *
+ * `/lesson/not-a-uuid` kabi murakkab bo'lmagan so'rov Postgres'da `22P02`
+ * xatosini keltirib chiqarardi: foydalanuvchi «Sahifa topilmadi» o'rniga
+ * «Nimadir noto'g'ri ketdi» degan server xatosini ko'rardi. Identifikatorni
+ * so'rovdan OLDIN tekshirsak, bunday manzil oddiy 404 bo'lib qoladi.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 /* ─────────────────────────── Kontent (umumiy) ─────────────────────────── */
 
 async function getFeaturedCourses_impl() {
@@ -91,6 +105,7 @@ async function getAllCourses_impl() {
 
 /** Kursga yozilgan o'quvchilar soni. */
 async function getCourseStudentCount_impl(courseId: string) {
+  if (!isUuid(courseId)) return 0;
   const [{ value }] = await db
     .select({ value: count() })
     .from(enrollment)
@@ -100,6 +115,7 @@ async function getCourseStudentCount_impl(courseId: string) {
 
 /** Bitta darsni kursi bilan birga olish. */
 async function getLessonById_impl(lessonId: string) {
+  if (!isUuid(lessonId)) return null;
   const rows = await db
     .select({
       id: lesson.id,
@@ -157,6 +173,7 @@ async function getCurrentLesson_impl(userId: string) {
 
 /** Darsdan keyingi dars (bir kurs ichida). */
 async function getNextLesson_impl(courseId: string, currentOrder: number) {
+  if (!isUuid(courseId)) return null;
   const rows = await db
     .select({
       id: lesson.id,
@@ -174,6 +191,7 @@ async function getNextLesson_impl(courseId: string, currentOrder: number) {
 
 /** Foydalanuvchining dars bo'yicha shaxsiy eslatmasi. */
 async function getLessonNote_impl(userId: string, lessonId: string) {
+  if (!isUuid(lessonId)) return "";
   const rows = await db
     .select({ body: lessonNote.body })
     .from(lessonNote)
@@ -187,6 +205,7 @@ async function getLessonNote_impl(userId: string, lessonId: string) {
  * To'g'ri javob faqat serverda, `submitQuizAnswer` ichida solishtiriladi.
  */
 async function getQuizQuestions_impl(courseId?: string) {
+  if (courseId && !isUuid(courseId)) return [];
   const base = db
     .select({
       id: quizQuestion.id,
@@ -338,6 +357,7 @@ async function getUserCourses_impl(userId: string) {
 
 /** Kurs darslari + foydalanuvchi holati (done/current/locked). */
 async function getCourseLessons_impl(userId: string, courseId: string) {
+  if (!isUuid(courseId)) return [];
   return db
     .select({
       id: lesson.id,

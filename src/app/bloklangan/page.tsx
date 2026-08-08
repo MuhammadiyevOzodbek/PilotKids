@@ -62,7 +62,7 @@ export default function BlockedPage() {
             padding: "14px 26px",
             borderRadius: 14,
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-primary)",
             fontWeight: 700,
             fontSize: 15.5,
           }}

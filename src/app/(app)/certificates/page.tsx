@@ -3,7 +3,7 @@ import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getUserCertificates } from "@/lib/queries";
 
-export const metadata = { title: "Sertifikatlar — PilotKids" };
+export const metadata = { title: "Sertifikatlar" };
 
 export default async function CertificatesPage() {
   const user = await requireUser();
@@ -72,7 +72,7 @@ export default async function CertificatesPage() {
               padding: "13px 24px",
               borderRadius: 13,
               background: "var(--primary)",
-              color: "#fff",
+              color: "var(--on-primary)",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: 15,
@@ -182,9 +182,9 @@ export default async function CertificatesPage() {
                       border: "none",
                       textDecoration: "none",
                       ...(done
-                        ? { background: "var(--success)", color: "#fff" }
+                        ? { background: "var(--success)", color: "var(--on-success)" }
                         : prog
-                          ? { background: "var(--primary)", color: "#fff" }
+                          ? { background: "var(--primary)", color: "var(--on-primary)" }
                           : { background: "var(--surface-3)", color: "var(--text-3)" }),
                     };
 

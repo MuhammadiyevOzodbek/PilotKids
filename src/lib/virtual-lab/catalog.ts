@@ -1,3 +1,4 @@
+import { bbRatio, BB_VIEWBOX, breadboardHoles } from "./breadboard-layout";
 import type { ComponentDefinition, ComponentPin, PinDirection, PinKind, PinRole } from "./types";
 import { pinRatio, UNO_PINS, UNO_VIEWBOX, type UnoPinKind } from "./uno-layout";
 
@@ -52,25 +53,22 @@ function pins(items: PinInput[]): ComponentPin[] {
   return items.map(pin);
 }
 
+/**
+ * Breadboard teshiklari chizma bilan bitta manbadan olinadi
+ * (`breadboard-layout`), shuning uchun sim aynan ko'rinib turgan teshikka
+ * tushadi.
+ */
 function breadboardPins(): ComponentPin[] {
-  const out: PinInput[] = [];
-  for (let row = 0; row < 6; row++) {
-    for (let col = 0; col < 24; col++) {
-      const side = row < 3 ? "top" : "bottom";
-      const rowInSide = row < 3 ? row + 1 : row - 2;
-      const colLabel = col + 1;
-      out.push({
-        id: `${side[0]}${colLabel}-${rowInSide}`,
-        label: `${side === "top" ? "Yuqori" : "Pastki"} ${colLabel}.${rowInSide}`,
-        role: "passive",
-        direction: "bidirectional",
-        x: (14 + col * 11.5 + 2) / 300,
-        y: ((row < 3 ? 18 + row * 11 : 60 + (row - 3) * 11) + 2) / 120,
-        electricalGroupId: `breadboard:${side}:${colLabel}`,
-      });
-    }
-  }
-  return pins(out);
+  return pins(
+    breadboardHoles().map((hole) => ({
+      id: hole.id,
+      label: hole.label,
+      role: "passive" as const,
+      direction: "bidirectional" as const,
+      electricalGroupId: hole.group,
+      ...bbRatio(hole),
+    })),
+  );
 }
 
 /**
@@ -143,6 +141,71 @@ export function batteryVoltage(settings: Record<string, string | number | boolea
   return settings.polarity === "reversed" ? -volts : volts;
 }
 
+/**
+ * DHT11 ning haqiqiy o'lchov chegaralari (datasheet bo'yicha).
+ *
+ * Chegaralar aynan shu sensornikidan olingan: bola "−40 °C" qo'yib
+ * ko'rsatkichni buzmasin, chunki haqiqiy DHT11 ham bunday qiymat bermaydi.
+ */
+export const DHT11_RANGE = {
+  temperature: { min: 0, max: 50 },
+  humidity: { min: 20, max: 90 },
+} as const;
+
+export const DHT11_DEFAULTS = { temperature: 22, humidity: 55 } as const;
+
+/** LCD 16×2 — bir qatorda 16 belgi, ikkita qator. */
+export const LCD_COLUMNS = 16;
+export const LCD_ROWS = 2;
+
+/* ───────── Faza B: yarimo'tkazgichlar va modullar ───────── */
+
+/** Keypad tugmalari — qatorlar bo'yicha (R1…R4 × C1…C4). */
+export const KEYPAD_KEYS: readonly (readonly string[])[] = [
+  ["1", "2", "3", "A"],
+  ["4", "5", "6", "B"],
+  ["7", "8", "9", "C"],
+  ["*", "0", "#", "D"],
+] as const;
+
+/** Keypad tugmasi qaysi qator/ustunda ekanini beradi. */
+export function keypadPosition(key: string): { row: number; col: number } | null {
+  for (let r = 0; r < KEYPAD_KEYS.length; r++) {
+    const col = KEYPAD_KEYS[r]!.indexOf(key);
+    if (col >= 0) return { row: r, col };
+  }
+  return null;
+}
+
+/** 7-segment raqamlari — qaysi segmentlar yonishi kerak. */
+export const SEGMENT_DIGITS: Record<string, string> = {
+  "0": "abcdef",
+  "1": "bc",
+  "2": "abdeg",
+  "3": "abcdg",
+  "4": "bcfg",
+  "5": "acdfg",
+  "6": "acdefg",
+  "7": "abc",
+  "8": "abcdefg",
+  "9": "abcdfg",
+};
+
+/** Yonayotgan segmentlar naqshi qaysi raqamga mos kelishini topadi. */
+export function digitForSegments(on: Record<string, boolean>): string | null {
+  const lit = "abcdefg"
+    .split("")
+    .filter((s) => on[s] === true)
+    .join("");
+  for (const [digit, pattern] of Object.entries(SEGMENT_DIGITS)) {
+    if (pattern === lit) return digit;
+  }
+  return null;
+}
+
+/** 74HC595 chiqishlari soni. */
+export const SHIFT_REGISTER_BITS = 8;
+
 export const CATALOG: ComponentDefinition[] = [
   /* ───────── Platalar ───────── */
   {
@@ -155,23 +218,32 @@ export const CATALOG: ComponentDefinition[] = [
     isBoard: true,
     defaults: {},
     settings: [],
-    // Pinlar chizmadan olinadi — silkscreen va ulanish nuqtasi doim mos keladi.
-    pins: UNO_PINS.map((p) => ({
-      ...pin({
+    /*
+     * Pinlar chizmadan olinadi — silkscreen va ulanish nuqtasi doim mos
+     * keladi.
+     *
+     * Uchala GND pini bitta elektr guruhida: haqiqiy platada ular mis
+     * qatlam orqali ichkaridan ulangan. Usiz "GND1 ga ulandim, GND2 esa
+     * boshqa tugun" degan noto'g'ri holat chiqardi.
+     */
+    pins: UNO_PINS.map((p) =>
+      pin({
         id: p.id,
         label: p.label,
         role: PIN_ROLE_OF[p.kind],
+        electricalGroupId: p.kind === "ground" ? "uno:gnd" : undefined,
         ...pinRatio(p),
       }),
-    })),
+    ),
   },
   {
     type: "breadboard",
     name: "Breadboard",
     category: "board",
-    description: "Komponentlarni lehimlamasdan ulash uchun taxta.",
-    width: 300,
-    height: 120,
+    description:
+      "Komponentlarni lehimlamasdan ulash uchun taxta. Ustundagi besh teshik o'zaro ulangan, relslar esa butun uzunligi bo'ylab.",
+    width: BB_VIEWBOX.width,
+    height: BB_VIEWBOX.height,
     defaults: {},
     settings: [],
     pins: breadboardPins(),
@@ -375,6 +447,42 @@ export const CATALOG: ComponentDefinition[] = [
     ]),
   },
 
+  {
+    type: "dht11",
+    name: "Harorat va namlik sensori (DHT11)",
+    category: "sensor",
+    description:
+      "Bir vaqtning o'zida harorat va havo namligini o'lchaydi. Kodda `DHT` kutubxonasi orqali o'qiladi.",
+    width: 80,
+    height: 90,
+    defaults: { temperature: DHT11_DEFAULTS.temperature, humidity: DHT11_DEFAULTS.humidity },
+    settings: [
+      {
+        key: "temperature",
+        label: "Harorat",
+        kind: "number",
+        min: DHT11_RANGE.temperature.min,
+        max: DHT11_RANGE.temperature.max,
+        step: 1,
+        unit: "°C",
+      },
+      {
+        key: "humidity",
+        label: "Namlik",
+        kind: "number",
+        min: DHT11_RANGE.humidity.min,
+        max: DHT11_RANGE.humidity.max,
+        step: 1,
+        unit: "%",
+      },
+    ],
+    pins: pins([
+      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.2, y: 0.95 },
+      { id: "data", label: "DATA", role: "digital", x: 0.5, y: 0.95 },
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.8, y: 0.95 },
+    ]),
+  },
+
   /* ───────── Motorlar ───────── */
   {
     type: "servo",
@@ -402,8 +510,25 @@ export const CATALOG: ComponentDefinition[] = [
       "Tok berilganda aylanadi. Kuchlanish qutbini almashtirsangiz yo'nalishi o'zgaradi.",
     width: 90,
     height: 80,
-    defaults: {},
-    settings: [],
+    /*
+     * Nominal kuchlanish — motorning pasportidagi qiymat. Usiz 6 V va 12 V
+     * bir xil "to'liq tezlik" bo'lib ko'rinardi: tezlik 5 V ga nisbatan
+     * hisoblanib, undan yuqorisi qirqilardi. Motor drayveri qo'shilgach bu
+     * sezilarli bo'ldi — 12 V motorni 6 V bilan aylantirish sekinroq
+     * bo'lishi kerak.
+     */
+    defaults: { nominalVoltage: 5 },
+    settings: [
+      {
+        key: "nominalVoltage",
+        label: "Nominal kuchlanish",
+        kind: "number",
+        min: 3,
+        max: 24,
+        step: 0.5,
+        unit: "V",
+      },
+    ],
     pins: pins([
       {
         id: "t1",
@@ -437,6 +562,57 @@ export const CATALOG: ComponentDefinition[] = [
     pins: pins([
       { id: "plus", label: "+", role: "passive", polarity: "positive", x: 0.3, y: 0.92 },
       { id: "minus", label: "−", role: "passive", polarity: "negative", x: 0.7, y: 0.92 },
+    ]),
+  },
+
+  {
+    type: "lcd1602",
+    name: "LCD displey (16×2)",
+    category: "output",
+    description:
+      "Ikki qatorli, har qatorda 16 belgi ko'rsatadigan ekran. Kodda `LiquidCrystal` kutubxonasi orqali boshqariladi.",
+    width: 240,
+    height: 120,
+    defaults: { backlight: true },
+    settings: [{ key: "backlight", label: "Orqa yoritish", kind: "boolean" }],
+    /*
+     * To'rt simli (4-bit) ulanish — darsliklarda ishlatiladigan usul.
+     * Kontrast (V0) va RW pinlari qoldirilgan: ular doim bir xil ulanadi
+     * va bola uchun faqat chalkashlik qo'shardi.
+     */
+    pins: pins([
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.08, y: 0.94 },
+      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.2, y: 0.94 },
+      { id: "rs", label: "RS", role: "digital", x: 0.32, y: 0.94 },
+      { id: "e", label: "E", role: "digital", x: 0.44, y: 0.94 },
+      { id: "d4", label: "D4", role: "digital", x: 0.56, y: 0.94 },
+      { id: "d5", label: "D5", role: "digital", x: 0.68, y: 0.94 },
+      { id: "d6", label: "D6", role: "digital", x: 0.8, y: 0.94 },
+      { id: "d7", label: "D7", role: "digital", x: 0.92, y: 0.94 },
+    ]),
+  },
+  {
+    type: "relay",
+    name: "Rele",
+    category: "output",
+    description:
+      "Kichik signal bilan katta zanjirni yoqadigan kalit. Chulg'amga kuchlanish berilsa, COM kontakti NC dan NO ga o'tadi.",
+    width: 140,
+    height: 110,
+    defaults: {},
+    settings: [],
+    /*
+     * Boshqaruv pinlari pastda, kommutatsiya kontaktlari tepada: shunda
+     * "past kuchlanishli tomon" bilan "yuk tomoni" chizmada ham ajralib
+     * turadi — haqiqiy rele modulidagidek.
+     */
+    pins: pins([
+      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.14, y: 0.95 },
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.36, y: 0.95 },
+      { id: "in", label: "IN (boshqaruv)", role: "digital", x: 0.58, y: 0.95 },
+      { id: "nc", label: "NC (odatda ulangan)", role: "passive", x: 0.2, y: 0.06 },
+      { id: "com", label: "COM (umumiy)", role: "passive", x: 0.5, y: 0.06 },
+      { id: "no", label: "NO (odatda uzilgan)", role: "passive", x: 0.8, y: 0.06 },
     ]),
   },
 
@@ -519,6 +695,250 @@ export const CATALOG: ComponentDefinition[] = [
     defaults: {},
     settings: [],
     pins: pins([{ id: "out", label: "GND", role: "ground", polarity: "negative", x: 0.5, y: 0.1 }]),
+  },
+
+  /* ───────── Faza B: yarimo'tkazgichlar ───────── */
+  {
+    type: "diode",
+    name: "Diod",
+    category: "control",
+    description: "Tokni faqat bir tomonga o'tkazadi. Motorga teskari kuchlanishdan himoya.",
+    width: 90,
+    height: 40,
+    defaults: { vf: 0.7 },
+    settings: [
+      {
+        key: "vf",
+        label: "Ochilish kuchlanishi",
+        kind: "number",
+        min: 0.2,
+        max: 1.2,
+        step: 0.05,
+        unit: "V",
+      },
+    ],
+    pins: pins([
+      { id: "a", label: "Anod (+)", role: "passive", polarity: "positive", x: 0.04, y: 0.5 },
+      { id: "k", label: "Katod (−)", role: "passive", polarity: "negative", x: 0.96, y: 0.5 },
+    ]),
+  },
+  {
+    type: "capacitor",
+    name: "Kondensator",
+    category: "control",
+    description: "Zaryad to'playdi. Elektrolit turi qutbli — teskari ulanmasin.",
+    width: 60,
+    height: 84,
+    defaults: { microfarads: 100, polarized: true },
+    settings: [
+      {
+        key: "microfarads",
+        label: "Sig'im",
+        kind: "number",
+        min: 0.1,
+        max: 4700,
+        step: 0.1,
+        unit: "µF",
+      },
+      { key: "polarized", label: "Elektrolit (qutbli)", kind: "boolean" },
+    ],
+    pins: pins([
+      { id: "plus", label: "+", role: "passive", polarity: "positive", x: 0.3, y: 0.97 },
+      { id: "minus", label: "−", role: "passive", polarity: "negative", x: 0.7, y: 0.97 },
+    ]),
+  },
+  {
+    type: "npn-transistor",
+    name: "NPN tranzistor",
+    category: "control",
+    description: "Kichik baza toki bilan katta yukni yoqadi (kalit sifatida).",
+    width: 76,
+    height: 80,
+    defaults: { beta: 100, vbe: 0.7 },
+    settings: [
+      { key: "beta", label: "Kuchaytirish (β)", kind: "number", min: 20, max: 500, step: 10 },
+      {
+        key: "vbe",
+        label: "Baza ochilish kuchlanishi",
+        kind: "number",
+        min: 0.4,
+        max: 1,
+        step: 0.05,
+        unit: "V",
+      },
+    ],
+    pins: pins([
+      { id: "c", label: "Kollektor (C)", role: "passive", x: 0.72, y: 0.04 },
+      { id: "b", label: "Baza (B)", role: "passive", x: 0.03, y: 0.5 },
+      { id: "e", label: "Emitter (E)", role: "passive", polarity: "negative", x: 0.72, y: 0.96 },
+    ]),
+  },
+
+  /* ───────── Faza B: modullar ───────── */
+  {
+    type: "joystick",
+    name: "Joystik moduli",
+    category: "control",
+    description: "Ikki o'q bo'yicha analog qiymat va bosiladigan tugma.",
+    width: 110,
+    height: 118,
+    defaults: { x: 0, y: 0, pressed: false },
+    settings: [
+      { key: "x", label: "X o'qi", kind: "number", min: -100, max: 100, step: 1 },
+      { key: "y", label: "Y o'qi", kind: "number", min: -100, max: 100, step: 1 },
+      { key: "pressed", label: "Tugma bosilgan", kind: "boolean" },
+    ],
+    pins: pins([
+      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.1, y: 0.97 },
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.3, y: 0.97 },
+      { id: "vrx", label: "VRx", role: "analog", x: 0.5, y: 0.97 },
+      { id: "vry", label: "VRy", role: "analog", x: 0.7, y: 0.97 },
+      { id: "sw", label: "SW (tugma)", role: "digital", x: 0.9, y: 0.97 },
+    ]),
+  },
+  {
+    type: "seven-segment",
+    name: "7-segmentli indikator",
+    category: "output",
+    description: "Bitta raqam ko'rsatadi. Har bir segment — alohida LED.",
+    width: 84,
+    height: 116,
+    defaults: { common: "cathode" },
+    settings: [
+      {
+        key: "common",
+        label: "Umumiy uch",
+        kind: "select",
+        options: [
+          { value: "cathode", label: "Umumiy katod (COM → GND)" },
+          { value: "anode", label: "Umumiy anod (COM → 5V)" },
+        ],
+      },
+    ],
+    pins: pins([
+      { id: "a", label: "a", role: "passive", x: 0.08, y: 0.04 },
+      { id: "b", label: "b", role: "passive", x: 0.3, y: 0.04 },
+      { id: "c", label: "c", role: "passive", x: 0.52, y: 0.04 },
+      { id: "d", label: "d", role: "passive", x: 0.74, y: 0.04 },
+      { id: "e", label: "e", role: "passive", x: 0.08, y: 0.96 },
+      { id: "f", label: "f", role: "passive", x: 0.3, y: 0.96 },
+      { id: "g", label: "g", role: "passive", x: 0.52, y: 0.96 },
+      { id: "dp", label: "dp (nuqta)", role: "passive", x: 0.74, y: 0.96 },
+      { id: "com", label: "COM (umumiy)", role: "passive", x: 0.94, y: 0.5 },
+    ]),
+  },
+  {
+    type: "shift-register",
+    name: "74HC595 siljitish registri",
+    category: "output",
+    description: "3 ta pin bilan 8 ta chiqishni boshqaradi. shiftOut() bilan ishlaydi.",
+    width: 150,
+    height: 118,
+    defaults: {},
+    settings: [],
+    pins: pins([
+      { id: "q0", label: "Q0", role: "digital", direction: "output", x: 0.06, y: 0.04 },
+      { id: "q1", label: "Q1", role: "digital", direction: "output", x: 0.19, y: 0.04 },
+      { id: "q2", label: "Q2", role: "digital", direction: "output", x: 0.32, y: 0.04 },
+      { id: "q3", label: "Q3", role: "digital", direction: "output", x: 0.45, y: 0.04 },
+      { id: "q4", label: "Q4", role: "digital", direction: "output", x: 0.58, y: 0.04 },
+      { id: "q5", label: "Q5", role: "digital", direction: "output", x: 0.71, y: 0.04 },
+      { id: "q6", label: "Q6", role: "digital", direction: "output", x: 0.84, y: 0.04 },
+      { id: "q7", label: "Q7", role: "digital", direction: "output", x: 0.96, y: 0.04 },
+      { id: "ser", label: "SER (DS) — ma'lumot", role: "digital", x: 0.06, y: 0.96 },
+      { id: "srclk", label: "SRCLK (SH_CP) — takt", role: "digital", x: 0.19, y: 0.96 },
+      { id: "rclk", label: "RCLK (ST_CP) — latch", role: "digital", x: 0.32, y: 0.96 },
+      { id: "oe", label: "OE (chiqishni yoqish, 0 = yoniq)", role: "digital", x: 0.45, y: 0.96 },
+      {
+        id: "srclr",
+        label: "SRCLR (MR) — tozalash, 0 = tozala",
+        role: "digital",
+        x: 0.58,
+        y: 0.96,
+      },
+      {
+        id: "q7s",
+        label: "Q7' (keyingi chipga)",
+        role: "digital",
+        direction: "output",
+        x: 0.71,
+        y: 0.96,
+      },
+      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.84, y: 0.96 },
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.96, y: 0.96 },
+    ]),
+  },
+  {
+    type: "l298n",
+    name: "L298N motor drayveri",
+    category: "motor",
+    description: "Ikkita DC motorni yo'nalish va tezlik bilan boshqaradi.",
+    width: 168,
+    height: 132,
+    defaults: { supplyVoltage: 12 },
+    settings: [
+      {
+        key: "supplyVoltage",
+        label: "Motor kuchlanishi",
+        kind: "number",
+        min: 5,
+        max: 24,
+        step: 0.5,
+        unit: "V",
+      },
+    ],
+    pins: pins([
+      { id: "out1", label: "OUT1 (motor A)", role: "passive", x: 0.06, y: 0.04 },
+      { id: "out2", label: "OUT2 (motor A)", role: "passive", x: 0.22, y: 0.04 },
+      { id: "out3", label: "OUT3 (motor B)", role: "passive", x: 0.78, y: 0.04 },
+      { id: "out4", label: "OUT4 (motor B)", role: "passive", x: 0.94, y: 0.04 },
+      {
+        id: "vin",
+        label: "VIN (motor quvvati)",
+        role: "power",
+        polarity: "positive",
+        x: 0.06,
+        y: 0.5,
+      },
+      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.06, y: 0.78 },
+      { id: "v5", label: "5V (mantiq)", role: "power", polarity: "positive", x: 0.94, y: 0.5 },
+      { id: "ena", label: "ENA (A tezligi, PWM)", role: "digital", x: 0.12, y: 0.96 },
+      { id: "in1", label: "IN1 (A yo'nalishi)", role: "digital", x: 0.28, y: 0.96 },
+      { id: "in2", label: "IN2 (A yo'nalishi)", role: "digital", x: 0.44, y: 0.96 },
+      { id: "in3", label: "IN3 (B yo'nalishi)", role: "digital", x: 0.6, y: 0.96 },
+      { id: "in4", label: "IN4 (B yo'nalishi)", role: "digital", x: 0.76, y: 0.96 },
+      { id: "enb", label: "ENB (B tezligi, PWM)", role: "digital", x: 0.92, y: 0.96 },
+    ]),
+  },
+  {
+    type: "keypad-4x4",
+    name: "4×4 klaviatura",
+    category: "control",
+    description: "16 ta tugma. Qator va ustun skanerlash orqali o'qiladi.",
+    width: 148,
+    height: 158,
+    defaults: { key: "" },
+    settings: [
+      {
+        key: "key",
+        label: "Bosilgan tugma",
+        kind: "select",
+        options: [
+          { value: "", label: "Hech qaysi" },
+          ...KEYPAD_KEYS.flat().map((k) => ({ value: k, label: k })),
+        ],
+      },
+    ],
+    pins: pins([
+      { id: "r1", label: "R1 (1-qator)", role: "passive", x: 0.1, y: 0.97 },
+      { id: "r2", label: "R2 (2-qator)", role: "passive", x: 0.22, y: 0.97 },
+      { id: "r3", label: "R3 (3-qator)", role: "passive", x: 0.34, y: 0.97 },
+      { id: "r4", label: "R4 (4-qator)", role: "passive", x: 0.46, y: 0.97 },
+      { id: "c1", label: "C1 (1-ustun)", role: "passive", x: 0.58, y: 0.97 },
+      { id: "c2", label: "C2 (2-ustun)", role: "passive", x: 0.7, y: 0.97 },
+      { id: "c3", label: "C3 (3-ustun)", role: "passive", x: 0.82, y: 0.97 },
+      { id: "c4", label: "C4 (4-ustun)", role: "passive", x: 0.94, y: 0.97 },
+    ]),
   },
 
   /* ───────── Boshqa ───────── */

@@ -6,7 +6,6 @@ import {
   BackgroundVariant,
   ConnectionMode,
   Controls,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useConnection,
@@ -19,10 +18,12 @@ import {
 } from "@xyflow/react";
 import { MousePointerSquareDashed } from "lucide-react";
 import { getDefinition } from "@/lib/virtual-lab/catalog";
+import { buildNetlist, netFor, pinKey } from "@/lib/virtual-lab/netlist";
 import { canConnect } from "@/lib/virtual-lab/validator";
 import type { CircuitIssue, WireColor } from "@/lib/virtual-lab/types";
-import { useCircuitStore, useSimulationStore } from "@/stores/virtual-lab";
+import { useCircuitStore, useHighlightStore, useSimulationStore } from "@/stores/virtual-lab";
 import { ComponentNode, type ComponentNodeData } from "./component-node";
+import { WireEdge, type WireEdgeData } from "./wire-edge";
 
 /**
  * Sxema yig'ish maydoni.
@@ -53,9 +54,9 @@ const WIRE_STROKE: Record<WireColor, string> = {
  * ("Maximum update depth exceeded"). Shuning uchun barchasi modul darajasida.
  */
 const NODE_TYPES = { component: ComponentNode };
+const EDGE_TYPES = { wire: WireEdge };
 const SNAP_GRID: [number, number] = [10, 10];
 const PRO_OPTIONS = { hideAttribution: true };
-const MINIMAP_STYLE = { width: 130, height: 92 };
 
 function toCircuitPinId(handleId: string | null | undefined) {
   const id = handleId ?? "";
@@ -81,6 +82,9 @@ function CanvasInner({
   const addNode = useCircuitStore((s) => s.addNode);
   const runtime = useSimulationStore((s) => s.runtime);
   const running = useSimulationStore((s) => s.status === "running");
+  const wireFlow = useSimulationStore((s) => s.wireFlow);
+  const hoveredNet = useHighlightStore((s) => s.hoveredNet);
+  const setHoveredNet = useHighlightStore((s) => s.setHoveredNet);
 
   /*
    * Sim tortilayotgan manba pin. `useConnection` har renderda yangi obyekt
@@ -97,10 +101,17 @@ function CanvasInner({
   const wrapper = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
-  /** Komponent → xato darajasi (eng og'iri ko'rsatiladi). */
+  /**
+   * Komponent → xato darajasi (eng og'iri ko'rsatiladi).
+   *
+   * `info` chizmada belgilanmaydi: u maslahat, sxemada esa faqat haqiqiy
+   * muammo ko'zga tashlanishi kerak. Maslahatlar «Muammolar» ro'yxatida
+   * ko'rinadi.
+   */
   const issueByNode = useMemo(() => {
     const map = new Map<string, "error" | "warning">();
     for (const issue of issues) {
+      if (issue.severity === "info") continue;
       for (const id of issue.nodeIds) {
         if (issue.severity === "error" || !map.has(id)) map.set(id, issue.severity);
       }
@@ -147,6 +158,44 @@ function CanvasInner({
   }, [circuit.wires, circuit.nodes]);
 
   /**
+   * Elektr tugunlari.
+   *
+   * Sxema bu yerda ikkinchi marta emas, BIRINCHI marta tugunlarga bo'linadi:
+   * validator o'zining nusxasini quradi, lekin uni bu yerga uzatish canvas'ni
+   * validatorga bog'lab qo'yardi. Hisob arzon va faqat sxema o'zgarganda
+   * qayta bajariladi.
+   */
+  const nets = useMemo(() => {
+    const netlist = buildNetlist(circuit);
+
+    const byNode = new Map<string, Record<string, string>>();
+    const sizeByNode = new Map<string, Record<string, number>>();
+    for (const node of circuit.nodes) {
+      const def = getDefinition(node.type);
+      if (!def) continue;
+      const pins: Record<string, string> = {};
+      const sizes: Record<string, number> = {};
+      for (const pin of def.pins) {
+        const id = netlist.netOf.get(pinKey(node.id, pin.id));
+        if (id === undefined) continue;
+        pins[pin.id] = id;
+        sizes[pin.id] = (netlist.pinsOf.get(id) ?? []).length;
+      }
+      byNode.set(node.id, pins);
+      sizeByNode.set(node.id, sizes);
+    }
+
+    // Sim — bitta tugunning ikki nuqtasi, shuning uchun bitta id yetarli.
+    const byWire = new Map<string, string>();
+    for (const wire of circuit.wires) {
+      const id = netFor(netlist, wire.from.nodeId, wire.from.pinId);
+      if (id !== null) byWire.set(wire.id, id);
+    }
+
+    return { byNode, sizeByNode, byWire };
+  }, [circuit]);
+
+  /**
    * Sim tortilayotganda: qaysi pinga ulash mumkin. Bir marta hisoblanadi va
    * pinlar yashil (mumkin) yoki qizil (mumkin emas) bo'lib yonadi — bola
    * urinib ko'rmasdan turib javobni ko'radi.
@@ -175,6 +224,17 @@ function CanvasInner({
         id: n.id,
         type: "component",
         position: { x: n.x, y: n.y },
+        /*
+         * O'lchamni katalogdan beramiz.
+         *
+         * Ro'yxat har renderda yangidan quriladi, shuning uchun React Flow
+         * o'lchagan qiymat (`measured`) yangi obyektga o'tmaydi. Bu qiymat
+         * `fitView` va node chegaralarini hisoblashda kerak bo'ladi.
+         * `initialWidth`/`initialHeight` faqat o'lchov bo'lmaganda
+         * ishlatiladi, ya'ni haqiqiy o'lchashni bekor qilmaydi.
+         */
+        initialWidth: getDefinition(n.type)?.width,
+        initialHeight: getDefinition(n.type)?.height,
         selected: selectedIds.includes(n.id),
         data: {
           type: n.type,
@@ -186,6 +246,8 @@ function CanvasInner({
           connected: connectedPins.get(n.id),
           connectedTo: connectedTo.get(n.id),
           connectable: connectHints?.get(n.id),
+          netOfPin: nets.byNode.get(n.id),
+          netSize: nets.sizeByNode.get(n.id),
         },
       })),
     [
@@ -197,27 +259,98 @@ function CanvasInner({
       connectedPins,
       connectedTo,
       connectHints,
+      nets,
     ],
   );
 
   const edges: Edge[] = useMemo(
     () =>
-      circuit.wires.map((wire) => ({
-        id: wire.id,
-        source: wire.from.nodeId,
-        target: wire.to.nodeId,
-        sourceHandle: toCircuitPinId(wire.from.pinId),
-        targetHandle: toCircuitPinId(wire.to.pinId),
-        type: "smoothstep",
-        selected: selectedIds.includes(wire.id),
-        selectable: true,
-        interactionWidth: 18,
-        style: {
-          stroke: WIRE_STROKE[wire.color],
-          strokeWidth: selectedIds.includes(wire.id) ? 5 : 3.5,
-        },
-      })),
-    [circuit.wires, selectedIds],
+      circuit.wires.map((wire) => {
+        const selected = selectedIds.includes(wire.id);
+        const inNet = hoveredNet !== null && nets.byWire.get(wire.id) === hoveredNet;
+        const flow = wireFlow[wire.id];
+        return {
+          id: wire.id,
+          source: wire.from.nodeId,
+          target: wire.to.nodeId,
+          sourceHandle: toCircuitPinId(wire.from.pinId),
+          targetHandle: toCircuitPinId(wire.to.pinId),
+          type: "wire",
+          // Rang va tok — simning ustidagi tez menyu uchun.
+          data: { color: wire.color, milliamps: flow?.milliamps } satisfies WireEdgeData,
+          selected,
+          selectable: true,
+          interactionWidth: 18,
+          /*
+           * Tok o'tayotgan sim harakatlanuvchi punktir bilan ko'rsatiladi.
+           * Yo'nalish yechuvchidan olinadi va faqat ANIQ bo'lganda
+           * qo'llaniladi — tugunda ikkitadan ortiq nuqta bo'lsa, tok
+           * shoxlarga qanday bo'linishini bitta sim bo'yicha aytib
+           * bo'lmaydi va punktir yo'nalishsiz yuguradi.
+           */
+          className: [
+            inNet ? "vlab-wire-net" : "",
+            flow ? "vlab-wire-live" : "",
+            // Yo'nalish aniqlangan bo'lsa punktir shu tomonga yuguradi.
+            flow?.direction === -1 ? "vlab-wire-reverse" : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          style: {
+            stroke: WIRE_STROKE[wire.color],
+            strokeWidth: selected ? 5 : inNet ? 4.5 : 3.5,
+          },
+        };
+      }),
+    [circuit.wires, selectedIds, hoveredNet, nets, wireFlow],
+  );
+
+  const onEdgeMouseEnter = useCallback(
+    (_: React.MouseEvent, edge: Edge) => setHoveredNet(nets.byWire.get(edge.id) ?? null),
+    [nets, setHoveredNet],
+  );
+  const onEdgeMouseLeave = useCallback(() => setHoveredNet(null), [setHoveredNet]);
+
+  /**
+   * Tanlov o'zgarishlarini store'ga qo'llaydi.
+   *
+   * React Flow boshqariladigan (controlled) rejimda tanlovni O'ZI
+   * o'zgartirmaydi — u faqat `select` turidagi o'zgarishni yuboradi va
+   * natijani bizdan kutadi. Ilgari bu o'zgarishlar e'tiborsiz qolardi,
+   * shuning uchun komponent yoki sim ustiga bosish hech narsa qilmasdi:
+   * tanlash faqat pin ustiga bosish orqali ishlardi.
+   *
+   * Bir bosishda ikkala qo'llovchi ham chaqirilishi mumkin (masalan simni
+   * tanlaganda komponentlar bo'shatiladi), shuning uchun joriy tanlov har
+   * safar store'dan o'qiladi — shunda ular bir-birini bekor qilmaydi.
+   */
+  const applySelect = useCallback(
+    (changes: { id: string; selected: boolean }[]) => {
+      if (changes.length === 0) return;
+
+      const current = useCircuitStore.getState().selectedIds;
+      const next = new Set(current);
+      for (const change of changes) {
+        if (change.selected) next.add(change.id);
+        else next.delete(change.id);
+      }
+
+      // Hech nima o'zgarmagan bo'lsa — store'ga umuman tegmaymiz.
+      if (next.size === current.length && current.every((id) => next.has(id))) return;
+
+      /*
+       * Tartib barqaror bo'lishi uchun avvalgi ketma-ketlik saqlanadi va
+       * yangilari oxiriga qo'shiladi. `Set` ni to'g'ridan-to'g'ri yoyish
+       * o'chirib-qo'shilgan elementni oxiriga surib yuborardi va mazmunan
+       * bir xil tanlov har safar boshqa massiv bo'lib chiqardi.
+       */
+      const ordered = current.filter((id) => next.has(id));
+      for (const change of changes) {
+        if (change.selected && !ordered.includes(change.id)) ordered.push(change.id);
+      }
+      setSelection(ordered);
+    },
+    [setSelection],
   );
 
   const onNodesChange = useCallback(
@@ -233,8 +366,9 @@ function CanvasInner({
           commitMove();
         }
       }
+      applySelect(changes.filter((c) => c.type === "select"));
     },
-    [moveNode, commitMove],
+    [moveNode, commitMove, applySelect],
   );
 
   const onConnect = useCallback(
@@ -254,15 +388,9 @@ function CanvasInner({
       for (const change of changes) {
         if (change.type === "remove") removeWire(change.id);
       }
+      applySelect(changes.filter((c) => c.type === "select"));
     },
-    [removeWire],
-  );
-
-  const onSelectionChange = useCallback(
-    ({ nodes: selected, edges: selectedEdges }: { nodes: Node[]; edges: Edge[] }) => {
-      setSelection([...selected.map((n) => n.id), ...selectedEdges.map((e) => e.id)]);
-    },
-    [setSelection],
+    [removeWire, applySelect],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -301,13 +429,15 @@ function CanvasInner({
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         connectionMode={ConnectionMode.Loose}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        onSelectionChange={onSelectionChange}
+        onEdgeMouseEnter={onEdgeMouseEnter}
+        onEdgeMouseLeave={onEdgeMouseLeave}
         snapToGrid
         snapGrid={SNAP_GRID}
         minZoom={0.2}
@@ -329,24 +459,6 @@ function CanvasInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--border)" />
         <Controls showInteractive={false} position="bottom-right" />
-        {/* Katta sxemada qayerdaligini bilish uchun. */}
-        {circuit.nodes.length > 3 && (
-          <MiniMap
-            pannable
-            zoomable
-            position="top-right"
-            style={MINIMAP_STYLE}
-            maskColor="color-mix(in srgb, var(--bg) 62%, transparent)"
-            bgColor="var(--surface-2)"
-            nodeColor={(n) =>
-              (n.data as ComponentNodeData).issue === "error"
-                ? "var(--danger)"
-                : (n.data as ComponentNodeData).issue === "warning"
-                  ? "var(--fun-amber)"
-                  : "var(--text-3)"
-            }
-          />
-        )}
       </ReactFlow>
 
       {/* Sim ranglarining ma'nosi — bolalar uchun eslatma. */}
@@ -364,6 +476,13 @@ function CanvasInner({
             <i style={{ background: WIRE_STROKE.blue }} />
             Signal
           </span>
+          {/* Simulyatsiya paytida punktir simlarning ma'nosini aytamiz. */}
+          {running && (
+            <span>
+              <i className="vlab-legend-flow" />
+              Tok o&apos;tyapti
+            </span>
+          )}
         </div>
       )}
     </div>

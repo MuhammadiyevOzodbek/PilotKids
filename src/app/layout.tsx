@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+import { NONCE_HEADER } from "@/lib/csp";
 import { sora, jakarta } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -53,7 +55,10 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // CSP nonce'ni `proxy.ts` so'rov sarlavhasiga qo'yadi. Nonce'siz bu skript
+  // brauzerda bloklanadi va tema FOUC'i qaytadi.
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
   return (
     <html
       lang="uz"
@@ -77,7 +82,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
         {/* FOUC'siz tema: DOM render'idan oldin <html> ga qo'llaymiz */}
-        <InlineScript html={themeInitScript} />
+        <InlineScript html={themeInitScript} nonce={nonce} />
       </head>
       <body>
         {/* "Asosiy qismga o'tish" — body'dagi BIRINCHI fokuslanadigan element

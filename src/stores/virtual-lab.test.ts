@@ -268,13 +268,29 @@ describe("sim ulash qoidalari", () => {
 describe("breadboard pin modeli", () => {
   it("teshiklar haqiqiy va barqaror connector sifatida katalogda bor", () => {
     const breadboard = getDefinition("breadboard");
-    expect(breadboard?.pins).toHaveLength(144);
+    // 24 ustun × 5 qator × 2 yarim + 4 rels × 24 teshik.
+    expect(breadboard?.pins).toHaveLength(24 * 5 * 2 + 4 * 24);
     expect(breadboard?.pins.find((p) => p.id === "t1-1")).toMatchObject({
       kind: "passive",
       direction: "bidirectional",
       connectable: true,
       electricalGroupId: "breadboard:top:1",
     });
+  });
+
+  it("eski sxemalardagi teshik nomlari saqlanib qolgan", () => {
+    // Relslar qo'shilganda ustun teshiklari qayta nomlanmagan bo'lishi
+    // kerak, aks holda saqlangan loyihalardagi simlar uzilib qolardi.
+    const ids = new Set((getDefinition("breadboard")?.pins ?? []).map((p) => p.id));
+    for (const id of ["t1-1", "t24-3", "b1-1", "b24-3"]) {
+      expect(ids.has(id)).toBe(true);
+    }
+  });
+
+  it("relsning barcha teshiklari bitta tugunda", () => {
+    const rail = (getDefinition("breadboard")?.pins ?? []).filter((p) => p.id.startsWith("pt"));
+    expect(rail).toHaveLength(24);
+    expect(new Set(rail.map((p) => p.electricalGroupId)).size).toBe(1);
   });
 });
 
@@ -301,5 +317,62 @@ describe("loyiha store'i", () => {
     expect(useProjectStore.getState().currentId).toBeTruthy();
     expect(useProjectStore.getState().lastError).toBe("Brauzer emas");
     expect(useProjectStore.getState().dirty).toBe(true);
+  });
+});
+
+describe("komponent qo'yish joyi", () => {
+  it("bir xil nuqtaga qo'yilgan komponentlar ustma-ust tushmaydi", () => {
+    const store = useCircuitStore.getState();
+    store.addNode("led", 100, 100);
+    store.addNode("led", 100, 100);
+    store.addNode("led", 100, 100);
+
+    const nodes = useCircuitStore.getState().circuit.nodes;
+    expect(nodes).toHaveLength(3);
+
+    // Har bir juftlik kesishmasligi kerak.
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i]!;
+        const b = nodes[j]!;
+        const da = getDefinition(a.type)!;
+        const db = getDefinition(b.type)!;
+        const overlap =
+          a.x < b.x + db.width &&
+          a.x + da.width > b.x &&
+          a.y < b.y + db.height &&
+          a.y + da.height > b.y;
+        expect(overlap).toBe(false);
+      }
+    }
+  });
+
+  it("bo'sh joyga qo'yilgan komponent so'ralgan nuqtada qoladi", () => {
+    useCircuitStore.getState().addNode("led", 250, 180);
+    expect(useCircuitStore.getState().circuit.nodes[0]).toMatchObject({ x: 250, y: 180 });
+  });
+});
+
+describe("tanlov barqarorligi", () => {
+  it("bir xil to'plam boshqa tartibda kelsa holat o'zgarmaydi", () => {
+    /*
+     * React Flow tanlovni o'zgarishlar to'plami sifatida beradi; bir xil
+     * to'plam boshqa tartibda hosil bo'lishi mumkin. Agar shunda yangi
+     * massiv yozilsa, sxema qayta chiziladi va React Flow yana o'zgarish
+     * yuboradi — "Maximum update depth exceeded" shundan kelib chiqadi.
+     */
+    const { setSelection } = useCircuitStore.getState();
+    setSelection(["a", "b", "c"]);
+    const before = useCircuitStore.getState().selectedIds;
+
+    setSelection(["c", "a", "b"]);
+    expect(useCircuitStore.getState().selectedIds).toBe(before);
+  });
+
+  it("to'plam haqiqatan o'zgarganda yangilanadi", () => {
+    const { setSelection } = useCircuitStore.getState();
+    setSelection(["a", "b"]);
+    setSelection(["a", "c"]);
+    expect(useCircuitStore.getState().selectedIds).toEqual(["a", "c"]);
   });
 });

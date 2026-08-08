@@ -146,7 +146,11 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
                         color: "var(--text)",
                         borderBottomLeftRadius: 5,
                       }
-                    : { background: "var(--primary)", color: "#fff", borderBottomRightRadius: 5 }),
+                    : {
+                        background: "var(--primary)",
+                        color: "var(--on-primary)",
+                        borderBottomRightRadius: 5,
+                      }),
                 }}
               >
                 {m.text}
@@ -161,7 +165,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
           <p
             role="alert"
             style={{
-              color: "#E5484D",
+              color: "var(--danger)",
               background: "rgba(229,72,77,.08)",
               border: "1px solid rgba(229,72,77,.25)",
               borderRadius: 12,
@@ -248,7 +252,7 @@ export function TutorChat({ initial }: { initial: ChatMsg[] }) {
               borderRadius: 12,
               border: "none",
               background: "var(--primary)",
-              color: "#fff",
+              color: "var(--on-primary)",
               cursor: isPending ? "wait" : "pointer",
               display: "grid",
               placeItems: "center",

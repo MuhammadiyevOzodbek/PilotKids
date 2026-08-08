@@ -296,7 +296,7 @@ export default async function Home() {
                     borderRadius: 15,
                     border: "none",
                     background: "var(--success)",
-                    color: "#fff",
+                    color: "var(--on-success)",
                     fontFamily: "var(--font-display)",
                     fontWeight: 700,
                     fontSize: 16.5,
@@ -802,8 +802,16 @@ export default async function Home() {
                   boxShadow: "var(--shadow-sm)",
                 }}
               >
+                {/*
+                  Kartochka burchagidagi "soya" raqam — bezak. Qadam tartibi
+                  kartochkalarning joylashuvi va sarlavhasidan ham ko'rinadi,
+                  shu bois `aria-hidden`: ekran o'quvchisi ma'nosiz "01" ni
+                  o'qib bermaydi. Rangi ataylab past kontrastda — u matn emas,
+                  fon naqshi.
+                */}
                 <span
                   className="font-display"
+                  aria-hidden
                   style={{
                     position: "absolute",
                     top: 22,
@@ -1523,7 +1531,7 @@ export default async function Home() {
                 borderRadius: 15,
                 border: "none",
                 background: "var(--success)",
-                color: "#fff",
+                color: "var(--on-success)",
                 fontFamily: "var(--font-display)",
                 fontWeight: 700,
                 fontSize: 17,
@@ -1612,7 +1620,10 @@ export default async function Home() {
               >
                 {col.title}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+              {/* `minHeight: 24` — barmoq bilan bosish uchun eng kichik o'lcham
+                  (WCAG 2.5.8). Matn balandligi 21px edi, telefon ekranida
+                  qo'shni havolani bosib yuborish oson bo'lardi. */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {col.links
                   .filter((lk) => footerHrefs[lk])
                   .map((lk) => (
@@ -1621,6 +1632,9 @@ export default async function Home() {
                       href={footerHrefs[lk]}
                       className="hover-white"
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        minHeight: 24,
                         fontSize: 14,
                         color: "#AEBBD4",
                         textDecoration: "none",
@@ -1652,21 +1666,42 @@ export default async function Home() {
             <Link
               href="/maxfiylik"
               className="nav-link"
-              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 24,
+                fontSize: 14.5,
+                color: "#6f82a3",
+                textDecoration: "none",
+              }}
             >
               Maxfiylik
             </Link>
             <Link
               href="/shartlar"
               className="nav-link"
-              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 24,
+                fontSize: 14.5,
+                color: "#6f82a3",
+                textDecoration: "none",
+              }}
             >
               Shartlar
             </Link>
             <Link
               href="/maxfiylik#cookie"
               className="nav-link"
-              style={{ fontSize: 14.5, color: "#6f82a3", textDecoration: "none" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 24,
+                fontSize: 14.5,
+                color: "#6f82a3",
+                textDecoration: "none",
+              }}
             >
               Cookie
             </Link>

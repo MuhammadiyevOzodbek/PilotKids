@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Blocks,
   CircuitBoard,
   CopyPlus,
   Download,
   FileCode2,
   FilePlus2,
   Maximize,
+  Menu,
   Minimize,
   Pause,
   PanelLeftClose,
@@ -17,13 +19,13 @@ import {
   Play,
   Redo2,
   Save,
-  SlidersHorizontal,
   Square,
   Trash,
   Trash2,
   Undo2,
   Upload,
 } from "lucide-react";
+import { useSidebar } from "@/lib/ui-store";
 import { parseSketch } from "@/lib/virtual-lab/parser";
 import { Simulator } from "@/lib/virtual-lab/simulator";
 import { hasBlockingErrors, validateCircuit } from "@/lib/virtual-lab/validator";
@@ -41,6 +43,9 @@ import { CodeEditor } from "./code-editor";
 import { ComponentPalette } from "./palette";
 import { Inspector } from "./inspector";
 import { SerialMonitor } from "./serial-monitor";
+import { LessonPanel } from "./lesson-panel";
+import { ProblemsPanel } from "./problems-panel";
+import { BlockEditor } from "./blocks/block-editor";
 
 /**
  * Laboratoriya ish stoli — barcha qismlarni bir joyga bog'laydi.
@@ -65,6 +70,19 @@ const LIVE_SETTING_KEYS: Record<string, string> = {
 
 /** Tor ekranda bir vaqtda ko'rinadigan bo'lim. */
 type MobileView = "palette" | "canvas" | "panel";
+
+/**
+ * Ish stolining asosiy ko'rinishi.
+ *
+ * `circuit` — sxema yig'ish (kutubxona, chizma, inspektor).
+ * `program` — dasturlash (bloklar va kod).
+ *
+ * Nima uchun ajratilgan. Blok muharririning o'z uch qismi bor
+ * (kategoriyalar, ish maydoni, kod ko'rinishi). Uni sxema chizmasi bilan
+ * bir ekranda yonma-yon qo'yish ikkalasini ham ishlatib bo'lmaydigan
+ * qilardi — bola bloklarni sudray oladigan joy 300px ga qisqarardi.
+ */
+type WorkbenchView = "circuit" | "program";
 
 /** Simulyatsiya vaqtini `12.4s` ko'rinishida yozadi. */
 function formatTime(ms: number): string {
@@ -120,6 +138,7 @@ function needsSimulationRestart(
 }
 
 export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
+  const toggleSidebar = useSidebar((s) => s.toggle);
   const circuit = useCircuitStore((s) => s.circuit);
   const undo = useCircuitStore((s) => s.undo);
   const redo = useCircuitStore((s) => s.redo);
@@ -148,6 +167,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   const setSensors = useSimulationStore((s) => s.setSensors);
   const publish = useSimulationStore((s) => s.publish);
   const setSimErrors = useSimulationStore((s) => s.setErrors);
+  const simErrors = useSimulationStore((s) => s.errors);
   const clearLogs = useSimulationStore((s) => s.clearLogs);
   const resetSim = useSimulationStore((s) => s.reset);
 
@@ -169,6 +189,10 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
 
   const [lessonResult, setLessonResult] = useState<LessonResult | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** Muammolar ro'yxati ochiqmi. */
+  const [showProblems, setShowProblems] = useState(false);
+  /** Muharrirda ochib berilishi kerak bo'lgan qator (muammolar ro'yxatidan). */
+  const [reveal, setReveal] = useState<{ line: number; token: number } | null>(null);
 
   // Panellarni yig'ish — sxemaga ko'proq joy kerak bo'lganda.
   const [showLeft, setShowLeft] = useState(true);
@@ -176,6 +200,7 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   const [serialOpen, setSerialOpen] = useState(true);
   // Tor ekranda uch ustun sig'maydi: bir vaqtda bittasi ko'rsatiladi.
   const [mobileView, setMobileView] = useState<MobileView>("canvas");
+  const [view, setView] = useState<WorkbenchView>("circuit");
   // Ish stolini butun ekranga ochish.
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -190,7 +215,12 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   const suppressNextDirty = useRef(false);
   const simulationDocumentRef = useRef<{ circuit: Circuit; code: string }>({ circuit, code });
 
-  const lesson = lessonSlug ? getLesson(lessonSlug) : null;
+  /*
+   * Dars endi faqat URL dan emas, panel orqali ham tanlanadi — shuning
+   * uchun u holatda saqlanadi. Boshlang'ich qiymat URL dan keladi.
+   */
+  const [activeLesson, setActiveLesson] = useState<string | null>(lessonSlug ?? null);
+  const lesson = activeLesson ? getLesson(activeLesson) : null;
 
   /* ── Boshlang'ich holat ── */
   useEffect(() => {
@@ -218,6 +248,23 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     }
     markProjectDirty();
   }, [circuit, code, sensors, markProjectDirty]);
+
+  /*
+   * Kod tekshiruvi — yozish davomida.
+   *
+   * Ilgari sintaksis xatolari faqat «Boshlash» bosilganda hisoblanardi:
+   * bola qavsni yopmasa ham hech narsa demasdi, xato esa faqat ishga
+   * tushirmoqchi bo'lganda chiqardi. Endi tahlil kechikish bilan
+   * (yozib bo'lgach) ishlaydi — muharrirda qizil chiziq va yuqoridagi
+   * nishon darhol yangilanadi.
+   */
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const parsed = parseSketch(code);
+      setCodeErrors(parsed.ok ? [] : parsed.errors);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [code, setCodeErrors]);
 
   /* ── Sxema tekshiruvi (har o'zgarishda) ── */
   const issues = useMemo(() => validateCircuit(circuit), [circuit]);
@@ -280,7 +327,13 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       if (sim.fatal) {
         setStatus("error");
         setSimErrors([sim.fatal]);
-        publish({ time: sim.time, logs: [...sim.getLogs()], runtime: sim.getRuntimeState() });
+        const runtime = sim.getRuntimeState();
+        publish({
+          time: sim.time,
+          logs: [...sim.getLogs()],
+          runtime,
+          wireFlow: sim.getWireFlow(),
+        });
         rafRef.current = null;
         return;
       }
@@ -288,7 +341,13 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       // UI ni har kadrda emas, ~10 Hz da yangilaymiz.
       if (now - lastSync.current >= UI_SYNC_MS) {
         lastSync.current = now;
-        publish({ time: sim.time, logs: [...sim.getLogs()], runtime: sim.getRuntimeState() });
+        const runtime = sim.getRuntimeState();
+        publish({
+          time: sim.time,
+          logs: [...sim.getLogs()],
+          runtime,
+          wireFlow: sim.getWireFlow(),
+        });
       }
 
       rafRef.current = requestAnimationFrame((t) => tickRef.current(t));
@@ -412,6 +471,36 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     });
     setLessonResult(result);
   }, [lesson, code, circuit]);
+
+  /**
+   * Darsni ochadi: uning boshlang'ich sxemasi va kodi qo'yiladi.
+   *
+   * `suppressNextDirty` — bu foydalanuvchining o'zgarishi emas, shuning
+   * uchun loyiha "saqlanmagan" deb belgilanmasin.
+   */
+  const openLesson = useCallback(
+    (slug: string) => {
+      const next = getLesson(slug);
+      if (!next) return;
+      suppressNextDirty.current = true;
+      setActiveLesson(slug);
+      setLesson(slug);
+      setLessonResult(null);
+      setProjectName(next.title, false);
+      replaceCircuit(next.starterCircuit);
+      setCode(next.starterCode);
+      setSensors({});
+      stopSimulation();
+      showToast(`«${next.title}» darsi ochildi`);
+    },
+    [replaceCircuit, setCode, setSensors, setLesson, setProjectName, stopSimulation, showToast],
+  );
+
+  const exitLesson = useCallback(() => {
+    setActiveLesson(null);
+    setLesson(null);
+    setLessonResult(null);
+  }, [setLesson]);
 
   /* ── Saqlash / import / eksport ── */
   const handleSave = useCallback(() => {
@@ -571,13 +660,29 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
     toggleFullscreen,
   ]);
 
-  const errorCount = issues.filter((i) => i.severity === "error").length;
+  /*
+   * Nishondagi son UCHALA manbani sanaydi: sxema, kod va simulyatsiya.
+   * Ilgari faqat sxema tekshiruvi sanalardi — kod xatosi bo'lsa yuqorida
+   * "Sxema toza" turardi va nima noto'g'ri ekani hech qayerda ko'rinmasdi.
+   */
+  const errorCount =
+    issues.filter((i) => i.severity === "error").length + codeErrors.length + simErrors.length;
   const warnCount = issues.filter((i) => i.severity === "warning").length;
 
   return (
     <div className="vlab-root" ref={rootRef}>
       {/* ───────── Yuqori panel ───────── */}
       <header className="vlab-toolbar">
+        {/* Ilova sarlavhasi laboratoriyada yashirilgan — menyu shu yerdan
+            ochiladi (faqat yon panel ko'rinmaydigan ekranlarda). */}
+        <button
+          type="button"
+          className="vlab-burger"
+          onClick={toggleSidebar}
+          aria-label="Menyuni ochish"
+        >
+          <Menu size={17} />
+        </button>
         <div className="vlab-brand">
           <span className="vlab-brand-icon">
             <CircuitBoard size={17} />
@@ -657,6 +762,26 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
 
         <div className="vlab-sep" />
 
+        {/* Sxema yig'ish ↔ dasturlash. */}
+        <div className="vlab-view-switch" role="group" aria-label="Ish stoli ko'rinishi">
+          <button
+            type="button"
+            aria-pressed={view === "circuit"}
+            onClick={() => setView("circuit")}
+          >
+            <CircuitBoard size={14} />
+            Sxema
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "program"}
+            onClick={() => setView("program")}
+          >
+            <Blocks size={14} />
+            Dasturlash
+          </button>
+        </div>
+
         {/* Panellarni yig'ish — tor ekranda o'rniga bo'lim tanlagich ishlaydi. */}
         <div className="vlab-tool-group vlab-collapse-group">
           <ToolButton
@@ -687,20 +812,44 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
 
         <div className="vlab-spacer" />
 
-        {/* Sxema holati */}
+        {/* Sxema holati — nishon bosilsa muammolar ro'yxati ochiladi. */}
         <div className="vlab-status">
           {status === "running" && (
             <span className="vlab-badge vlab-badge-ok vlab-badge-live">Ishlayapti</span>
           )}
           {status === "paused" && <span className="vlab-badge vlab-badge-warn">Pauza</span>}
-          {errorCount > 0 && <span className="vlab-badge vlab-badge-error">{errorCount} xato</span>}
-          {warnCount > 0 && errorCount === 0 && (
-            <span className="vlab-badge vlab-badge-warn">{warnCount} ogohlantirish</span>
+
+          {(errorCount > 0 || warnCount > 0) && (
+            <button
+              type="button"
+              className={`vlab-badge ${errorCount > 0 ? "vlab-badge-error" : "vlab-badge-warn"}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowProblems((v) => !v);
+              }}
+              aria-expanded={showProblems}
+              title="Nima noto'g'ri ekanini ko'rish uchun bosing"
+            >
+              {errorCount > 0 ? `${errorCount} xato` : `${warnCount} ogohlantirish`}
+            </button>
           )}
+
           {errorCount === 0 && warnCount === 0 && status === "stopped" && (
             <span className="vlab-badge vlab-badge-ok">Sxema toza</span>
           )}
           {lastProjectError && <span className="vlab-badge vlab-badge-error">Saqlanmadi</span>}
+
+          {showProblems && (
+            <ProblemsPanel
+              circuit={circuit}
+              issues={issues}
+              codeErrors={codeErrors}
+              simErrors={simErrors}
+              onClose={() => setShowProblems(false)}
+              onSelectNodes={setSelection}
+              onGoToLine={(line) => setReveal({ line, token: Date.now() })}
+            />
+          )}
         </div>
 
         <span className="vlab-clock">{formatTime(simTime)}</span>
@@ -766,78 +915,89 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
       {/* ───────── Asosiy uch qism ───────── */}
       <div
         className="vlab-body"
+        data-view={view}
         data-left={showLeft ? "on" : "off"}
         data-right={showRight ? "on" : "off"}
       >
-        {/* Yig'ilgan panel `inert` bo'ladi — ko'rinmasa Tab bilan ham tushmaydi. */}
-        <aside
-          className="vlab-col"
-          data-mobile={mobileView === "palette" ? "shown" : "hidden"}
-          inert={!showLeft}
-        >
-          <ComponentPalette />
-        </aside>
+        {view === "circuit" ? (
+          <>
+            {/* Yig'ilgan panel `inert` bo'ladi — ko'rinmasa Tab bilan ham tushmaydi. */}
+            <aside
+              className="vlab-col"
+              data-mobile={mobileView === "palette" ? "shown" : "hidden"}
+              inert={!showLeft}
+            >
+              <ComponentPalette />
+            </aside>
 
-        <main
-          className="vlab-col vlab-center"
-          data-serial={serialOpen ? "on" : "off"}
-          data-mobile={mobileView === "canvas" ? "shown" : "hidden"}
-        >
-          <div className="vlab-canvas">
-            <CircuitCanvas issues={issues} onConnectionRejected={showToast} />
-          </div>
-          <SerialMonitor
-            logs={logs}
-            collapsed={!serialOpen}
-            onToggle={() => setSerialOpen((v) => !v)}
-            onClear={clearLogs}
-            onSend={(text) => simRef.current?.pushSerialInput(text)}
-          />
-        </main>
+            <main
+              className="vlab-col vlab-center"
+              data-serial={serialOpen ? "on" : "off"}
+              data-mobile={mobileView === "canvas" ? "shown" : "hidden"}
+            >
+              <div className="vlab-canvas">
+                <CircuitCanvas issues={issues} onConnectionRejected={showToast} />
+              </div>
+              <SerialMonitor
+                logs={logs}
+                collapsed={!serialOpen}
+                onToggle={() => setSerialOpen((v) => !v)}
+                onClear={clearLogs}
+                onSend={(text) => simRef.current?.pushSerialInput(text)}
+              />
+            </main>
 
-        <aside
-          className="vlab-col vlab-right"
-          data-mobile={mobileView === "panel" ? "shown" : "hidden"}
-          inert={!showRight}
-        >
-          <Inspector issues={issues} />
-          <CodeEditor
-            code={code}
-            fontSize={fontSize}
-            errors={codeErrors}
-            onChange={setCode}
-            onFontSize={setFontSize}
-            onReset={resetCode}
-          />
-        </aside>
+            <aside
+              className="vlab-col vlab-right"
+              data-mobile={mobileView === "panel" ? "shown" : "hidden"}
+              inert={!showRight}
+            >
+              <Inspector issues={issues} />
+              <CodeEditor
+                code={code}
+                fontSize={fontSize}
+                errors={codeErrors}
+                onChange={setCode}
+                onFontSize={setFontSize}
+                onReset={resetCode}
+                reveal={reveal}
+              />
+            </aside>
+          </>
+        ) : (
+          <main
+            className="vlab-col vlab-center vlab-program"
+            data-serial={serialOpen ? "on" : "off"}
+          >
+            <BlockEditor
+              circuit={circuit}
+              code={code}
+              fontSize={fontSize}
+              codeErrors={codeErrors}
+              onCodeChange={setCode}
+              onFontSize={setFontSize}
+              onResetCode={resetCode}
+              reveal={reveal}
+            />
+            <SerialMonitor
+              logs={logs}
+              collapsed={!serialOpen}
+              onToggle={() => setSerialOpen((v) => !v)}
+              onClear={clearLogs}
+              onSend={(text) => simRef.current?.pushSerialInput(text)}
+            />
+          </main>
+        )}
       </div>
 
       {/* ───────── Dars paneli ───────── */}
-      {lesson && (
-        <div className="vlab-lesson">
-          <SlidersHorizontal size={16} style={{ color: "var(--text-3)" }} />
-          <span className="vlab-lesson-title">{lesson.title}</span>
-
-          <button type="button" onClick={runLessonCheck} className="vlab-lesson-check">
-            Topshiriqni tekshirish
-          </button>
-
-          {lessonResult && (
-            <>
-              <span className="vlab-progress">
-                <i style={{ width: `${lessonResult.percent}%` }} />
-              </span>
-              <span className="vlab-result">
-                <strong>{lessonResult.percent}%</strong> — {lessonResult.passed.length}/
-                {lesson.rules.length} qadam
-                {lessonResult.failed.length > 0 && (
-                  <span className="vlab-result-hint"> · {lessonResult.failed[0]!.hint}</span>
-                )}
-              </span>
-            </>
-          )}
-        </div>
-      )}
+      <LessonPanel
+        lesson={lesson}
+        result={lessonResult}
+        onCheck={runLessonCheck}
+        onOpenLesson={openLesson}
+        onExitLesson={exitLesson}
+      />
 
       {toast && (
         <div className="vlab-toast" role="status">

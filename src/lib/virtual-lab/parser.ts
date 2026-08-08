@@ -304,6 +304,15 @@ class ParseFailure extends Error {
   }
 }
 
+/**
+ * E'lon oldida kelishi mumkin bo'lgan bezak so'zlar.
+ *
+ * Ular turni o'zgartirmaydi, shuning uchun shunchaki o'tkazib yuboriladi.
+ * `unsigned` ham shu yerda: `unsigned long` da tur nomi `long` bo'lib
+ * qolaveradi va simulyator uni baribir son sifatida saqlaydi.
+ */
+const DECLARATION_MODIFIERS = new Set(["const", "unsigned", "volatile", "static", "signed"]);
+
 const TYPE_KEYWORDS = new Set([
   "int",
   "long",
@@ -317,6 +326,9 @@ const TYPE_KEYWORDS = new Set([
   "void",
   "String",
   "Servo",
+  // Kutubxona obyektlari: `LiquidCrystal lcd(...)`, `DHT dht(...)`.
+  "LiquidCrystal",
+  "DHT",
 ]);
 
 /** Ifoda operatorlarining ustuvorligi (katta raqam — kuchliroq bog'lanadi). */
@@ -649,16 +661,19 @@ class Parser {
 
     // E'lon: [const] <tur> <nom> [= ifoda]
     let offset = 0;
-    if (this.peek(offset).value === "const") offset += 1;
-    if (this.peek(offset).value === "unsigned") offset += 1;
+    /*
+     * E'lon oldidagi bezak kalit so'zlari. `volatile` uzilishlar bilan
+     * ishlaganda MAJBURIY yoziladi (Arduino qo'llanmasi shunday o'rgatadi),
+     * shuning uchun uni tushunmaslik ko'p darsni to'xtatib qo'yardi.
+     */
+    while (DECLARATION_MODIFIERS.has(this.peek(offset).value)) offset += 1;
 
     if (
       this.peek(offset).type === "identifier" &&
       TYPE_KEYWORDS.has(this.peek(offset).value) &&
       this.peek(offset + 1).type === "identifier"
     ) {
-      if (this.at("const")) this.next();
-      if (this.at("unsigned")) this.next();
+      while (DECLARATION_MODIFIERS.has(this.peek().value)) this.next();
       const valueType = this.next().value;
       const declarations: Statement[] = [];
 
@@ -695,7 +710,25 @@ class Parser {
         }
 
         let value: Expression | null = null;
-        if (this.at("=")) {
+
+        /*
+         * Konstruktorli e'lon: `LiquidCrystal lcd(12, 11, 5, 4, 3, 2);`.
+         * Uni tur nomi bilan chaqiruv sifatida saqlaymiz — simulyator shu
+         * orqali qaysi obyekt qaysi pinlarga ulanganini biladi.
+         */
+        if (this.at("(")) {
+          this.next();
+          const args: Expression[] = [];
+          if (!this.at(")")) {
+            for (;;) {
+              args.push(this.parseExpression());
+              if (!this.at(",")) break;
+              this.next();
+            }
+          }
+          this.expect(")", "Konstruktor qavsini `)` bilan yoping.");
+          value = { kind: "call", callee: valueType, args };
+        } else if (this.at("=")) {
           this.next();
           value = this.parseExpression();
         }
@@ -798,12 +831,25 @@ class Parser {
         continue;
       }
 
-      // Funksiya: <tur> <nom>() { ... }
+      /*
+       * Funksiya: <tur> <nom>() { ... }
+       *
+       * `LiquidCrystal lcd(12, 11, 5, 4, 3, 2);` ham shu shaklga o'xshaydi,
+       * shuning uchun qavs ichiga qaraymiz: funksiyada u yo bo'sh, yo tur
+       * nomi bilan boshlanadi; konstruktorda esa oddiy ifoda turadi.
+       */
+      const afterParen = this.peek(3);
+      const looksLikeParams =
+        afterParen.value === ")" ||
+        DECLARATION_MODIFIERS.has(afterParen.value) ||
+        (afterParen.type === "identifier" && TYPE_KEYWORDS.has(afterParen.value));
+
       const isFn =
         t.type === "identifier" &&
         TYPE_KEYWORDS.has(t.value) &&
         this.peek(1).type === "identifier" &&
-        this.peek(2).value === "(";
+        this.peek(2).value === "(" &&
+        looksLikeParams;
 
       if (isFn) {
         this.next(); // tur
@@ -812,8 +858,7 @@ class Parser {
         const params: string[] = [];
         if (!this.at(")")) {
           for (;;) {
-            if (this.at("const")) this.next();
-            if (this.at("unsigned")) this.next();
+            while (DECLARATION_MODIFIERS.has(this.peek().value)) this.next();
             const paramType = this.next();
             if (
               paramType.type !== "identifier" ||

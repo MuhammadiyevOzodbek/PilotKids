@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 
-export const metadata = { title: "Sahifa topilmadi — PilotKids" };
+export const metadata = { title: "Sahifa topilmadi" };
 
 /** 404 — mavjud bo'lmagan sahifa. */
 export default function NotFound() {
@@ -66,7 +66,7 @@ export default function NotFound() {
               padding: "14px 26px",
               borderRadius: 14,
               background: "var(--primary)",
-              color: "#fff",
+              color: "var(--on-primary)",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: 15,

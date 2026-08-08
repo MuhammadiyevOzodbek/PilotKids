@@ -17,7 +17,13 @@ import {
 } from "@/components/auth/otp-forms";
 import { authClient, signUp } from "@/lib/auth/client";
 import { completePhoneSignup } from "@/lib/actions/onboarding";
-import { signupSchema, phoneSignupSchema, otpSchema, firstError } from "@/lib/validation";
+import {
+  signupSchema,
+  phoneSignupSchema,
+  otpSchema,
+  firstError,
+  parseAgeInput,
+} from "@/lib/validation";
 
 type Method = "phone" | "email";
 
@@ -118,7 +124,13 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
     setError(null);
 
     // Klient tomonda tekshiruv — server ham (auth hook'da) qayta tekshiradi.
-    const parsed = signupSchema.safeParse({ name, email, age: Number(age), password, consent });
+    const parsed = signupSchema.safeParse({
+      name,
+      email,
+      age: parseAgeInput(age),
+      password,
+      consent,
+    });
     if (!parsed.success) {
       setError(firstError(parsed.error));
       return;
@@ -164,7 +176,7 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
     const parsed = phoneSignupSchema.safeParse({
       name,
       phone,
-      age: Number(age),
+      age: parseAgeInput(age),
       password,
       consent,
     });
@@ -199,7 +211,7 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
     const parsed = phoneSignupSchema.safeParse({
       name,
       phone,
-      age: Number(age),
+      age: parseAgeInput(age),
       password,
       consent,
     });
@@ -336,7 +348,7 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
       />
 
       {method === "email" && (
-        <form onSubmit={handleEmailSubmit}>
+        <form noValidate onSubmit={handleEmailSubmit}>
           <FormError>{error}</FormError>
 
           <Field
@@ -386,7 +398,7 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
       )}
 
       {method === "phone" && !codeSent && (
-        <form onSubmit={sendCode}>
+        <form noValidate onSubmit={sendCode}>
           <FormError>{error}</FormError>
 
           <Field
@@ -437,7 +449,7 @@ export function SignupClient({ methods, telegramBot, devOtpHint }: Props) {
       )}
 
       {method === "phone" && codeSent && (
-        <form onSubmit={verifyCode}>
+        <form noValidate onSubmit={verifyCode}>
           <FormError>{error}</FormError>
           <DevCodeHint show={devOtpHint} />
           <Field

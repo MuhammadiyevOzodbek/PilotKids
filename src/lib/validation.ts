@@ -1,4 +1,6 @@
 import { z } from "zod";
+// Zod'ning standart ingliz matnlari o'rniga o'zbekcha zaxira matnlar.
+import "@/lib/zod-uz";
 
 /**
  * Umumiy validatsiya sxemalari.
@@ -16,14 +18,29 @@ export const userIdSchema = z
   .regex(/^[A-Za-z0-9_-]+$/, "Noto'g'ri foydalanuvchi");
 
 export const nameSchema = z
-  .string()
+  .string({ error: "Ismingizni kiriting" })
   .trim()
+  /*
+   * Bo'sh maydon va qisqa ism — ikki xil holat.
+   *
+   * Faqat `.min(2)` bo'lganda bo'sh forma «Ism kamida 2 harf bo'lsin»
+   * derdi: foydalanuvchi hech narsa yozmagan, javob esa uzunlik haqida
+   * edi. Zod tekshiruvlarni tartib bilan bajaradi, shu bois birinchi
+   * bo'lib «to'ldiring» keladi.
+   */
+  .min(1, "Ismingizni kiriting")
   .min(2, "Ism kamida 2 harf bo'lsin")
   .max(60, "Ism juda uzun")
   // Raqam va maxsus belgilarsiz — bolalar platformasi uchun toza ismlar.
   .regex(/^[\p{L}\s'’-]+$/u, "Ismda faqat harflar bo'lsin");
 
-export const emailSchema = z.string().trim().toLowerCase().email("Email manzil noto'g'ri").max(254);
+export const emailSchema = z
+  .string({ error: "Email manzilni kiriting" })
+  .trim()
+  .toLowerCase()
+  .min(1, "Email manzilni kiriting")
+  .email("Email manzil noto'g'ri")
+  .max(254);
 
 /** Zaif/keng tarqalgan parollar — ro'yxatdan o'tishda rad etiladi. */
 const WEAK_PASSWORDS = new Set([
@@ -45,7 +62,8 @@ const WEAK_PASSWORDS = new Set([
 ]);
 
 export const passwordSchema = z
-  .string()
+  .string({ error: "Parolni kiriting" })
+  .min(1, "Parolni kiriting")
   .min(8, "Parol kamida 8 belgidan iborat bo'lsin")
   .max(128, "Parol juda uzun")
   .refine((p) => /[a-zA-Z]/.test(p), "Parolda kamida bitta harf bo'lsin")
@@ -53,10 +71,22 @@ export const passwordSchema = z
   .refine((p) => !WEAK_PASSWORDS.has(p.toLowerCase()), "Bu parol juda oson topiladi");
 
 export const ageSchema = z
-  .number()
+  // Bo'sh maydon `NaN` bo'lib keladi — «kamida 5» emas, «kiriting» deyish to'g'ri.
+  .number({ error: "Yoshingizni kiriting" })
   .int("Yosh butun son bo'lsin")
   .min(5, "Yosh kamida 5 bo'lsin")
   .max(18, "PilotKids 18 yoshgacha bo'lgan o'quvchilar uchun");
+
+/**
+ * Forma maydonidagi matnni yoshga aylantiradi.
+ *
+ * `Number("")` nolga teng — shu sababli bo'sh maydon «Yosh kamida 5 bo'lsin»
+ * degan chalg'ituvchi xato berardi. `NaN` esa `ageSchema` da «Yoshingizni
+ * kiriting» matnini chiqaradi.
+ */
+export function parseAgeInput(value: string): number {
+  return value.trim() === "" ? Number.NaN : Number(value);
+}
 
 export const signupSchema = z.object({
   name: nameSchema,
@@ -73,8 +103,9 @@ export const loginSchema = z.object({
 
 /** O'zbekiston telefon raqami: +998 va 9 ta raqam. */
 export const phoneSchema = z
-  .string()
+  .string({ error: "Telefon raqamini kiriting" })
   .trim()
+  .refine((v) => v !== "", "Telefon raqamini kiriting")
   .transform((v) => v.replace(/[\s()-]/g, ""))
   .refine((v) => /^\+998\d{9}$/.test(v), "Raqamni +998 XX XXX XX XX ko'rinishida kiriting");
 
@@ -95,7 +126,7 @@ export const phoneSignupSchema = z.object({
 
 /** SMS/email orqali keladigan bir martalik kod. */
 export const otpSchema = z
-  .string()
+  .string({ error: "Kodni kiriting" })
   .trim()
   .regex(/^\d{6}$/, "Kod 6 ta raqamdan iborat");
 

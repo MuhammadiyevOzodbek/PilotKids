@@ -155,6 +155,9 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
         "tmp36",
         "soil-moisture",
         "pir",
+        "dht11",
+        "lcd1602",
+        "relay",
       ].includes(n.type),
     );
     if (needsArduino) {
@@ -193,6 +196,9 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
           "tmp36",
           "soil-moisture",
           "pir",
+          "dht11",
+          "lcd1602",
+          "relay",
         ].includes(n.type)
       ) {
         return false;
@@ -347,6 +353,8 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
       tmp36: "signal",
       "soil-moisture": "signal",
       pir: "out",
+      dht11: "data",
+      relay: "in",
     };
     if (board && signalPinOf[node.type]) {
       const signal = signalPinOf[node.type]!;
@@ -373,6 +381,58 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
             "warning",
             `«${def.name}» ${label} pini Arduino'ga ulanmagan.`,
             `${label} pinini Arduino'ning raqamli piniga ulang.`,
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    /*
+     * LCD: RS va E — ekranga "endi buyruq keladi" deb aytadigan ikkita
+     * simsiz displey butunlay jim qoladi. Ma'lumot simlarining (D4–D7)
+     * bittasi yetishmasa ham matn buzilib chiqadi, shuning uchun ular ham
+     * tekshiriladi.
+     */
+    if (board && node.type === "lcd1602") {
+      const missing = (["rs", "e", "d4", "d5", "d6", "d7"] as const).filter(
+        (pinId) => boardPinFor(net, node.id, pinId) === null,
+      );
+      if (missing.length > 0) {
+        issues.push(
+          issue(
+            "warning",
+            `LCD displeyning ${missing.map((m) => m.toUpperCase()).join(", ")} pini Arduino'ga ulanmagan.`,
+            "LiquidCrystal kutubxonasi oltita simni talab qiladi: RS, E va D4–D7.",
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    /*
+     * Rele: COM kontakti ulanmagan bo'lsa, kalit hech narsani yoqmaydi.
+     * Bu eng ko'p uchraydigan xato — chulg'am ishlaydi, "chiq" etadi,
+     * lekin yuk zanjiri ochiq qoladi.
+     */
+    if (node.type === "relay") {
+      /*
+       * "Ulangan" degani — boshqa komponentga ulangan. Rele ichidagi
+       * COM↔NC bog'lanishi tugunni allaqachon ikki pinli qiladi, shuning
+       * uchun pinlar sonini sanash bu yerda yaramaydi.
+       */
+      const wiredOutside = (pinId: string) => {
+        const n = netFor(net, node.id, pinId);
+        if (n === null) return false;
+        return (net.pinsOf.get(n) ?? []).some((k) => splitPinKey(k).nodeId !== node.id);
+      };
+      const comWired = wiredOutside("com");
+      const switchWired = wiredOutside("no") || wiredOutside("nc");
+      if (!comWired || !switchWired) {
+        issues.push(
+          issue(
+            "warning",
+            "Rele kommutatsiya kontaktlari zanjirga ulanmagan.",
+            "Yuk zanjiri COM dan boshlanib NO (yoki NC) orqali davom etishi kerak.",
             [node.id],
           ),
         );
@@ -407,6 +467,170 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
       }
     }
 
+    /* ───────── Faza B komponentlari ───────── */
+
+    if (node.type === "capacitor" && node.settings.polarized !== false) {
+      /*
+       * Elektrolit kondensator teskari ulansa haqiqatan portlaydi — bu
+       * eng ko'p uchraydigan va eng xavfli xatolardan biri, shuning uchun
+       * darajasi eng yuqori.
+       */
+      const plus = netFor(net, node.id, "plus");
+      const minus = netFor(net, node.id, "minus");
+      const plusToGround =
+        plus !== null && [...reachableNets(net, plus)].some((id) => net.groundNets.has(id));
+      const minusToSource = minus !== null && net.sourceNets.has(minus);
+      const minusToPower =
+        minus !== null && [...reachableNets(net, minus)].some((id) => net.powerNets.has(id));
+      if (plusToGround && (minusToSource || minusToPower)) {
+        issues.push(
+          issue(
+            "error",
+            "Elektrolit kondensator polariteti teskari ulangan.",
+            "Uzun oyoq (+) musbat tomonga, oq yo'lakli qisqa oyoq (−) yerga ulanishi kerak.",
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "l298n") {
+      const vinPowered = supplyVoltage(net, node.id, "vin");
+      if (vinPowered === null) {
+        issues.push(
+          issue(
+            "warning",
+            "L298N quvvat manbai ulanmagan.",
+            "VIN pinini batareyaning musbat uchiga, GND ni manfiy uchiga ulang — Arduino'ning 5V pini motorni tortolmaydi.",
+            [node.id],
+          ),
+        );
+      }
+      if (!isGrounded(net, node.id, "gnd")) {
+        issues.push(
+          issue(
+            "warning",
+            "L298N yerga ulanmagan.",
+            "Modul GND pini Arduino GND bilan bir xil yerda bo'lishi shart, aks holda boshqaruv signallari o'tmaydi.",
+            [node.id],
+          ),
+        );
+      }
+      const nominal =
+        typeof node.settings.supplyVoltage === "number" ? node.settings.supplyVoltage : 12;
+      if (vinPowered !== null && vinPowered > nominal + 0.5) {
+        issues.push(
+          issue(
+            "error",
+            "Komponent uchun ruxsat etilgan kuchlanishdan yuqori kuchlanish berildi.",
+            `L298N uchun ${nominal} V belgilangan, ammo ${vinPowered} V berilyapti. Batareyani yoki sozlamani to'g'rilang.`,
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "npn-transistor") {
+      // Bazaga rezistorsiz ulanish tranzistorni ham, Arduino pinini ham kuydiradi.
+      const basePin = boardPinFor(net, node.id, "b");
+      if (basePin !== null && resistanceToDrive(net, node.id, "b") === 0) {
+        issues.push(
+          issue(
+            "error",
+            "Tranzistor bazasi rezistorsiz Arduino piniga ulangan — tok juda yuqori.",
+            "Baza bilan pin orasiga 1 kΩ atrofida rezistor qo'ying.",
+            [node.id],
+          ),
+        );
+      }
+      if (!isGrounded(net, node.id, "e")) {
+        issues.push(
+          issue(
+            "warning",
+            "Tranzistor emitteri yerga ulanmagan.",
+            "NPN tranzistorda emitter (E) odatda GND ga ulanadi — usiz kalit ochilmaydi.",
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "seven-segment") {
+      /*
+       * Har bir segment — LED. Rezistorsiz ulangani bitta bo'lsa ham
+       * yetarli sabab: haqiqiy indikatorda o'sha segment kuyadi.
+       */
+      const bare = ["a", "b", "c", "d", "e", "f", "g", "dp"].filter((segment) => {
+        const pin = boardPinFor(net, node.id, segment);
+        return pin !== null && resistanceToDrive(net, node.id, segment) === 0;
+      });
+      if (bare.length > 0) {
+        issues.push(
+          issue(
+            "error",
+            "7-segment indikator rezistorsiz ulangan — tok juda yuqori.",
+            `Har bir segment (${bare.join(", ")}) uchun 220 Ω rezistor kerak.`,
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "shift-register") {
+      if (!isPowered(net, node.id, "vcc") || !isGrounded(net, node.id, "gnd")) {
+        issues.push(
+          issue(
+            "warning",
+            "74HC595 ga quvvat berilmagan.",
+            "VCC ni 5V ga, GND ni yerga ulang — usiz chip ishlamaydi.",
+            [node.id],
+          ),
+        );
+      }
+      const missing = (["ser", "srclk", "rclk"] as const).filter(
+        (pinId) => boardPinFor(net, node.id, pinId) === null,
+      );
+      if (missing.length > 0 && missing.length < 3) {
+        issues.push(
+          issue(
+            "warning",
+            "74HC595 boshqaruv pinlari to'liq ulanmagan.",
+            `Ulanmagan: ${missing.join(", ")}. Uchalasi ham (ma'lumot, takt, latch) Arduino pinlariga kerak.`,
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "keypad-4x4") {
+      const unwired = [...Array(4).keys()]
+        .flatMap((i) => [`r${i + 1}`, `c${i + 1}`])
+        .filter((pinId) => boardPinFor(net, node.id, pinId) === null);
+      if (unwired.length > 0 && unwired.length < 8) {
+        issues.push(
+          issue(
+            "info",
+            "Klaviaturaning ba'zi qator/ustunlari ulanmagan.",
+            `Ulanmagan: ${unwired.join(", ")}. Skanerlash uchun 4 ta qator va 4 ta ustun ham kerak.`,
+            [node.id],
+          ),
+        );
+      }
+    }
+
+    if (node.type === "joystick") {
+      if (!isPowered(net, node.id, "vcc") || !isGrounded(net, node.id, "gnd")) {
+        issues.push(
+          issue(
+            "warning",
+            "Joystik moduliga quvvat berilmagan — o'qilgan qiymat 0 bo'ladi.",
+            "VCC ni 5V ga, GND ni yerga ulang.",
+            [node.id],
+          ),
+        );
+      }
+    }
+
     if (node.type === "dc-motor") {
       // Motorni to'g'ridan-to'g'ri Arduino pinidan quvvatlantirish tavsiya etilmaydi.
       const onBoard =
@@ -424,9 +648,18 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
     }
 
     if (
-      ["servo", "potentiometer", "ldr", "ultrasonic", "tmp36", "soil-moisture", "pir"].includes(
-        node.type,
-      )
+      [
+        "servo",
+        "potentiometer",
+        "ldr",
+        "ultrasonic",
+        "tmp36",
+        "soil-moisture",
+        "pir",
+        "dht11",
+        "lcd1602",
+        "relay",
+      ].includes(node.type)
     ) {
       if (!isPowered(net, node.id, "vcc")) {
         issues.push(
@@ -438,12 +671,23 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
           ),
         );
       }
-      if (!isGrounded(net, node.id, "gnd")) {
+      /*
+       * Yerga qaytish yo'li ikki xil bo'lishi mumkin: `gnd` pini bevosita
+       * yerga ulanadi, YOKI sensor kuchlanish bo'luvchi bo'lib ulanadi va
+       * yerga signal chizig'idan rezistor orqali boriladi. Ikkinchisi
+       * darsliklarda ko'p uchraydi, shuning uchun u ham to'g'ri deb
+       * hisoblanadi — aks holda ishlayotgan sxemaga ogohlantirish chiqardi.
+       */
+      const groundedDirectly = isGrounded(net, node.id, "gnd");
+      const groundedThroughDivider =
+        resistanceToGround(net, node.id, "gnd") !== null ||
+        resistanceToGround(net, node.id, "signal") !== null;
+      if (!groundedDirectly && !groundedThroughDivider) {
         issues.push(
           issue(
             "warning",
-            `«${def.name}» GND pini yerga ulanmagan.`,
-            "Komponent ishlashi uchun GND pinini Arduino GND yoki GND elementiga ulang.",
+            `«${def.name}» yerga ulanmagan — o'qilgan qiymat 0 bo'ladi.`,
+            "GND pinini Arduino GND ga ulang, yoki signal chizig'idan rezistor orqali GND ga yo'l bering (kuchlanish bo'luvchi).",
             [node.id],
           ),
         );

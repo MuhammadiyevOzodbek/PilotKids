@@ -17,6 +17,7 @@ export const LAB_KINDS = {
     badge: "Interaktiv simulyator",
     icon: "computer",
     accent: "var(--primary)",
+    accentText: "var(--on-primary)",
     accentSoft: "var(--primary-soft)",
     empty:
       "Onlayn loyiha ro'yxati bo'sh. Brauzer simulyatoridan foydalanish uchun /lab/onlayn sahifasini oching yoki admin paneldan loyiha qo'shing.",
@@ -28,6 +29,7 @@ export const LAB_KINDS = {
     long: "Haqiqiy detallar bilan ishlaydigan loyihalar. Arduino, sensor va LED'larni ulab, o'z qurilmangizni yig'asiz.",
     icon: "memory",
     accent: "var(--fun-orange)",
+    accentText: "var(--on-fun-orange)",
     accentSoft: "var(--fun-orange-soft)",
     empty: "Offline loyiha ro'yxati bo'sh. Bu bo'limdagi loyihalarni admin paneldan qo'shing.",
   },

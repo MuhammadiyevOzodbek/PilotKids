@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getLesson } from "@/lib/virtual-lab/lessons";
 import { VirtualLabClient } from "./lab-client";
 
-export const metadata = { title: "Onlayn laboratoriya — PilotKids" };
+export const metadata = { title: "Onlayn laboratoriya" };
 
 /**
  * Onlayn laboratoriya.

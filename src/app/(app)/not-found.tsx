@@ -53,7 +53,7 @@ export default function AppNotFound() {
             padding: "13px 24px",
             borderRadius: 13,
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-primary)",
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: 15,

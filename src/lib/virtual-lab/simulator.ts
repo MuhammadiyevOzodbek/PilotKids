@@ -1,4 +1,14 @@
-import { ANALOG_PIN_BASE, PWM_PINS, batteryVoltage, getDefinition, pinIdToNumber } from "./catalog";
+import {
+  ANALOG_PIN_BASE,
+  DHT11_DEFAULTS,
+  LCD_COLUMNS,
+  LCD_ROWS,
+  PWM_PINS,
+  batteryVoltage,
+  digitForSegments,
+  getDefinition,
+  pinIdToNumber,
+} from "./catalog";
 import {
   boardPinFor,
   buildNetlist,
@@ -6,22 +16,26 @@ import {
   isPowered,
   netFor,
   reachableNets,
-  resistanceToDrive,
   resistanceToGround,
-  supplyVoltage,
   type Netlist,
 } from "./netlist";
+import { buildElements, LED_VF, motorDriverChannel } from "./electrical";
+import { initialDigitalState, stepDigital, type DigitalState } from "./digital";
+import { solveCircuit, type SolveResult, type SolverElement } from "./solver";
 import type {
   ArduinoBoardState,
   Circuit,
+  CircuitNode,
   ComponentRuntimeState,
   Expression,
   LogLevel,
+  MotorDriverMode,
   ObservedBehaviour,
   ParsedSketch,
   PinMode,
   SerialLogEntry,
   Statement,
+  WireFlow,
 } from "./types";
 
 /**
@@ -45,6 +59,19 @@ const CIRCUIT_STRAY_OHMS = 20;
  * qarshilik esa LEDni ko'rinarli darajada xiralashtiradi.
  */
 const LED_NOMINAL_CURRENT = (5 - LED_FORWARD_VOLTAGE) / 220;
+
+/**
+ * To'liq yorqinlikka mos keladigan tok (A).
+ *
+ * Etalon holat — darslikdagi eng ko'p uchraydigan sxema: Arduino chiqishi,
+ * 220 Ω rezistor va qizil LED. Yechuvchi pinning ichki qarshiligini ham,
+ * LED ning differensial qarshiligini ham hisobga oladi, shuning uchun
+ * qiymat aynan shu zanjirdan olinadi.
+ */
+const LED_FULL_CURRENT = (5 - LED_VF) / (220 + 12 + 25);
+
+/** Sim "jonli" deb hisoblanadigan eng kichik tok (A) — 0.05 mA. */
+const LIVE_CURRENT_THRESHOLD = 5e-5;
 
 /**
  * LED yorqinligi (0–1) — Om qonuni bo'yicha.
@@ -174,6 +201,17 @@ const CONSTANTS: Record<string, number> = {
   A3: ANALOG_PIN_BASE + 3,
   A4: ANALOG_PIN_BASE + 4,
   A5: ANALOG_PIN_BASE + 5,
+  // Uzilish rejimlari va bit tartibi.
+  LOW_LEVEL: 0,
+  CHANGE: 1,
+  FALLING: 2,
+  RISING: 3,
+  LSBFIRST: 0,
+  MSBFIRST: 1,
+  // DHT kutubxonasidagi sensor turlari: `DHT dht(2, DHT11);`.
+  DHT11: 11,
+  DHT21: 21,
+  DHT22: 22,
 };
 
 /**
@@ -253,6 +291,37 @@ export class Simulator {
   private tonePins = new Set<number>();
   private servoPins = new Map<string, number>();
   private servoAngles = new Map<string, number>();
+  /** LCD obyektlari: o'zgaruvchi nomi → boshqaruv pinlari [RS, E, D4…D7]. */
+  private lcdPins = new Map<string, number[]>();
+  /** LCD ekranidagi matn: o'zgaruvchi nomi → qatorlar (probellar saqlanadi). */
+  private lcdText = new Map<string, string[]>();
+  private lcdCursor = new Map<string, { col: number; row: number }>();
+  /** DHT obyektlari: o'zgaruvchi nomi → DATA pini. */
+  private dhtPins = new Map<string, number>();
+  /** Bir marta aytilgan ogohlantirishlar — jurnal takrordan to'lib ketmasin. */
+  private warned = new Set<string>();
+  /** Rele chulg'amining oxirgi holati: node id → tortganmi. */
+  private relayState = new Map<string, boolean>();
+  /**
+   * Raqamli chiplarning ichki holati (74HC595 registrlari).
+   *
+   * Elektr yechimidan ATAYLAB ajratilgan: u frontlarga qarab yangilanadi,
+   * yechuvchi esa uni faqat o'qiydi. Bir tomonlama oqim tufayli
+   * "yangilanish → qayta hisob → yana yangilanish" sikli bo'lishi mumkin emas.
+   */
+  private digital: DigitalState = {};
+  /**
+   * Tasodifiy sonlar generatori holati.
+   *
+   * `Math.random()` o'rniga o'z generatori: `randomSeed()` ishlashi va
+   * dars natijasini takrorlash mumkin bo'lishi uchun.
+   */
+  private randomState = (Date.now() ^ 0x5f3759df) >>> 0;
+  /** Pin → uzilish ta'rifi (`attachInterrupt`). */
+  private interrupts = new Map<
+    number,
+    { handler: string; mode: "RISING" | "FALLING" | "CHANGE"; last: number }
+  >();
   /** Massivlar: nom → elementlar. Blok qamrovi majburiy emas — global saqlanadi. */
   private arrays = new Map<string, (number | string)[]>();
   private callDepth = 0;
@@ -277,11 +346,14 @@ export class Simulator {
 
   constructor(private readonly options: SimulatorOptions) {
     this.netlist = buildNetlist(options.circuit);
+    this.digital = initialDigitalState(options.circuit);
   }
 
   /** Sensor qiymatlari o'zgarganda chaqiriladi (qayta ishga tushirmasdan). */
   updateSensors(sensors: Record<string, number>) {
     this.options.sensors = sensors;
+    // Potensiometr sirg'anuvchisi sxemaning bir qismi — yechim eskirdi.
+    this.invalidateSolution();
   }
 
   getLogs(): SerialLogEntry[] {
@@ -513,6 +585,16 @@ export class Simulator {
 
   private callFunction(expr: Expression & { kind: "call" }): number | string {
     const name = expr.callee;
+
+    /*
+     * `attachInterrupt(pin, funksiya, rejim)` ning ikkinchi argumenti —
+     * FUNKSIYA NOMI, o'zgaruvchi emas. Uni boshqa chaqiruvlar kabi
+     * hisoblab bo'lmaydi: "o'zgaruvchi e'lon qilinmagan" xatosi chiqardi.
+     * Shuning uchun bu chaqiruv argumentlar hisoblanishidan OLDIN
+     * ajratib olinadi.
+     */
+    if (name === "attachInterrupt") return this.attachInterrupt(expr);
+
     const args = expr.args.map((a) => this.evaluate(a));
     const num = (i: number) => this.toNumber(args[i] ?? 0);
 
@@ -522,6 +604,7 @@ export class Simulator {
         const mode = num(1);
         this.assertPin(pin, "pinMode");
         this.board.modes[pin] = mode === 1 ? "output" : mode === 2 ? "input_pullup" : "input";
+        this.invalidateSolution();
         return 0;
       }
 
@@ -680,8 +763,147 @@ export class Simulator {
       case "random":
         // Deterministik emas, lekin simulyatsiya uchun yetarli.
         return args.length >= 2
-          ? Math.floor(Math.random() * (num(1) - num(0))) + num(0)
-          : Math.floor(Math.random() * num(0));
+          ? Math.floor(this.nextRandom() * (num(1) - num(0))) + num(0)
+          : Math.floor(this.nextRandom() * num(0));
+
+      /*
+       * `randomSeed()` haqiqiy Arduino'da tasodifiy ketma-ketlikni
+       * belgilaydi. Bu yerda ham xuddi shunday: urug' berilgan bo'lsa,
+       * natija har safar bir xil bo'ladi — dars natijasini takrorlash
+       * mumkin bo'lsin.
+       */
+      case "randomSeed":
+        this.randomState = Math.trunc(num(0)) >>> 0 || 1;
+        return 0;
+
+      case "micros":
+        return Math.round(this.time * 1000);
+
+      case "floor":
+        return Math.floor(num(0));
+
+      case "ceil":
+        return Math.ceil(num(0));
+
+      case "log":
+        return Math.log(num(0));
+
+      case "exp":
+        return Math.exp(num(0));
+
+      case "sin":
+        return Math.sin(num(0));
+
+      case "cos":
+        return Math.cos(num(0));
+
+      case "tan":
+        return Math.tan(num(0));
+
+      /* ── Bitlar bilan ishlash ── */
+
+      case "bitRead":
+        return (Math.trunc(num(0)) >> Math.trunc(num(1))) & 1;
+
+      case "bit":
+        return 1 << Math.trunc(num(0));
+
+      case "highByte":
+        return (Math.trunc(num(0)) >> 8) & 0xff;
+
+      case "lowByte":
+        return Math.trunc(num(0)) & 0xff;
+
+      /*
+       * `bitWrite`/`bitSet`/`bitClear` o'zgaruvchini O'ZGARTIRADI, ya'ni
+       * birinchi argument havola bo'lishi kerak. Shuning uchun u ifoda
+       * sifatida emas, nom sifatida olinadi.
+       */
+      case "bitWrite":
+      case "bitSet":
+      case "bitClear": {
+        const target = expr.args[0];
+        if (!target || target.kind !== "identifier") {
+          throw new RuntimeError(`${name}() birinchi argumenti o'zgaruvchi bo'lishi kerak`);
+        }
+        const scope = this.findScope(target.name);
+        if (!scope) throw new RuntimeError(`"${target.name}" o'zgaruvchisi topilmadi`);
+        const stored = scope.get(target.name);
+        const current = Math.trunc(
+          this.toNumber(typeof stored === "boolean" ? (stored ? 1 : 0) : (stored ?? 0)),
+        );
+        const bit = Math.trunc(num(1));
+        const on = name === "bitSet" ? 1 : name === "bitClear" ? 0 : Math.trunc(num(2));
+        const next = on ? current | (1 << bit) : current & ~(1 << bit);
+        scope.set(target.name, next);
+        return next;
+      }
+
+      /* ── Belgilar bilan ishlash ── */
+
+      case "isDigit":
+        return /\d/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "isAlpha":
+        return /[a-zA-Z]/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "isAlphaNumeric":
+        return /[a-zA-Z0-9]/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "isSpace":
+        return /\s/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "isUpperCase":
+        return /[A-Z]/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "isLowerCase":
+        return /[a-z]/.test(this.charOf(args[0])) ? 1 : 0;
+
+      case "toupper":
+      case "toUpperCase":
+        return this.charOf(args[0]).toUpperCase().charCodeAt(0);
+
+      case "tolower":
+      case "toLowerCase":
+        return this.charOf(args[0]).toLowerCase().charCodeAt(0);
+
+      /* ── Registrlarga ma'lumot uzatish ── */
+
+      /*
+       * `shiftOut()` sakkizta bitni ketma-ket uzatadi. Bu yerda u haqiqatan
+       * pinlarni qimirlatadi: shunda 74HC595 kabi registr bilan ishlagan
+       * dars ham to'g'ri kuzatiladi va "pin qo'zg'atilgan" tekshiruvlari
+       * ishlaydi.
+       */
+      case "shiftOut": {
+        const dataPin = Math.trunc(num(0));
+        const clockPin = Math.trunc(num(1));
+        this.assertPin(dataPin, "shiftOut");
+        this.assertPin(clockPin, "shiftOut");
+        const msbFirst = Math.trunc(num(2)) !== 0;
+        const value = Math.trunc(num(3)) & 0xff;
+        for (let i = 0; i < 8; i++) {
+          const bit = msbFirst ? (value >> (7 - i)) & 1 : (value >> i) & 1;
+          this.board.digital[dataPin] = bit;
+          this.board.pwm[dataPin] = bit ? 255 : 0;
+          this.recordPinDrive(dataPin, bit);
+          for (const level of [1, 0]) {
+            this.board.digital[clockPin] = level;
+            this.board.pwm[clockPin] = level ? 255 : 0;
+            this.recordPinDrive(clockPin, level);
+          }
+        }
+        return 0;
+      }
+
+      /* ── Uzilishlar ── */
+
+      case "digitalPinToInterrupt":
+        return Math.trunc(num(0));
+
+      case "detachInterrupt":
+        this.interrupts.delete(Math.trunc(num(0)));
+        return 0;
 
       default: {
         // String metodlari: `s.length()`, `s.equals("x")`, `s.substring(1,3)`…
@@ -736,6 +958,13 @@ export class Simulator {
             }
           }
         }
+        /*
+         * Kutubxona obyektlari servodan oldin tekshiriladi: `lcd.write()`
+         * ham `.write` bilan tugaydi va aks holda servo deb qabul qilinardi.
+         */
+        if (this.lcdPins.has(instance)) return this.callLcd(instance, method, args);
+        if (this.dhtPins.has(instance)) return this.callDht(instance, method);
+
         // `servo.attach(9)` / `servo.write(90)` kabi chaqiruvlar.
         if (name.endsWith(".attach")) {
           const instance = name.split(".")[0]!;
@@ -760,6 +989,298 @@ export class Simulator {
     }
   }
 
+  /* ─────────────── Rele ─────────────── */
+
+  /** Chulg'am tortganmi: modul quvvatlangan va IN pini HIGH bo'lsa. */
+  private relayEnergized(node: CircuitNode): boolean {
+    if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
+      return false;
+    }
+    if (isPowered(this.netlist, node.id, "in")) return true;
+    const pin = boardPinFor(this.netlist, node.id, "in");
+    if (pin === null || this.board.modes[pin] !== "output") return false;
+    return (this.board.digital[pin] ?? 0) === 1;
+  }
+
+  /**
+   * Rele holatini sxemaga qaytaradi.
+   *
+   * Rele — yagona komponent bo'lib, u kod ta'sirida zanjirning tuzilishini
+   * o'zgartiradi (COM kontakti NC dan NO ga o'tadi). Netlist esa statik
+   * hisoblangan, shuning uchun holat o'zgarganda uni qayta quramiz. Bu
+   * kamdan-kam sodir bo'ladi — har kadrda emas, faqat kalit ishlaganda.
+   */
+  private syncRelays() {
+    let changed = false;
+    const next = new Map<string, boolean>();
+
+    for (const node of this.options.circuit.nodes) {
+      if (node.type !== "relay") continue;
+      const on = this.relayEnergized(node);
+      next.set(node.id, on);
+      if ((this.relayState.get(node.id) ?? false) !== on) changed = true;
+    }
+
+    if (!changed) return;
+    this.relayState = next;
+    this.invalidateSolution();
+    this.netlist = buildNetlist({
+      ...this.options.circuit,
+      nodes: this.options.circuit.nodes.map((n) =>
+        n.type === "relay"
+          ? { ...n, settings: { ...n.settings, energized: next.get(n.id) === true } }
+          : n,
+      ),
+    });
+  }
+
+  /* ─────────────── Kutubxona obyektlari ─────────────── */
+
+  /** `LiquidCrystal lcd(...)` yoki `DHT dht(...)` e'lonini ro'yxatga oladi. */
+  private declareLibraryObject(name: string, type: string, args: Expression[]) {
+    const numbers = args.map((a) => Math.trunc(this.toNumber(this.evaluate(a))));
+
+    if (type === "LiquidCrystal") {
+      // 4-bit ulanish: (RS, E, D4, D5, D6, D7). 8-bit varianti ham keladi,
+      // lekin bizga faqat RS va E kerak — qolganini e'tiborsiz qoldiramiz.
+      if (numbers.length < 6) {
+        throw new RuntimeError(
+          "LiquidCrystal uchun 6 ta pin kerak: LiquidCrystal lcd(RS, E, D4, D5, D6, D7);",
+        );
+      }
+      for (const pin of numbers) this.assertPin(pin, "LiquidCrystal");
+      this.lcdPins.set(name, numbers);
+      this.lcdText.set(name, this.lcdBlank());
+      this.lcdCursor.set(name, { col: 0, row: 0 });
+      return;
+    }
+
+    if (type === "DHT") {
+      const pin = numbers[0];
+      if (pin === undefined) {
+        throw new RuntimeError("DHT uchun pin kerak: DHT dht(2, DHT11);");
+      }
+      this.assertPin(pin, "DHT");
+      this.dhtPins.set(name, pin);
+      return;
+    }
+
+    throw new RuntimeError(`"${type}" kutubxona obyekti qo'llab-quvvatlanmaydi`);
+  }
+
+  private lcdBlank(): string[] {
+    return Array.from({ length: LCD_ROWS }, () => " ".repeat(LCD_COLUMNS));
+  }
+
+  /** Kursor turgan joydan boshlab matn yozadi (qator chetidan oshgani kesiladi). */
+  private lcdPrint(instance: string, text: string) {
+    const lines = this.lcdText.get(instance) ?? this.lcdBlank();
+    const cursor = this.lcdCursor.get(instance) ?? { col: 0, row: 0 };
+    if (cursor.row < 0 || cursor.row >= LCD_ROWS) return;
+
+    const line = lines[cursor.row] ?? " ".repeat(LCD_COLUMNS);
+    const before = line.slice(0, cursor.col);
+    const written = text.slice(0, Math.max(0, LCD_COLUMNS - cursor.col));
+    const after = line.slice(cursor.col + written.length);
+    lines[cursor.row] = (before + written + after).slice(0, LCD_COLUMNS);
+
+    this.lcdText.set(instance, lines);
+    this.lcdCursor.set(instance, { col: cursor.col + written.length, row: cursor.row });
+  }
+
+  /**
+   * `lcd.*` chaqiruvi. Qo'llab-quvvatlanmagan bezak metodlari (kursor
+   * miltillashi, siljitish) jim o'tkazib yuboriladi — ular ekrandagi
+   * matnga ta'sir qilmaydi, lekin kod ularsiz ham ishlashi kerak.
+   */
+  private callLcd(instance: string, method: string, args: (number | string)[]): number | string {
+    switch (method) {
+      case "begin":
+        this.lcdText.set(instance, this.lcdBlank());
+        this.lcdCursor.set(instance, { col: 0, row: 0 });
+        return 0;
+      case "clear":
+        this.lcdText.set(instance, this.lcdBlank());
+        this.lcdCursor.set(instance, { col: 0, row: 0 });
+        return 0;
+      case "home":
+        this.lcdCursor.set(instance, { col: 0, row: 0 });
+        return 0;
+      case "setCursor": {
+        const col = Math.trunc(this.toNumber(args[0] ?? 0));
+        const row = Math.trunc(this.toNumber(args[1] ?? 0));
+        this.lcdCursor.set(instance, {
+          col: Math.max(0, Math.min(LCD_COLUMNS - 1, col)),
+          row: Math.max(0, Math.min(LCD_ROWS - 1, row)),
+        });
+        return 0;
+      }
+      case "print":
+      case "write": {
+        const value = args[0];
+        const text =
+          typeof value === "number" && !Number.isInteger(value)
+            ? value.toFixed(2)
+            : this.toText(value ?? "");
+        this.lcdPrint(instance, text);
+        return text.length;
+      }
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Ro'yxatdagi DHT obyektiga mos sxemadagi sensor.
+   *
+   * Kodda pin to'g'ri yozilgan bo'lsa ham, sim ulanmagan bo'lishi mumkin —
+   * shuning uchun quvvat va yer ham tekshiriladi. Haqiqiy sensor ham shunda
+   * qiymat bermaydi.
+   */
+  private dhtNodeFor(instance: string): CircuitNode | null {
+    const pin = this.dhtPins.get(instance);
+    if (pin === undefined) return null;
+    for (const node of this.options.circuit.nodes) {
+      if (node.type !== "dht11") continue;
+      if (boardPinFor(this.netlist, node.id, "data") !== pin) continue;
+      if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
+        continue;
+      }
+      return node;
+    }
+    return null;
+  }
+
+  private callDht(instance: string, method: string): number | string {
+    if (method === "begin") return 0;
+    if (method !== "readTemperature" && method !== "readHumidity") return 0;
+
+    const node = this.dhtNodeFor(instance);
+    if (!node) {
+      const key = `dht:${instance}`;
+      if (!this.warned.has(key)) {
+        this.warned.add(key);
+        this.log(
+          "warning",
+          `${instance}: DHT11 sensori topilmadi — pin, 5V va GND ulanishini tekshiring.`,
+        );
+      }
+      return 0;
+    }
+
+    /*
+     * DHT11 da ikkita qiymat bor, `sensors` jadvali esa bitta son saqlaydi —
+     * shuning uchun bu sensor faqat inspektor sozlamalaridan o'qiladi.
+     */
+    if (method === "readTemperature") {
+      return typeof node.settings.temperature === "number"
+        ? node.settings.temperature
+        : DHT11_DEFAULTS.temperature;
+    }
+    return typeof node.settings.humidity === "number"
+      ? node.settings.humidity
+      : DHT11_DEFAULTS.humidity;
+  }
+
+  /**
+   * `attachInterrupt()` — uzilishni ro'yxatga oladi.
+   *
+   * Uzilishlar so'rov (polling) orqali taqlid qilinadi: har kadr boshida
+   * pin darajasi tekshiriladi va kerakli o'tishda funksiya chaqiriladi.
+   * Haqiqiy uzilishdan farqi — u `loop()` ning o'rtasida emas, kadr
+   * chegarasida ishlaydi; o'quv sxemalari uchun bu sezilmaydi.
+   */
+  private attachInterrupt(expr: Expression & { kind: "call" }): number {
+    const pin = Math.trunc(
+      this.toNumber(this.evaluate(expr.args[0] ?? { kind: "number", value: 0 })),
+    );
+    this.assertPin(pin, "attachInterrupt");
+
+    const handler = expr.args[1];
+    const handlerName = handler?.kind === "identifier" ? handler.name : null;
+    if (!handlerName || !this.options.sketch.functions[handlerName]) {
+      throw new RuntimeError(
+        "attachInterrupt() uchun mavjud funksiya nomi kerak: attachInterrupt(2, tugmaBosildi, FALLING);",
+      );
+    }
+
+    const modeArg = expr.args[2];
+    const mode =
+      modeArg?.kind === "identifier" && (modeArg.name === "RISING" || modeArg.name === "FALLING")
+        ? modeArg.name
+        : "CHANGE";
+
+    this.interrupts.set(pin, { handler: handlerName, mode, last: this.readDigital(pin) });
+    return 0;
+  }
+
+  /** Keyingi tasodifiy son (0…1). xorshift — tez va urug'lanadi. */
+  private nextRandom(): number {
+    let x = this.randomState || 1;
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    this.randomState = x >>> 0;
+    return this.randomState / 0x100000000;
+  }
+
+  /** Argumentni bitta belgiga aylantiradi (`'a'` ham, 97 ham keladi). */
+  private charOf(value: number | string | undefined): string {
+    if (typeof value === "number") return String.fromCharCode(Math.trunc(value));
+    const text = this.toText(value ?? "");
+    return text.length > 0 ? text[0]! : "";
+  }
+
+  /**
+   * Uzilishlarni tekshiradi.
+   *
+   * Har qadamda kuzatilayotgan pinlarning darajasi solishtiriladi va
+   * kerakli o'tish yuz bergan bo'lsa, bog'langan funksiya chaqiriladi.
+   */
+  private pollInterrupts() {
+    if (this.interrupts.size === 0) return;
+    for (const [pin, watch] of this.interrupts) {
+      const level = this.readDigital(pin);
+      if (level === watch.last) continue;
+      const rising = watch.last === 0 && level === 1;
+      const falling = watch.last === 1 && level === 0;
+      watch.last = level;
+      const fire =
+        watch.mode === "CHANGE" ||
+        (watch.mode === "RISING" && rising) ||
+        (watch.mode === "FALLING" && falling);
+      if (!fire) continue;
+      const fn = this.options.sketch.functions[watch.handler];
+      if (!fn) continue;
+      try {
+        this.callUserFunctionSync({ kind: "call", callee: watch.handler, args: [] });
+      } catch {
+        // Uzilish ichidagi xato butun simulyatsiyani to'xtatmasin.
+      }
+    }
+  }
+
+  /**
+   * Sensor modulining zanjiri yopiqmi.
+   *
+   * Uch pinli modul sifatida u `gnd` pinini kutadi. Lekin darsliklarda
+   * LDR va termistor KO'PINCHA ikki uchli detal sifatida, kuchlanish
+   * bo'luvchi bo'lib ulanadi: 5V → sensor → rezistor → GND. Bunda
+   * sensorning o'z `gnd` pini bo'sh qoladi, yerga qaytish yo'li esa
+   * signal chizig'idan rezistor orqali ketadi.
+   *
+   * Ilgari bunday sxemada `analogRead()` jimgina 0 qaytarardi — bola
+   * to'g'ri yig'sa ham natija ko'rmasdi. Endi ikkala ulash ham qabul
+   * qilinadi.
+   */
+  private sensorGrounded(nodeId: string): boolean {
+    if (isGrounded(this.netlist, nodeId, "gnd")) return true;
+    // Rezistor sensorning `gnd` tomonida ham, signal tomonida ham turishi
+    // mumkin — ikkalasi ham to'g'ri kuchlanish bo'luvchi.
+    if (resistanceToGround(this.netlist, nodeId, "gnd") !== null) return true;
+    return resistanceToGround(this.netlist, nodeId, "signal") !== null;
+  }
+
   private assertPin(pin: number, fn: string) {
     if (!Number.isInteger(pin) || pin < 0 || pin > ANALOG_PIN_BASE + 5) {
       throw new RuntimeError(`${fn}() funksiyasida noto'g'ri pin: ${pin}`);
@@ -770,10 +1291,48 @@ export class Simulator {
     const list = value === 1 ? this.observed.pinsDrivenHigh : this.observed.pinsDrivenLow;
     if (!list.includes(pin)) list.push(pin);
 
+    // Pin holati o'zgardi — oldingi elektr yechimi endi eskirgan.
+    this.invalidateSolution();
+
+    // Pin o'zgargani rele kontaktini almashtirgan bo'lishi mumkin.
+    this.syncRelays();
+
+    // Takt fronti aynan shu yerda sodir bo'ladi: `shiftOut()` ham,
+    // qo'lda yozilgan `digitalWrite(clock, HIGH)` ham shu yo'ldan o'tadi.
+    this.stepDigitalLayer();
+
     // LED yonib-o'chishini sanaymiz (dars tekshiruvi uchun).
     const on = this.computeLedOn();
     if (this.lastLedOn !== null && on !== this.lastLedOn) this.observed.ledToggles += 1;
     this.lastLedOn = on;
+  }
+
+  /**
+   * Raqamli chiplarni bir qadam oldinga suradi.
+   *
+   * Holat o'zgargan bo'lsagina elektr yechimi bekor qilinadi — aks holda
+   * har bir `digitalWrite` butun sxemani qayta hisoblashga majbur qilardi.
+   */
+  private stepDigitalLayer() {
+    if (Object.keys(this.digital).length === 0) return;
+    const next = stepDigital(this.options.circuit, this.netlist, this.board, this.digital);
+
+    let changed = false;
+    for (const [id, state] of Object.entries(next)) {
+      const prev = this.digital[id];
+      if (
+        !prev ||
+        prev.enabled !== state.enabled ||
+        prev.latch.some((bit, i) => bit !== state.latch[i]) ||
+        prev.shift.some((bit, i) => bit !== state.shift[i])
+      ) {
+        changed = true;
+        break;
+      }
+    }
+
+    this.digital = next;
+    if (changed) this.invalidateSolution();
   }
 
   /** Sxemadagi biror LED yonib turibdimi. */
@@ -793,7 +1352,7 @@ export class Simulator {
       const spec = DIGITAL_OUTPUT_SENSORS[node.type];
       if (!spec) continue;
       if (boardPinFor(this.netlist, node.id, spec.out) !== pin) continue;
-      if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
+      if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
         continue;
       }
       return spec.read(node.settings, this.options.sensors[node.id]);
@@ -831,6 +1390,24 @@ export class Simulator {
       if (!pressed) return this.board.digital[pin] ?? 0;
       return isPowered(releasedNetlist, node.id, otherSide) ? 1 : 0;
     }
+
+    /*
+     * Umumiy holat: pin turgan tugundagi HAQIQIY kuchlanish.
+     *
+     * Klaviatura matritsasi, joystik tugmasi, siljitish registri chiqishi —
+     * bularning hech biri alohida "sensor" emas, ular oddiy elektr
+     * ulanishlar. Ilgari bu yerda `board.digital` qaytarilardi, ya'ni pin
+     * kirish rejimida bo'lsa ham FAQAT o'zi yozgan qiymatni ko'rardi va
+     * sxemadan kelgan signal butunlay e'tiborsiz qolardi.
+     */
+    const mode = this.board.modes[pin];
+    if (mode === "input" || mode === "input_pullup") {
+      const volts = this.voltageOfNet(this.netlist.boardPinNets.get(pin) ?? null);
+      // TTL chegarasi: 2.5 V dan yuqorisi HIGH.
+      if (volts !== null) return volts >= 2.5 ? 1 : 0;
+      // Ulanmagan pin: pullup bo'lsa HIGH, aks holda noaniq (0).
+      return mode === "input_pullup" ? 1 : 0;
+    }
     return this.board.digital[pin] ?? 0;
   }
 
@@ -840,13 +1417,24 @@ export class Simulator {
       const spec = ANALOG_SENSORS[node.type];
       if (!spec) continue;
       if (boardPinFor(this.netlist, node.id, spec.signal) !== pin) continue;
-      if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
+      if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
         return 0;
       }
       const adc = spec.toAdc(node.settings, this.options.sensors[node.id]);
       return Math.max(0, Math.min(1023, Math.round(adc)));
     }
-    return 0;
+
+    /*
+     * Jadvalda yo'q bo'lsa — pin turgan tugundagi haqiqiy kuchlanish
+     * o'lchanadi va 0–5 V oralig'i 0–1023 ga o'giriladi (haqiqiy ADC kabi).
+     *
+     * Joystik aynan shu yo'ldan o'qiladi: uning o'qlari — oddiy kuchlanish
+     * bo'luvchi, ya'ni qiymat sxemadan chiqadi. Shu sabab 5V ni ulashni
+     * unutgan bo'lsa, natija ham 0 bo'ladi — xuddi haqiqiy modulda.
+     */
+    const volts = this.voltageOfNet(this.netlist.boardPinNets.get(pin) ?? null);
+    if (volts === null) return 0;
+    return Math.max(0, Math.min(1023, Math.round((volts / 5) * 1023)));
   }
 
   private readPulse(pin: number, value: number): number {
@@ -856,7 +1444,7 @@ export class Simulator {
     for (const node of this.options.circuit.nodes) {
       if (node.type !== "ultrasonic") continue;
       if (boardPinFor(this.netlist, node.id, "echo") !== pin) continue;
-      if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
+      if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
         return 0;
       }
 
@@ -870,38 +1458,67 @@ export class Simulator {
     return 0;
   }
 
+  /* ─────────────── Elektr yechimi ─────────────── */
+
   /**
-   * Zanjirdagi ketma-ket qarshilik (Ω).
+   * Sxemaning joriy yechimi (tugun kuchlanishlari va element toklari).
    *
-   * Rezistor anod tomonida ham, katod tomonida ham turishi mumkin —
-   * ikkalasi ham tokni bir xil cheklaydi, shuning uchun qo'shiladi.
+   * Keshlanadi: bitta kadrda LED yorqinligi, multimetr va simlar bir necha
+   * marta so'raladi, sxema esa o'zgarmaydi. Kesh faqat elektr holati
+   * o'zgarganda tozalanadi — pin yozilganda, rele ishlaganda yoki sensor
+   * qiymati almashganda.
    */
-  private seriesOhms(nodeId: string): number {
-    const toSource = resistanceToDrive(this.netlist, nodeId, "anode") ?? 0;
-    const toGround = resistanceToGround(this.netlist, nodeId, "cathode") ?? 0;
-    return toSource + toGround;
+  private solution: SolveResult | null = null;
+  private solverElements: SolverElement[] = [];
+
+  private invalidateSolution() {
+    this.solution = null;
   }
 
-  /** LED yorqinligi 0–1: anodi quvvatga, katodi GND'ga ulangan bo'lsa yonadi. */
+  private solve(): SolveResult {
+    if (this.solution) return this.solution;
+    const built = buildElements(
+      this.options.circuit,
+      this.netlist,
+      this.board,
+      this.options.sensors,
+      this.digital,
+    );
+    this.solverElements = built.elements;
+    this.solution = solveCircuit(built.elements, this.netlist.groundNets);
+    return this.solution;
+  }
+
+  /** Element orqali o'tayotgan tok (A). */
+  private currentOf(elementId: string): number {
+    return this.solve().current.get(elementId) ?? 0;
+  }
+
+  /**
+   * LED yorqinligi 0–1.
+   *
+   * Endi bu o'lchov emas, hisob: yechuvchi bergan HAQIQIY tok nominal
+   * (5 V + 220 Ω) tokka nisbatan olinadi. Shu tufayli parallel ulangan
+   * LEDlar, bir nechta batareya va kuchlanish bo'luvchi to'g'ri ishlaydi —
+   * ilgari ular "eng qisqa yo'l" taxminiga tayanardi va xato berardi.
+   *
+   * PWM alohida ko'paytiriladi: yechim to'liq 5 V uchun, haqiqiy pin esa
+   * shu kuchlanishni tez o'chirib-yoqadi va ko'z o'rtachasini ko'radi.
+   */
   private ledBrightness(nodeId: string): number {
-    const cathodeGrounded = isGrounded(this.netlist, nodeId, "cathode");
-    if (!cathodeGrounded) return 0;
+    const amps = this.currentOf(nodeId);
+    if (amps <= 0) return 0;
 
-    const ohms = this.seriesOhms(nodeId);
-
-    // Doimiy manba (batareya yoki 5V relsi).
-    if (isPowered(this.netlist, nodeId, "anode")) {
-      const volts = supplyVoltage(this.netlist, nodeId, "anode") ?? 5;
-      return ledOutputFor(volts, ohms);
+    let duty = 1;
+    const anodePin = boardPinFor(this.netlist, nodeId, "anode");
+    if (anodePin !== null && this.board.modes[anodePin] === "output") {
+      duty = (this.board.pwm[anodePin] ?? 0) / 255;
     }
 
-    // Arduino chiqishi. PWM to'liq 5 V ni o'chirib-yoqadi, shuning uchun
-    // kuchlanish doim 5 V, o'rtacha tok esa to'ldirish koeffitsiyentiga
-    // proporsional — xiralashtirishni qarshilik va PWM birgalikda beradi.
-    const anodePin = boardPinFor(this.netlist, nodeId, "anode");
-    if (anodePin === null || this.board.modes[anodePin] !== "output") return 0;
-    const duty = (this.board.pwm[anodePin] ?? 0) / 255;
-    return duty * ledOutputFor(5, ohms);
+    // Yaxlitlash: yechuvchi 0.9999998 kabi qiymat berishi mumkin, ekranda
+    // esa bu "to'liq yorqinlik emas" degan taassurot qoldirardi.
+    const level = Math.max(0, Math.min(1, (duty * amps) / LED_FULL_CURRENT));
+    return Math.round(level * 1000) / 1000;
   }
 
   private outputLevel(pinId: string, nodeId: string): number {
@@ -910,9 +1527,21 @@ export class Simulator {
     return Math.max(0, Math.min(1, (this.board.pwm[pin] ?? 0) / 255));
   }
 
-  /** Elektr tugunining taxminiy kuchlanishi (V). */
+  /**
+   * Elektr tugunining kuchlanishi (V).
+   *
+   * Birinchi navbatda yechuvchining javobi olinadi — u haqiqiy sxemani
+   * hisoblagan. Tugun yechimda bo'lmasa (unga birorta element ulanmagan,
+   * masalan bo'sh breadboard ustuni) eski, taxminiy qoidalarga tushiladi:
+   * ular hech bo'lmasa "yerga ulangan" yoki "5V relsda" degan javobni
+   * beradi.
+   */
   private voltageOfNet(netId: string | null): number | null {
     if (netId === null) return null;
+
+    const solved = this.solve().voltage.get(netId);
+    if (solved !== undefined) return solved;
+
     if (this.netlist.groundNets.has(netId)) return 0;
     // Aniq manba qiymati (batareya) doim 5V relsidan ustun turadi.
     const source = this.netlist.sourceNets.get(netId);
@@ -951,12 +1580,108 @@ export class Simulator {
     const plus = this.voltageOfNet(netFor(this.netlist, nodeId, "probe-plus"));
     const minus = this.voltageOfNet(netFor(this.netlist, nodeId, "probe-minus"));
     if (plus === null || minus === null) return 0;
-    return plus - minus;
+    // Haqiqiy multimetr ham ikki xonagacha ko'rsatadi.
+    return Math.round((plus - minus) * 100) / 100;
+  }
+
+  /* ─────────────── Tok oqimi ─────────────── */
+
+  /**
+   * Har bir simdagi tok.
+   *
+   * Ilgari bu savolga "tugun manbaga ham, yerga ham yetib boradimi?" degan
+   * grafik tekshiruv javob berardi. Endi javob yechuvchidan olinadi:
+   * simning tugunidagi elementlar orqali qancha amper o'tayotgani aniq
+   * ma'lum, shuning uchun "yetib boradi, lekin tok yo'q" degan yolg'on
+   * hollar (masalan ikkala uchi ham 5 V da turgan sim) yo'qoladi.
+   *
+   * Yo'nalish faqat ANIQ bo'lganda ko'rsatiladi. Simning ikki uchi bitta
+   * tugunda va ularning kuchlanishi teng — yo'nalish simning o'zidan emas,
+   * uchlariga ulangan elementlardan kelib chiqadi. Tugunda ikkitadan ortiq
+   * nuqta bo'lsa (masalan breadboard ustuni), tok qaysi shoxga qanchadan
+   * bo'linishini bitta sim bo'yicha aytib bo'lmaydi — bunda yo'nalish
+   * ko'rsatilmaydi.
+   */
+  getWireFlow(): Record<string, WireFlow> {
+    const solution = this.solve();
+    const out: Record<string, WireFlow> = {};
+
+    /* Tugunga ulangan uchlar: qaysi komponent qancha tok BERAYOTGANI. */
+    const terminals = new Map<string, { nodeId: string; injected: number }[]>();
+    const push = (netId: string, nodeId: string, injected: number) => {
+      const list = terminals.get(netId);
+      if (list) list.push({ nodeId, injected });
+      else terminals.set(netId, [{ nodeId, injected }]);
+    };
+
+    for (const el of this.solverElements) {
+      const amps = solution.current.get(el.id) ?? 0;
+      const owner = el.id.split(":")[0] ?? el.id;
+      // Tok `a` dan `b` ga oqadi: `a` tugunidan chiqadi, `b` tuguniga kiradi.
+      push(el.a, owner, -amps);
+      push(el.b, owner, amps);
+    }
+
+    /** Tugundagi eng katta tok (A) — ketma-ket zanjirda bu halqa toki. */
+    const netCurrent = new Map<string, number>();
+    for (const [netId, list] of terminals) {
+      let peak = 0;
+      for (const t of list) peak = Math.max(peak, Math.abs(t.injected));
+      netCurrent.set(netId, peak);
+    }
+
+    /*
+     * Komponent orqali o'tayotgan eng katta tok.
+     *
+     * Sim tugunning bir qismi, lekin undagi tok tugunning umumiy tokidan
+     * kichik bo'lishi mumkin: multimetr zondi 31 mA oqayotgan tugunga
+     * ulansa ham, zondning o'zidan mikroamperlar o'tadi. Shuning uchun
+     * simning toki uning IKKI UCHIDAGI komponentlar toki bilan ham
+     * cheklanadi.
+     *
+     * Elementi yo'q komponentlar (breadboard, GND belgisi) — o'tkazgich:
+     * ular tokni cheklamaydi, faqat uzatadi.
+     */
+    const nodeCurrent = new Map<string, number>();
+    for (const el of this.solverElements) {
+      const owner = el.id.split(":")[0] ?? el.id;
+      const amps = Math.abs(solution.current.get(el.id) ?? 0);
+      nodeCurrent.set(owner, Math.max(nodeCurrent.get(owner) ?? 0, amps));
+    }
+    const throughNode = (nodeId: string) => nodeCurrent.get(nodeId) ?? Infinity;
+
+    for (const wire of this.options.circuit.wires) {
+      const netId = netFor(this.netlist, wire.from.nodeId, wire.from.pinId);
+      if (netId === null) continue;
+
+      const amps = Math.min(
+        netCurrent.get(netId) ?? 0,
+        throughNode(wire.from.nodeId),
+        throughNode(wire.to.nodeId),
+      );
+      if (amps < LIVE_CURRENT_THRESHOLD) continue;
+
+      let direction: WireFlow["direction"] = 0;
+      const pins = this.netlist.pinsOf.get(netId) ?? [];
+      const list = terminals.get(netId) ?? [];
+      if (pins.length === 2 && list.length === 2) {
+        const from = list.find((t) => t.nodeId === wire.from.nodeId);
+        const to = list.find((t) => t.nodeId === wire.to.nodeId);
+        if (from && to && Math.sign(from.injected) === -Math.sign(to.injected)) {
+          direction = from.injected > 0 ? 1 : -1;
+        }
+      }
+
+      out[wire.id] = { milliamps: amps * 1000, direction };
+    }
+
+    return out;
   }
 
   /** Har bir komponentning ko'rinadigan holati. */
   getRuntimeState(): Record<string, ComponentRuntimeState> {
     const out: Record<string, ComponentRuntimeState> = {};
+    this.syncRelays();
 
     for (const node of this.options.circuit.nodes) {
       const def = getDefinition(node.type);
@@ -1038,7 +1763,7 @@ export class Simulator {
       }
 
       if (node.type === "servo") {
-        if (!isPowered(this.netlist, node.id, "vcc") || !isGrounded(this.netlist, node.id, "gnd")) {
+        if (!isPowered(this.netlist, node.id, "vcc") || !this.sensorGrounded(node.id)) {
           out[node.id] = { angle: Math.round(Number(node.settings.angle ?? 90)) };
           continue;
         }
@@ -1057,7 +1782,9 @@ export class Simulator {
         const v1 = this.voltageOfNet(netFor(this.netlist, node.id, "t1"));
         const v2 = this.voltageOfNet(netFor(this.netlist, node.id, "t2"));
         const diff = (v1 ?? 0) - (v2 ?? 0);
-        const speed = Math.max(0, Math.min(1, Math.abs(diff) / 5));
+        const nominal =
+          typeof node.settings.nominalVoltage === "number" ? node.settings.nominalVoltage : 5;
+        const speed = Math.max(0, Math.min(1, Math.abs(diff) / Math.max(1, nominal)));
         out[node.id] = {
           active: speed > 0.02,
           speed,
@@ -1066,13 +1793,220 @@ export class Simulator {
         continue;
       }
 
+      if (node.type === "relay") {
+        out[node.id] = { active: this.relayState.get(node.id) === true };
+        continue;
+      }
+
+      /*
+       * LCD: kodda qaysi obyekt shu ekranga ulanganini RS pini bo'yicha
+       * topamiz. Ikkita LCD bo'lsa ham ular boshqa-boshqa RS pinlarida
+       * bo'ladi, shuning uchun bu belgi yetarli.
+       */
+      if (node.type === "lcd1602") {
+        const rs = boardPinFor(this.netlist, node.id, "rs");
+        const powered =
+          isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd");
+        let lines: string[] | undefined;
+        if (powered && rs !== null) {
+          for (const [instance, pinList] of this.lcdPins) {
+            if (pinList[0] !== rs) continue;
+            lines = this.lcdText.get(instance);
+            break;
+          }
+        }
+        out[node.id] = { lines: lines ?? [], powered };
+        continue;
+      }
+
+      if (node.type === "dht11") {
+        out[node.id] = {
+          active:
+            isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd"),
+        };
+        continue;
+      }
+
       if (node.type === "multimeter") {
         out[node.id] = { voltage: this.measuredVoltage(node.id) };
+        continue;
+      }
+
+      /* ───────── Faza B ───────── */
+
+      if (node.type === "diode") {
+        // Tok belgisi anoddan katodga: musbat bo'lsa diod ochilgan.
+        const amps = this.currentOf(node.id);
+        out[node.id] = {
+          forward: amps > 1e-6,
+          milliamps: Math.round(Math.abs(amps) * 100000) / 100,
+          acrossVolts: this.acrossVolts(node.id, "a", "k") ?? undefined,
+        };
+        continue;
+      }
+
+      if (node.type === "capacitor") {
+        const across = this.acrossVolts(node.id, "plus", "minus");
+        out[node.id] = {
+          acrossVolts: across ?? undefined,
+          // O'rnashgan holatda kondensator orqali tok o'tmaydi.
+          milliamps: 0,
+          // Qutbli kondensator uchun "+" uchi pastroq kuchlanishda bo'lsa xato.
+          forward: across === null ? true : across >= -0.05,
+        };
+        continue;
+      }
+
+      if (node.type === "npn-transistor") {
+        const collectorAmps = Math.abs(this.currentOf(node.id));
+        const baseAmps = Math.abs(this.currentOf(`${node.id}:be`));
+        const beta = typeof node.settings.beta === "number" ? node.settings.beta : 100;
+        /*
+         * Holatni baza toki bilan solishtirib aniqlaymiz. Kollektor toki
+         * β·Ib dan kam bo'lsa tranzistor chiziqli sohada, unga yetgan yoki
+         * oshgan bo'lsa to'yingan — haqiqiy tranzistordagi kabi.
+         */
+        const state: "off" | "active" | "saturated" =
+          baseAmps < 1e-6 || collectorAmps < 1e-6
+            ? "off"
+            : collectorAmps >= beta * baseAmps * 0.95
+              ? "saturated"
+              : "active";
+        out[node.id] = {
+          transistor: state,
+          milliamps: Math.round(collectorAmps * 100000) / 100,
+          baseMilliamps: Math.round(baseAmps * 100000) / 100,
+          acrossVolts: this.acrossVolts(node.id, "b", "e") ?? undefined,
+        };
+        continue;
+      }
+
+      if (node.type === "joystick") {
+        out[node.id] = {
+          axisX: typeof node.settings.x === "number" ? node.settings.x : 0,
+          axisY: typeof node.settings.y === "number" ? node.settings.y : 0,
+          pressed: node.settings.pressed === true,
+          active:
+            isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd"),
+        };
+        continue;
+      }
+
+      if (node.type === "seven-segment") {
+        /*
+         * Har bir segment alohida LED, shuning uchun yonish holati ham
+         * o'sha LEDdan o'tgan haqiqiy tokdan olinadi — oldindan yozilgan
+         * "raqam" emas. Raqam esa aksincha: yonayotgan segmentlardan
+         * KELIB CHIQADI.
+         */
+        const segments: Record<string, boolean> = {};
+        let total = 0;
+        for (const segment of ["a", "b", "c", "d", "e", "f", "g", "dp"]) {
+          const amps = Math.abs(this.currentOf(`${node.id}:${segment}`));
+          segments[segment] = amps > 0.0005;
+          total += amps;
+        }
+        out[node.id] = {
+          segments,
+          digit: digitForSegments(segments),
+          milliamps: Math.round(total * 100000) / 100,
+        };
+        continue;
+      }
+
+      if (node.type === "shift-register") {
+        const state = this.digital[node.id];
+        out[node.id] = {
+          shiftBits: state ? [...state.shift] : [],
+          latchBits: state ? [...state.latch] : [],
+          active: state?.enabled === true,
+          powered:
+            isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd"),
+        };
+        continue;
+      }
+
+      if (node.type === "keypad-4x4") {
+        const key = typeof node.settings.key === "string" ? node.settings.key : "";
+        out[node.id] = { key: key === "" ? null : key, pressed: key !== "" };
+        continue;
+      }
+
+      if (node.type === "l298n") {
+        out[node.id] = {
+          channelA: this.motorChannelState(node, "ena", "in1", "in2", "out1", "out2"),
+          channelB: this.motorChannelState(node, "enb", "in3", "in4", "out3", "out4"),
+          powered: isGrounded(this.netlist, node.id, "gnd"),
+        };
         continue;
       }
     }
 
     return out;
+  }
+
+  /**
+   * Ikki pin orasidagi kuchlanish farqi (V). Tugun yechimda bo'lmasa `null`.
+   */
+  private acrossVolts(nodeId: string, aPin: string, bPin: string): number | null {
+    const a = this.voltageOfNet(netFor(this.netlist, nodeId, aPin));
+    const b = this.voltageOfNet(netFor(this.netlist, nodeId, bPin));
+    if (a === null || b === null) return null;
+    return Math.round((a - b) * 100) / 100;
+  }
+
+  /**
+   * L298N kanalining holati.
+   *
+   * Tezlik motorning O'ZIDAN o'qiladi: OUT uchlariga ulangan DC motor
+   * elementidan o'tgan tok nominal tokka nisbatan olinadi. Shuning uchun
+   * motorni ulashni unutgan bo'lsa tezlik 0 bo'ladi va PWM ham, yo'nalish
+   * ham buni yashira olmaydi.
+   */
+  private motorChannelState(
+    node: CircuitNode,
+    enPin: string,
+    aPin: string,
+    bPin: string,
+    outA: string,
+    outB: string,
+  ): { speed: number; direction: number; mode: MotorDriverMode } {
+    const level = (pinId: string) => {
+      const pin = boardPinFor(this.netlist, node.id, pinId);
+      if (pin === null || this.board.modes[pin] !== "output") return { high: false, duty: 0 };
+      const pwm = this.board.pwm[pin] ?? 0;
+      if (pwm > 0) return { high: true, duty: Math.min(1, pwm / 255) };
+      const high = (this.board.digital[pin] ?? 0) === 1;
+      return { high, duty: high ? 1 : 0 };
+    };
+
+    const enableConnected = boardPinFor(this.netlist, node.id, enPin) !== null;
+    const enable = enableConnected ? level(enPin) : { high: true, duty: 1 };
+    const { mode, direction, duty } = motorDriverChannel(
+      level(aPin).high,
+      level(bPin).high,
+      enable.duty,
+    );
+
+    // OUT uchlariga ulangan motorni topamiz va uning tokini o'lchaymiz.
+    const outNetA = netFor(this.netlist, node.id, outA);
+    const outNetB = netFor(this.netlist, node.id, outB);
+    let speed = 0;
+    if (outNetA !== null && outNetB !== null) {
+      for (const other of this.options.circuit.nodes) {
+        if (other.type !== "dc-motor") continue;
+        const t1 = netFor(this.netlist, other.id, "t1");
+        const t2 = netFor(this.netlist, other.id, "t2");
+        const matches = (t1 === outNetA && t2 === outNetB) || (t1 === outNetB && t2 === outNetA);
+        if (!matches) continue;
+        const amps = Math.abs(this.currentOf(other.id));
+        // 12 V / 60 Ω ≈ 0.2 A — to'liq tezlik uchun mos nominal.
+        speed = Math.min(1, amps / 0.2) * duty;
+        break;
+      }
+    }
+
+    return { speed: Math.round(speed * 1000) / 1000, direction, mode };
   }
 
   /* ─────────────── Bajarish (generator) ─────────────── */
@@ -1086,6 +2020,16 @@ export class Simulator {
 
     switch (stmt.kind) {
       case "declare": {
+        /*
+         * Kutubxona obyektlari (`LiquidCrystal lcd(12, 11, 5, 4, 3, 2);`)
+         * oddiy o'zgaruvchi emas — ular qaysi pinlarga ulanganini eslab
+         * qolishimiz kerak, aks holda `lcd.print()` qaysi ekranda
+         * yozayotganini bilib bo'lmaydi.
+         */
+        if (stmt.value?.kind === "call" && stmt.value.callee === stmt.valueType) {
+          this.declareLibraryObject(stmt.name, stmt.valueType, stmt.value.args);
+          return;
+        }
         const value = stmt.value ? this.evaluate(stmt.value) : 0;
         this.currentScope().set(stmt.name, this.coerceType(stmt.valueType, value));
         return;
@@ -1282,6 +2226,13 @@ export class Simulator {
     this.tonePins.clear();
     this.servoPins.clear();
     this.servoAngles.clear();
+    this.lcdPins.clear();
+    this.lcdText.clear();
+    this.lcdCursor.clear();
+    this.dhtPins.clear();
+    this.warned.clear();
+    this.relayState.clear();
+    this.interrupts.clear();
     this.arrays.clear();
     this.callDepth = 0;
     this.lastLedOn = null;
@@ -1290,6 +2241,7 @@ export class Simulator {
     this.observed.ledToggles = 0;
     this.observed.usedDelay = false;
     this.netlist = buildNetlist(this.options.circuit);
+    this.invalidateSolution();
     this.runner = this.program();
     this.pendingWakeAt = 0;
     this.lastTickTime = -1;
@@ -1306,6 +2258,10 @@ export class Simulator {
 
     const target = this.time + deltaMs;
     let ops = 0;
+
+    // Uzilishlar kadr boshida tekshiriladi: sensor yoki tugma holati
+    // oxirgi kadrdan beri o'zgargan bo'lishi mumkin.
+    this.pollInterrupts();
 
     while (this.time < target) {
       // Kutish holatida — vaqtni surib qo'yamiz.

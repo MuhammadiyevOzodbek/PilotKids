@@ -47,6 +47,70 @@
   margin: -34px -32px -60px;
 }
 
+/*
+ * Laboratoriya ochilganda ilova sarlavhasi olib tashlanadi.
+ *
+ * Nima uchun. Laboratoriyaning O'Z asboblar paneli bor (loyiha nomi,
+ * saqlash, ishga tushirish, zoom). Ustida yana bitta panel — qidiruv, XP,
+ * bildirishnoma — turgani ish stolining balandligini ~76px ga qisqartirar
+ * va e'tiborni bo'lardi. Sxema chizish uchun esa aynan balandlik kerak.
+ *
+ * `:has()` ishlatilgan, chunki sarlavha `(app)` layoutida — server
+ * komponentda — turadi va u ochilgan sahifa qaysi ekanini bilmaydi. Bu
+ * fayl faqat laboratoriya sahifasida yuklanadi, ya'ni qoida boshqa
+ * sahifalarga umuman yetib bormaydi.
+ */
+body:has(.vlab-page) .app-header {
+  /*
+   * `!important` shart: sarlavhaning `display: flex` qiymati inline stilda
+   * turadi va oddiy qoida uni bosib o'tolmaydi.
+   */
+  display: none !important;
+}
+
+/* Sarlavha yo'q — ish stoli butun balandlikni oladi. */
+body:has(.vlab-page) .vlab-root {
+  height: 100dvh;
+}
+
+/*
+ * Laboratoriyada yon panel ikonka ustuniga qisqaradi.
+ *
+ * Sxema yig'ish uchun eng qimmatli narsa — enlik. To'liq yon panel 264px
+ * oladi, ya'ni komponentlar ro'yxati va sozlamalar paneli orasidagi ish
+ * stoli shunchaga torayadi. Ikonkalar qolgani uchun navigatsiya yo'qolmaydi:
+ * bo'limlar o'sha joyda, faqat yozuvsiz. Har bir havolada `title`
+ * atributi bor — sichqoncha ustiga kelganda nomi ko'rinadi.
+ *
+ * Faqat KATTA ekranda: 1024px dan pastda yon panel allaqachon chetga
+ * yashiringan tortma panel bo'lib, u yerda yozuvlar kerak.
+ */
+@media (min-width: 1025px) {
+  body:has(.vlab-page) .app-sidebar {
+    width: 68px;
+    padding: 18px 10px;
+    overflow: visible;
+  }
+
+  body:has(.vlab-page) .app-nav-label,
+  body:has(.vlab-page) .app-parent-card {
+    display: none;
+  }
+
+  /* Ikonkalar markazda tursin — yozuv yo'q, chapga surilgani xunuk. */
+  body:has(.vlab-page) .app-sidebar a {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Brend belgisi ham markazda va pastdagi bo'shliq kichrayadi. */
+  body:has(.vlab-page) .app-sidebar > a:first-of-type {
+    padding: 6px 0 18px;
+  }
+}
+
 /* ═══════════════════ Yuqori panel ═══════════════════ */
 
 .vlab-toolbar {
@@ -58,6 +122,38 @@
   background: var(--surface);
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+/*
+ * Laboratoriya panelidagi menyu tugmasi.
+ *
+ * Ilova sarlavhasi yashirilgani uchun undagi burger ham yo'qoladi. Katta
+ * ekranda yon panel doim ko'rinadi va tugma kerak emas, telefonda esa
+ * usiz laboratoriyadan chiqib bo'lmay qolardi.
+ */
+.vlab-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.vlab-burger:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
+@media (max-width: 1024px) {
+  .vlab-burger {
+    display: inline-flex;
+  }
 }
 
 .vlab-brand {
@@ -285,6 +381,158 @@
   50% {
     opacity: 0.55;
     box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+/* ═══════════════════ Muammolar ro'yxati ═══════════════════ */
+
+/* Nishon endi tugma — bosilishi ko'rinib tursin. */
+button.vlab-badge {
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    filter 0.14s ease,
+    transform 0.14s ease;
+}
+
+button.vlab-badge:hover {
+  filter: brightness(1.06);
+}
+
+button.vlab-badge:active {
+  transform: scale(0.96);
+}
+
+button.vlab-badge:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.vlab-status {
+  position: relative;
+}
+
+.vlab-problems {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(440px, 88vw);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md, 0 18px 44px -14px rgba(15, 23, 42, 0.45));
+  overflow: hidden;
+  animation: vlab-problems-in 0.13s ease-out;
+}
+
+@keyframes vlab-problems-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.vlab-problems-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 13px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.vlab-problems-body {
+  overflow-y: auto;
+  padding: 6px;
+  display: grid;
+  gap: 3px;
+}
+
+/* Bitta muammo. Tugma bo'lsa — bosilganda komponent ajratiladi. */
+.vlab-problem {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 9px;
+  align-items: start;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+button.vlab-problem {
+  cursor: pointer;
+}
+
+button.vlab-problem:hover {
+  background: var(--surface-2);
+}
+
+button.vlab-problem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring) inset;
+}
+
+.vlab-problem-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.vlab-problem[data-severity="error"] .vlab-problem-icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.vlab-problem[data-severity="warning"] .vlab-problem-icon {
+  background: var(--fun-amber-soft);
+  color: var(--fun-amber);
+}
+
+.vlab-problem strong {
+  display: block;
+  font-weight: 700;
+}
+
+.vlab-problem-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.vlab-problem-where {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vlab-problems {
+    animation: none;
   }
 }
 
@@ -719,6 +967,27 @@
   display: inline-block;
 }
 
+/* Tok belgisi — sxemadagi harakatlanuvchi punktirning kichik nusxasi. */
+.vlab-legend i.vlab-legend-flow {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--text-2) 0 5px, transparent 5px 9px);
+  animation: vlab-legend-flow 0.75s linear infinite;
+}
+
+@keyframes vlab-legend-flow {
+  to {
+    background-position-x: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vlab-legend i.vlab-legend-flow {
+    animation: none;
+  }
+}
+
 /* ═══════════════════ Inspektor ═══════════════════ */
 
 .vlab-inspector {
@@ -1062,7 +1331,7 @@
   border-radius: 9px;
   border: none;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   cursor: pointer;
   transition: filter 0.14s ease;
 }
@@ -1130,14 +1399,242 @@
 /* ═══════════════════ Dars paneli ═══════════════════ */
 
 .vlab-lesson {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
   border-top: 1px solid var(--border);
   background: var(--surface);
+  flex-shrink: 0;
+  /* Ochilganda ham sxemani bosib qo'ymasin. */
+  max-height: 38vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.vlab-lesson-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.vlab-lesson-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.vlab-lesson-toggle:hover {
+  background: var(--surface-2);
+}
+
+.vlab-lesson-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+/* ── Dars tanlagich ── */
+
+.vlab-lesson-picker-wrap {
+  position: relative;
+}
+
+.vlab-lesson-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease;
+}
+
+.vlab-lesson-pick:hover {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.vlab-lesson-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: min(420px, 84vw);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md, 0 16px 40px -12px rgba(15, 23, 42, 0.4));
+}
+
+.vlab-lesson-menu-item {
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.vlab-lesson-menu-item:hover {
+  background: var(--surface-2);
+}
+
+.vlab-lesson-menu-item[data-current="true"] {
+  background: var(--primary-soft);
+}
+
+.vlab-lesson-menu-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.vlab-lesson-menu-sub {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+/* ── Ochilgan dars mazmuni ── */
+
+.vlab-lesson-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 22px;
+  padding: 4px 16px 16px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.vlab-lesson-summary {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.vlab-lesson-theory {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.vlab-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+  counter-reset: step;
+}
+
+.vlab-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 9px;
+  align-items: start;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.vlab-step-num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.vlab-step-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+/* Tekshiruv qoidalari */
+.vlab-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.vlab-rules li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.vlab-rules li[data-state="ok"] {
+  color: var(--success);
+}
+
+.vlab-rules li[data-state="fail"] {
+  color: var(--text);
+}
+
+.vlab-rule-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  color: inherit;
+  opacity: 0.55;
+}
+
+.vlab-rules li[data-state="ok"] .vlab-rule-mark {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+  opacity: 1;
+}
+
+.vlab-rules li[data-state="fail"] .vlab-rule-mark {
+  border-color: var(--danger);
+  color: var(--danger);
+  opacity: 1;
 }
 
 .vlab-lesson-title {
@@ -1151,7 +1648,7 @@
   border-radius: 10px;
   border: none;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 700;
@@ -1611,6 +2108,86 @@
   filter: saturate(0.55);
 }
 
+/* ═══════════════════ Breadboard ═══════════════════ */
+
+.vlab-breadboard {
+  --bb-body: #f0f2f6;
+  --bb-edge: #c3cad6;
+  --bb-strip: #e3e7ee;
+  --bb-channel: #dbe0e9;
+  --bb-hole: #8d97a5;
+  --bb-label: #6b7583;
+  --bb-rail-plus: #e5484d;
+  --bb-rail-minus: #2f6bf3;
+
+  display: block;
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.dark .vlab-breadboard {
+  --bb-body: #d8dce4;
+  --bb-edge: #8b93a1;
+  --bb-strip: #c8ced8;
+  --bb-channel: #bcc3ce;
+  --bb-hole: #5c6470;
+  --bb-label: #4b535f;
+  --bb-rail-plus: #d2373c;
+  --bb-rail-minus: #2a5ed6;
+}
+
+/* ═══════════════════ LCD 16×2 ═══════════════════ */
+
+.vlab-lcd {
+  --lcd-board: #1d5c3a;
+  --lcd-screen-on: #6fbf4a;
+  --lcd-screen-off: #3f5f4a;
+  --lcd-text: #0d2414;
+
+  display: block;
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.dark .vlab-lcd {
+  --lcd-board: #16452c;
+  --lcd-screen-on: #62ab41;
+  --lcd-screen-off: #2f4638;
+}
+
+/* ═══════════════════ Rele ═══════════════════ */
+
+.vlab-relay {
+  --relay-contact: #b8c0ca;
+  --relay-led-off: #43505f;
+  --relay-led-on: #3ddc84;
+
+  display: block;
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.dark .vlab-relay {
+  --relay-contact: #cdd4dd;
+}
+
+.vlab-relay-led {
+  fill: var(--relay-led-off);
+  transition: fill 0.15s ease;
+}
+
+.vlab-relay[data-on="true"] .vlab-relay-led {
+  fill: var(--relay-led-on);
+}
+
+/* Kalit tilchasi siljiganda harakat ko'rinib tursin. */
+.vlab-relay path {
+  transition: d 0.12s ease;
+}
+
 /* ── Tayyor kuchlanish tugmalari (inspektor) ── */
 
 .vlab-volt-presets {
@@ -1863,6 +2440,153 @@
   }
 }
 
+/* ═══════════════════ Tugun va tok oqimi ═══════════════════ */
+
+/*
+ * Bitta elektr tugunidagi hamma narsa birga yonadi. Sim qalinlashadi va
+ * ustiga yorug' halo tushadi — rangi o'zgarmaydi, chunki sim rangi bolaga
+ * "quvvat / yer / signal" ma'nosini beradi va uni buzib bo'lmaydi.
+ */
+.vlab-canvas .react-flow__edge.vlab-wire-net .react-flow__edge-path {
+  filter: drop-shadow(0 0 6px var(--primary));
+}
+
+/*
+ * Tok o'tayotgan sim.
+ *
+ * Punktir tok yo'nalishi bo'yicha yuguradi. Yo'nalishni yechuvchi beradi;
+ * u aniqlanmagan hollarda (tugunda ikkitadan ortiq nuqta bo'lsa, masalan
+ * breadboard ustunida) punktir baribir harakatlanadi, lekin uning tomoni
+ * hech narsani da'vo qilmaydi.
+ */
+.vlab-canvas .react-flow__edge.vlab-wire-live .react-flow__edge-path {
+  stroke-dasharray: 9 7;
+  animation: vlab-flow 0.75s linear infinite;
+}
+
+/* Tok teskari tomonga oqayotgan sim. */
+.vlab-canvas .react-flow__edge.vlab-wire-reverse .react-flow__edge-path {
+  animation-direction: reverse;
+}
+
+@keyframes vlab-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* ═══════════════════ Simning tez menyusi ═══════════════════ */
+
+/*
+ * Sim tanlanganda uning o'rtasida chiqadi. `EdgeLabelRenderer` ichidagi
+ * idish `pointer-events: none` bilan keladi, shuning uchun bosish ishlashi
+ * uchun uni qaytadan yoqamiz.
+ */
+.vlab-wire-menu {
+  position: absolute;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md, 0 8px 24px -8px rgba(15, 23, 42, 0.35));
+  z-index: 12;
+  /* Sxema zoom qilinganda menyu o'sib ketmasin — o'lchami doim bir xil. */
+  font-size: 12px;
+  white-space: nowrap;
+  animation: vlab-wire-menu-in 0.12s ease-out;
+}
+
+@keyframes vlab-wire-menu-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.vlab-wire-menu-colors {
+  display: flex;
+  gap: 5px;
+}
+
+/* Menyudagi ranglar inspektordagidan kichikroq — joy tor. */
+.vlab-wire-menu .vlab-wire-swatch {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-width: 1.5px;
+}
+
+.vlab-wire-menu .vlab-wire-swatch[data-active="true"] {
+  box-shadow:
+    0 0 0 2px var(--ring),
+    0 0 0 3.5px var(--primary);
+}
+
+.vlab-wire-menu-current {
+  padding: 0 2px;
+  color: var(--text-3);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+}
+
+.vlab-wire-menu-delete {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    transform 0.14s ease;
+}
+
+.vlab-wire-menu-delete:hover {
+  background: var(--danger-soft);
+}
+
+.vlab-wire-menu-delete:active {
+  transform: scale(0.92);
+}
+
+.vlab-wire-menu-delete:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vlab-wire-menu {
+    animation: none;
+  }
+}
+
+/* Tugundagi pinlar — sim bilan bir vaqtda yonadi. */
+.vlab-canvas .react-flow__handle.vlab-pin[data-net="on"] {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    0 0 8px var(--primary);
+  z-index: 6;
+}
+
+/* Harakatga sezgir foydalanuvchilar uchun animatsiya o'chadi. */
+@media (prefers-reduced-motion: reduce) {
+  .vlab-canvas .react-flow__edge.vlab-wire-live .react-flow__edge-path,
+  .vlab-canvas .react-flow__connectionline path {
+    animation: none;
+  }
+}
+
 /* ═══════════════════ Fokus ko'rsatkichi ═══════════════════ */
 
 .vlab-root :focus-visible {
@@ -1891,6 +2615,158 @@
     width: 128px;
   }
 
+  /* ═══════════════════ Muammolar ro'yxati ═══════════════════ */
+
+  /* Nishon endi tugma — bosilishi ko'rinib tursin. */
+  button.vlab-badge {
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+      filter 0.14s ease,
+      transform 0.14s ease;
+  }
+
+  button.vlab-badge:hover {
+    filter: brightness(1.06);
+  }
+
+  button.vlab-badge:active {
+    transform: scale(0.96);
+  }
+
+  button.vlab-badge:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .vlab-status {
+    position: relative;
+  }
+
+  .vlab-problems {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 60;
+    width: min(440px, 88vw);
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-md, 0 18px 44px -14px rgba(15, 23, 42, 0.45));
+    overflow: hidden;
+    animation: vlab-problems-in 0.13s ease-out;
+  }
+
+  @keyframes vlab-problems-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .vlab-problems-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 10px 10px 13px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-2);
+  }
+
+  .vlab-problems-body {
+    overflow-y: auto;
+    padding: 6px;
+    display: grid;
+    gap: 3px;
+  }
+
+  /* Bitta muammo. Tugma bo'lsa — bosilganda komponent ajratiladi. */
+  .vlab-problem {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 9px;
+    align-items: start;
+    width: 100%;
+    padding: 9px 11px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    line-height: 1.45;
+  }
+
+  button.vlab-problem {
+    cursor: pointer;
+  }
+
+  button.vlab-problem:hover {
+    background: var(--surface-2);
+  }
+
+  button.vlab-problem:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--ring) inset;
+  }
+
+  .vlab-problem-icon {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .vlab-problem[data-severity="error"] .vlab-problem-icon {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .vlab-problem[data-severity="warning"] .vlab-problem-icon {
+    background: var(--fun-amber-soft);
+    color: var(--fun-amber);
+  }
+
+  .vlab-problem strong {
+    display: block;
+    font-weight: 700;
+  }
+
+  .vlab-problem-hint {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+
+  .vlab-problem-where {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 2px 7px;
+    border-radius: 99px;
+    background: var(--surface-3);
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vlab-problems {
+      animation: none;
+    }
+  }
+
   .vlab-clock {
     display: none;
   }
@@ -1903,6 +2779,10 @@
 
   .vlab-root {
     height: calc(100dvh - 68px);
+  }
+
+  body:has(.vlab-page) .vlab-root {
+    height: 100dvh;
   }
 }
 

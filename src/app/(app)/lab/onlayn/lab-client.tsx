@@ -2,6 +2,7 @@
 
 import "@xyflow/react/dist/style.css";
 import "@/components/virtual-lab/virtual-lab.css";
+import "@/components/virtual-lab/blocks/blocks.css";
 import { Workbench } from "@/components/virtual-lab/workbench";
 
 /**

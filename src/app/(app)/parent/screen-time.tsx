@@ -76,7 +76,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
             width: `${percent}%`,
             height: "100%",
             borderRadius: 99,
-            background: over ? "#E5484D" : "#38d39a",
+            background: over ? "var(--danger)" : "#38d39a",
             transition: "width .4s ease",
           }}
         />
@@ -93,7 +93,7 @@ export function ScreenTime({ current, usedToday }: { current: number; usedToday:
       </p>
 
       {open ? (
-        <form onSubmit={save}>
+        <form noValidate onSubmit={save}>
           <div
             role="radiogroup"
             aria-label="Kunlik ekran vaqti chegarasi"

@@ -31,6 +31,8 @@ export interface AdminRow {
   region: string;
   lastSeen: string;
   actions30d: number;
+  /** Hozir amal qilayotgan sessiyalar soni. */
+  liveSessions: number;
   twoFactor: boolean;
   status: "active" | "suspended";
 }

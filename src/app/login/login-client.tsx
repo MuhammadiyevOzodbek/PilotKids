@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeInternalPath } from "@/lib/safe-path";
 import { Field, FormError, SubmitButton } from "@/components/auth/field";
 import { GoogleButton, TelegramButton } from "@/components/auth/social-buttons";
 import { MethodTabs } from "@/components/auth/method-tabs";
@@ -28,14 +29,12 @@ export function LoginClient({ methods, telegramBot, devOtpHint }: Props) {
   const router = useRouter();
   const params = useSearchParams();
 
-  /**
+  /*
    * `proxy.ts` himoyalangan sahifaga yo'naltirganda `?next=` qo'yadi.
-   * Ochiq yo'naltirishga yo'l qo'ymaslik uchun faqat ichki yo'l qabul qilinadi
-   * (`//evil.com` ham tashqi manzil — shuning uchun ikkinchi belgi tekshiriladi).
+   * Qiymat manzil satridan keladi, ya'ni uni istalgan odam yozadi —
+   * shuning uchun `safeInternalPath` orqali o'tkaziladi (ochiq yo'naltirish).
    */
-  const rawNext = params.get("next");
-  const next =
-    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  const next = safeInternalPath(params.get("next"));
 
   const [method, setMethod] = useState<Method>("password");
   const [identifier, setIdentifier] = useState("");
@@ -56,6 +55,22 @@ export function LoginClient({ methods, telegramBot, devOtpHint }: Props) {
     setLoading(true);
     try {
       const value = identifier.trim();
+
+      /*
+       * Bo'sh maydonlar shu yerda ushlanadi. Ilgari brauzerning inglizcha
+       * pufakchasi shu vazifani bajarardi (`noValidate` bilan u o'chdi),
+       * usiz esa bo'sh forma serverga borib, umumiy "noto'g'ri" javobini
+       * olardi — foydalanuvchi nima yetishmayotganini bilmasdi.
+       */
+      if (value === "") {
+        setError("Email yoki telefon raqamini kiriting");
+        return;
+      }
+      if (password === "") {
+        setError("Parolni kiriting");
+        return;
+      }
+
       const parsedPhone = phoneSchema.safeParse(value);
       const asPhone = methods.phone && (parsedPhone.success || value.startsWith("+"));
 
@@ -149,7 +164,7 @@ export function LoginClient({ methods, telegramBot, devOtpHint }: Props) {
       {method === "phone" && <PhoneLoginForm next={next} devHint={devOtpHint} />}
 
       {method === "password" && (
-        <form onSubmit={handleSubmit}>
+        <form noValidate onSubmit={handleSubmit}>
           <FormError>{error}</FormError>
           <Field
             label={methods.phone ? "Email yoki telefon" : "Email"}

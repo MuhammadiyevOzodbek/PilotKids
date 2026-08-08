@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getUserSettings } from "@/lib/queries";
 import { SettingsClient } from "./settings-client";
 
-export const metadata = { title: "Sozlamalar — PilotKids" };
+export const metadata = { title: "Sozlamalar" };
 
 export default async function SettingsPage() {
   const user = await requireUser();

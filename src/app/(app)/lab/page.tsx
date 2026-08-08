@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getLabProjectsWithProgress } from "@/lib/queries";
 import { LAB_KINDS, type LabKindSlug } from "./lab-kinds";
 
-export const metadata = { title: "Laboratoriya — PilotKids" };
+export const metadata = { title: "Laboratoriya" };
 
 /**
  * Laboratoriya tanlovi.
@@ -171,7 +171,7 @@ export default async function LabPage() {
                   padding: "13px 22px",
                   borderRadius: 14,
                   background: k.accent,
-                  color: "#fff",
+                  color: k.accentText,
                   fontWeight: 700,
                   fontSize: 15.5,
                 }}

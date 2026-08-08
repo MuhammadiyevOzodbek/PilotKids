@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { Field, FormError, SubmitButton } from "@/components/auth/field";
 import { completeOnboarding } from "@/lib/actions/onboarding";
 import { signOut } from "@/lib/auth/client";
+import { parseAgeInput } from "@/lib/validation";
 
 /** Ota-ona roziligi katagi (signup'dagi bilan bir xil xatti-harakat). */
 function ConsentBox({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -76,7 +77,7 @@ export function WelcomeClient({ initialName }: { initialName: string }) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await completeOnboarding({ name, age: Number(age), consent });
+      const res = await completeOnboarding({ name, age: parseAgeInput(age), consent });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -87,7 +88,7 @@ export function WelcomeClient({ initialName }: { initialName: string }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ width: "100%", maxWidth: 420 }}>
+    <form noValidate onSubmit={submit} style={{ width: "100%", maxWidth: 420 }}>
       <div
         style={{
           width: 60,

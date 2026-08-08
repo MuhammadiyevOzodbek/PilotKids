@@ -16,6 +16,7 @@ import {
 import { authRateLimit } from "@/lib/rate-limit";
 import { withInternalAuthHeader } from "@/lib/auth/internal";
 import { assertSameOrigin, readJsonWithLimit } from "@/lib/security";
+import { safeInternalPath } from "@/lib/safe-path";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -33,11 +34,6 @@ const telegramAuthQuerySchema = telegramAuthSchema.extend({
   id: z.coerce.number().int().positive(),
   auth_date: z.coerce.number().int().positive(),
 });
-
-function safeCallbackURL(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
-  return value;
-}
 
 function telegramProfile(data: TelegramAuthData) {
   const profile = {
@@ -186,7 +182,7 @@ export async function GET(request: NextRequest) {
   if (failed) return failed;
 
   const url = new URL(request.url);
-  const callbackURL = safeCallbackURL(url.searchParams.get("callbackURL"));
+  const callbackURL = safeInternalPath(url.searchParams.get("callbackURL"));
   const parsed = telegramAuthQuerySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) {
     return NextResponse.redirect(new URL("/login?telegram_error=invalid", request.url));

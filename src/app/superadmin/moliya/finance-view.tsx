@@ -60,18 +60,12 @@ export function FinanceView({
         <Stat
           label="Faol obunachilar"
           value={String(plans.reduce((s, p) => s + p.subscribers, 0))}
-          delta={14}
           icon="card_membership"
           tint="var(--sa-accent-2)"
         />
-        <Stat
-          label="Qaytarishlar (oy)"
-          value="1.4"
-          unit="mln so'm"
-          delta={-22}
-          icon="undo"
-          tint="var(--sa-warn)"
-        />
+        {/* To'lov jadvallari hali yo'q — o'ylab topilgan raqam ko'rsatilmaydi.
+            Bosh admin panelida yolg'on son haqiqiy sondan xavfliroq. */}
+        <Stat label="Qaytarishlar (oy)" value="—" icon="undo" tint="var(--sa-warn)" />
       </div>
 
       <div className="sa-split" style={{ marginBottom: 16 }}>

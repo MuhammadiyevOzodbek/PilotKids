@@ -13,7 +13,17 @@ import {
   certificate,
 } from "@/lib/db/schema";
 import { USER_ROLES } from "@/lib/auth/roles";
-import { requireSuperAdmin } from "@/lib/auth/session";
+import { requireAdmin, requireSuperAdmin } from "@/lib/auth/session";
+import { uuidSchema } from "@/lib/validation";
+
+/*
+ * Har bir so'rov O'ZIDA `requireAdmin()` chaqiradi.
+ *
+ * `/admin` layout ham tekshiradi, lekin layout himoya emas: ertaga shu
+ * funksiyalardan biri boshqa joydan chaqirilsa, tekshiruv u bilan birga
+ * ketishi kerak. `cache()` tufayli bitta so'rov ichida DB'ga baribir bir
+ * marta boriladi, ya'ni takroriy tekshiruv qimmatga tushmaydi.
+ */
 
 /** Admin ro'yxatlarida bir sahifadagi qatorlar soni. */
 export const PAGE_SIZE = 20;
@@ -21,6 +31,8 @@ export const PAGE_SIZE = 20;
 /* ─────────────────────────── Umumiy statistika ─────────────────────────── */
 
 export async function getAdminStats() {
+  await requireAdmin();
+
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [[users], [newUsers], [courses], [lessons], [questions], [enrollments], [completed], [xp]] =
@@ -49,6 +61,8 @@ export async function getAdminStats() {
 
 /** Oxirgi 14 kun bo'yicha ro'yxatdan o'tishlar (grafik uchun). */
 export async function getSignupTrend() {
+  await requireAdmin();
+
   const since = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
   since.setHours(0, 0, 0, 0);
 
@@ -77,6 +91,8 @@ export async function getSignupTrend() {
 
 /** Eng ko'p yozilgan kurslar. */
 export async function getTopCourses(limit = 5) {
+  await requireAdmin();
+
   return db
     .select({
       id: course.id,
@@ -143,6 +159,8 @@ export async function getAdminUsers({ q, role, page = 1 }: UserFilter) {
 /* ─────────────────────────── Kurslar ─────────────────────────── */
 
 export async function getAdminCourses() {
+  await requireAdmin();
+
   return db
     .select({
       id: course.id,
@@ -168,17 +186,25 @@ export async function getAdminCourses() {
 }
 
 export async function getAdminCourse(courseId: string) {
-  const rows = await db.select().from(course).where(eq(course.id, courseId)).limit(1);
+  await requireAdmin();
+  // UUID bo'lmagan qiymat Postgres'da 22P02 xatosi berib sahifani yiqitardi.
+  const parsed = uuidSchema.safeParse(courseId);
+  if (!parsed.success) return null;
+  const rows = await db.select().from(course).where(eq(course.id, parsed.data)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function getAdminCategories() {
+  await requireAdmin();
+
   return db.select().from(category).orderBy(asc(category.sortOrder));
 }
 
 /* ─────────────────────────── Darslar ─────────────────────────── */
 
 export async function getAdminLessons(courseId: string) {
+  await requireAdmin();
+  if (!uuidSchema.safeParse(courseId).success) return [];
   return db
     .select()
     .from(lesson)
@@ -189,6 +215,8 @@ export async function getAdminLessons(courseId: string) {
 /* ─────────────────────────── Quiz ─────────────────────────── */
 
 export async function getAdminQuestions(courseId?: string) {
+  await requireAdmin();
+  if (courseId && !uuidSchema.safeParse(courseId).success) return [];
   const q = db
     .select({
       id: quizQuestion.id,
@@ -210,11 +238,15 @@ export async function getAdminQuestions(courseId?: string) {
 /* ─────────────────────────── Laboratoriya ─────────────────────────── */
 
 export async function getAdminLabProjects() {
+  await requireAdmin();
+
   return db.select().from(labProject).orderBy(asc(labProject.sortOrder));
 }
 
 /** Berilgan sertifikatlar soni (dashboard kartochkasi uchun). */
 export async function getCertificateCount() {
+  await requireAdmin();
+
   const [row] = await db
     .select({ value: count() })
     .from(certificate)

@@ -20,7 +20,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const lesson = await getLessonById(id);
-  return { title: lesson ? `${lesson.title} — PilotKids` : "Dars — PilotKids" };
+  return { title: lesson ? `${lesson.title}` : "Dars" };
 }
 
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {

@@ -8,6 +8,27 @@ import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { isAdminRole, isSuperAdminRole, type UserRole } from "@/lib/auth/roles";
 
+/**
+ * Cookie bor, lekin sessiya yaroqsiz — cookie'ni tozalab `/login` ga.
+ *
+ * Bu yerga faqat cookie MAVJUD bo'lganda kelinadi: cookie'siz mehmonni
+ * `proxy.ts` allaqachon `/login` ga yuborgan bo'ladi. Ya'ni cookie bor,
+ * lekin ortida sessiya yo'q — muddati tugagan, imzo eskirgan (`SECRET`
+ * almashgan), yoki bosh admin hisobni o'chirgan.
+ *
+ * Ilgari bu holatda oddiy `/login` qaytarilardi va AYLANMA hosil bo'lardi:
+ *
+ *   `/dashboard` → `requireUser()` → `/login`
+ *   `/login`     → proxy cookie'ni ko'radi → `/boshlash`
+ *   `/boshlash`  → `requireUser()` → `/login` → …
+ *
+ * Brauzer buni `ERR_TOO_MANY_REDIRECTS` bilan to'xtatadi — foydalanuvchi
+ * saytga UMUMAN kira olmaydi, hatto qayta kirish sahifasiga ham. Server
+ * komponent cookie o'chira olmaydi, route handler esa oladi — shu bois
+ * yo'naltirish `/chiqish` orqali o'tkaziladi.
+ */
+const SIGN_OUT = "/chiqish";
+
 /** Sessiyadagi foydalanuvchi + PilotKids maydonlari. */
 export type SessionUser = {
   id: string;
@@ -38,11 +59,11 @@ export const getSession = cache(async () => {
  */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(SIGN_OUT);
 
   const sessionUser = session.user as unknown as SessionUser;
   const access = await getAccessFromDb(sessionUser.id);
-  if (!access) redirect("/login");
+  if (!access) redirect(SIGN_OUT);
   if (access.banned) redirect("/bloklangan");
   if (!access.onboarded) redirect("/welcome");
   return { ...sessionUser, ...access };
@@ -51,10 +72,10 @@ export async function requireUser(): Promise<SessionUser> {
 /** Onboarding sahifasining o'zi uchun — `onboarded` tekshiruvisiz. */
 export async function requireUserRaw(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(SIGN_OUT);
   const sessionUser = session.user as unknown as SessionUser;
   const access = await getAccessFromDb(sessionUser.id);
-  if (!access) redirect("/login");
+  if (!access) redirect(SIGN_OUT);
   if (access.banned) redirect("/bloklangan");
   return { ...sessionUser, ...access };
 }
@@ -111,11 +132,11 @@ const getRoleFromDb = cache(async (userId: string): Promise<string | null> => {
  */
 export async function requireAdmin(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(SIGN_OUT);
 
   const sessionUser = session.user as unknown as SessionUser;
   const access = await getAccessFromDb(sessionUser.id);
-  if (!access) redirect("/login");
+  if (!access) redirect(SIGN_OUT);
   if (access.banned) redirect("/bloklangan");
   if (!access.onboarded) redirect("/welcome");
   if (!isAdminRole(access.role)) redirect("/dashboard");
@@ -126,11 +147,11 @@ export async function requireAdmin(): Promise<SessionUser> {
 /** Bosh admin paneli va eng xavfli mutatsiyalar uchun. */
 export async function requireSuperAdmin(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(SIGN_OUT);
 
   const sessionUser = session.user as unknown as SessionUser;
   const access = await getAccessFromDb(sessionUser.id);
-  if (!access) redirect("/login");
+  if (!access) redirect(SIGN_OUT);
   if (access.banned) redirect("/bloklangan");
   if (!access.onboarded) redirect("/welcome");
   if (!isSuperAdminRole(access.role)) redirect("/admin");

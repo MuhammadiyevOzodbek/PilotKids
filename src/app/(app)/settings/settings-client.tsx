@@ -197,7 +197,7 @@ export function SettingsClient({
           <p
             role="alert"
             style={{
-              color: "#E5484D",
+              color: "var(--danger)",
               fontSize: 14.5,
               fontWeight: 600,
               margin: 0,
@@ -328,7 +328,7 @@ export function SettingsClient({
           borderRadius: 16,
           border: "1px solid rgba(229,72,77,.3)",
           background: "rgba(229,72,77,.08)",
-          color: "#E5484D",
+          color: "var(--danger)",
           fontFamily: "var(--font-display)",
           fontWeight: 700,
           fontSize: 15.5,
@@ -336,7 +336,7 @@ export function SettingsClient({
           textDecoration: "none",
         }}
       >
-        <Icon name="logout" size={21} color="#E5484D" />
+        <Icon name="logout" size={21} color="var(--danger)" />
         Chiqish
       </button>
     </div>

@@ -153,9 +153,9 @@ export function QuizClient({
                 mcol = "var(--success)";
               } else if (i === result.selected) {
                 const good = result.correct;
-                bc = good ? "var(--success)" : "#E5484D";
+                bc = good ? "var(--success)" : "var(--danger)";
                 bg = good ? "var(--success-soft)" : "rgba(229,72,77,.1)";
-                tc = good ? "var(--success)" : "#E5484D";
+                tc = good ? "var(--success)" : "var(--danger)";
                 mark = good ? "check_circle" : "cancel";
                 mcol = tc;
               } else {
@@ -216,7 +216,7 @@ export function QuizClient({
         {error && (
           <p
             role="alert"
-            style={{ color: "#E5484D", fontSize: 14, fontWeight: 600, margin: "18px 0 0" }}
+            style={{ color: "var(--danger)", fontSize: 14, fontWeight: 600, margin: "18px 0 0" }}
           >
             {error}
           </p>
@@ -290,7 +290,7 @@ export function QuizClient({
               padding: "15px 28px",
               borderRadius: 14,
               background: "var(--success)",
-              color: "#fff",
+              color: "var(--on-success)",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: "15.5px",
@@ -313,7 +313,7 @@ export function QuizClient({
               borderRadius: 14,
               border: "none",
               background: "var(--primary)",
-              color: "#fff",
+              color: "var(--on-primary)",
               fontFamily: "var(--font-display)",
               fontWeight: 700,
               fontSize: "15.5px",

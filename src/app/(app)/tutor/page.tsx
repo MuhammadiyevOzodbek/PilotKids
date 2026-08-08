@@ -22,6 +22,28 @@ export default async function TutorPage() {
         animation: "fadeUp .5s ease both",
       }}
     >
+      {/*
+        Sahifa sarlavhasi. Ilgari bu sahifada `h1` umuman yo'q edi: yagona
+        sarlavha yon paneldagi «Robo» bo'lib, u tor ekranda yashirinardi.
+        Ya'ni ekran o'quvchisi bilan yurgan foydalanuvchi qaysi sahifada
+        ekanini bilolmasdi, qolgan bo'limlarda esa sarlavha bor.
+      */}
+      <h1
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 800,
+          fontSize: 32,
+          letterSpacing: "-.02em",
+          margin: "0 0 6px",
+          color: "var(--text)",
+        }}
+      >
+        AI Tutor
+      </h1>
+      <p style={{ color: "var(--text-2)", fontSize: 16, margin: "0 0 22px" }}>
+        Robo bilan suhbatlashing — savol bering, u tushuntirib beradi
+      </p>
+
       <div className="tutor-grid" style={{ gap: 22 }}>
         {/* Robo panel — tor ekranda chatga joy bo'shatib yashiriladi */}
         <div

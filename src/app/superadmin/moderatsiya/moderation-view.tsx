@@ -56,13 +56,9 @@ export function ModerationView({ reports }: { reports: ReportRow[] }) {
           value={String(reports.reduce((s, r) => s + r.reports, 0))}
           icon="report"
         />
-        <Stat
-          label="O'rtacha javob vaqti"
-          value="42"
-          unit="daqiqa"
-          icon="timer"
-          tint="var(--sa-ok)"
-        />
+        {/* Shikoyat navbati hali yozilmaydi — vaqt o'lchanmagan, shuning
+            uchun taxminiy raqam emas, «—» ko'rsatiladi. */}
+        <Stat label="O'rtacha javob vaqti" value="—" icon="timer" tint="var(--sa-ok)" />
       </div>
 
       <Panel

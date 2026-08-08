@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { updateProfile } from "@/lib/actions/profile";
+import { parseAgeInput } from "@/lib/validation";
 
 /** Ism va yoshni tahrirlash formasi (sozlamalar ichida ochiladi). */
 export function ProfileEditor({
@@ -28,7 +29,7 @@ export function ProfileEditor({
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const res = await updateProfile({ name, age: Number(age) });
+      const res = await updateProfile({ name, age: parseAgeInput(age) });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -93,6 +94,7 @@ export function ProfileEditor({
 
       {open && (
         <form
+          noValidate
           onSubmit={submit}
           style={{
             padding: "20px 22px",
@@ -177,7 +179,10 @@ export function ProfileEditor({
           </div>
 
           {error && (
-            <p role="alert" style={{ color: "#E5484D", fontSize: 15, fontWeight: 600, margin: 0 }}>
+            <p
+              role="alert"
+              style={{ color: "var(--danger)", fontSize: 15, fontWeight: 600, margin: 0 }}
+            >
               {error}
             </p>
           )}
@@ -191,7 +196,7 @@ export function ProfileEditor({
                 borderRadius: 12,
                 border: "none",
                 background: "var(--primary)",
-                color: "#fff",
+                color: "var(--on-primary)",
                 fontWeight: 700,
                 fontSize: 14.5,
                 cursor: isPending ? "wait" : "pointer",

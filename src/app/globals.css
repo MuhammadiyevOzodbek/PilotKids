@@ -12,13 +12,39 @@
   --surface-3: #eef2f9;
   --text: #0f172a;
   --text-2: #4a5a70;
-  --text-3: #94a3b8;
+  /* Kontrast 4.5:1 (WCAG AA). Ilgari #94a3b8 edi — oq kartochkada atigi
+     2.56 berardi, ya'ni "0 dars · 4 soat" kabi mayda matn deyarli
+     o'qilmasdi. */
+  --text-3: #606f84;
   --border: #e4eaf2;
-  --primary: #2f6bf3;
+  /* Ilgari #2f6bf3 — och fonda MATN sifatida 4.06–4.10 berardi (yon
+     paneldagi faol bo'lim, «Barchasi» havolasi). Ozgina to'qroq tusda
+     brend rangi saqlanadi, kontrast esa 4.56+ bo'ladi. */
+  --primary: #2c64e2;
+  /*
+   * To'ldirilgan ko'k tugma ustidagi matn rangi.
+   *
+   * `--primary` ikki vazifada: to'q fonda MATN sifatida (yorqin bo'lishi
+   * kerak) va tugma FONI sifatida (to'q bo'lishi kerak). Tungi mavzuda
+   * u yorqin (#4c82f7) va oq matn atigi 3.59 beradi — shu bois matn rangi
+   * mavzuga qarab almashadi: kunduzi oq (5.21), kechasi to'q ko'k (5.21).
+   */
+  --on-primary: #ffffff;
   --primary-2: #1e52d6;
   --primary-soft: #e9f0fe;
   --success: #0fa46e;
   --success-soft: #e6f7f0;
+  /*
+   * Yashil TO'LDIRILGAN tugma ustidagi matn rangi.
+   *
+   * Yashil ikki xil vazifada ishlatiladi: to'q fonda MATN sifatida (unda
+   * yorqin bo'lishi kerak) va tugma FONI sifatida (unda to'q bo'lishi
+   * kerak). Bitta rang ikkalasini qoniqtira olmaydi. Shu bois yorqin
+   * yashil saqlanadi, uning ustidagi matn esa oq emas, to'q ko'k bo'ladi:
+   * kunduzgi mavzuda 5.84, tungisida 9.39 — oq matnning 3.20 va 1.99 iga
+   * nisbatan ancha aniq.
+   */
+  --on-success: #0b1220;
   --navy: #0b1220;
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.16);
@@ -35,9 +61,15 @@
   --fun-pink-soft: #fde8f3;
   --fun-cyan: #06b6d4;
   --fun-cyan-soft: #e0f7fb;
-  --fun-orange: #ea6a0e;
+  /* Och fonda matn sifatida ishlatiladi (masalan «0 ta loyiha») — #ea6a0e
+     atigi 3.20 berardi. */
+  --fun-orange: #b2510b;
+  /* To'ldirilgan to'q sariq yuza ustidagi matn — mavzuga qarab almashadi
+     (kunduzi to'q sariq to'q, kechasi yorqin). */
+  --on-fun-orange: #ffffff;
   --fun-orange-soft: rgba(234, 106, 14, 0.13);
-  --danger: #e5484d;
+  /* «Chiqish» kabi matn tugmalari uchun: #e5484d och fonda 3.45 edi. */
+  --danger: #c33d41;
   --danger-soft: rgba(229, 72, 77, 0.1);
 
   color-scheme: light;
@@ -50,13 +82,16 @@
   --surface-3: #1b2740;
   --text: #edf2fa;
   --text-2: #9daac0;
-  --text-3: #5e7094;
+  /* Kontrast 4.5:1 — ilgari #5e7094 kartochkada 2.99–3.42 berardi. */
+  --text-3: #7c8eb2;
   --border: #233149;
   --primary: #4c82f7;
+  --on-primary: #0b1220;
   --primary-2: #6d9bff;
   --primary-soft: rgba(76, 130, 247, 0.15);
   --success: #2fd08d;
   --success-soft: rgba(47, 208, 141, 0.15);
+  --on-success: #0b1220;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 30px 64px -24px rgba(0, 0, 0, 0.65);
@@ -72,6 +107,7 @@
   --fun-cyan: #22d3ee;
   --fun-cyan-soft: rgba(34, 211, 238, 0.16);
   --fun-orange: #fb923c;
+  --on-fun-orange: #0b1220;
   --fun-orange-soft: rgba(251, 146, 60, 0.16);
   --danger: #ff6b6f;
   --danger-soft: rgba(255, 107, 111, 0.14);
@@ -126,7 +162,7 @@ a:hover {
 }
 ::selection {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -260,7 +296,7 @@ input::placeholder {
   padding: 12px 18px;
   border-radius: 12px;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 700;
   font-size: 15px;
   /* `display:none` bo'lsa fokus ham olmaydi — shu bois ko'zdan yashiramiz */
@@ -888,6 +924,23 @@ html {
     padding: 10px 16px;
     gap: 8px;
   }
+}
+
+/* ───────────── Nishon o'lchami: sichqoncha (WCAG 2.2 / 2.5.8) ─────────────
+   Qo'pol ko'rsatkich uchun quyida 44px qoidasi bor, ammo WCAG 2.2 da eng
+   kichik nishon SICHQONCHA uchun ham 24×24 bo'lishi kerak. Bu yerda faqat
+   balandlik beriladi: `display` ga tegilmaydi, chunki `.tap` 27 joyda
+   ishlatiladi va ularning bir qismi ataylab blok elementlar. */
+.tap {
+  min-height: 24px;
+}
+
+/* Yuqoridagi navigatsiya havolalari — bir qatordagi mustaqil bo'limlar,
+   jumla ichidagi havola emas, ya'ni "inline" istisnosi ularga tegishli emas. */
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 /* ───────────── Sensorli qurilmada nishon o'lchami ─────────────

@@ -1,4 +1,10 @@
-import { batteryVoltage, getDefinition, pinIdToNumber, resistorOhms } from "./catalog";
+import {
+  batteryVoltage,
+  getDefinition,
+  keypadPosition,
+  pinIdToNumber,
+  resistorOhms,
+} from "./catalog";
 import type { Circuit, CircuitNode } from "./types";
 
 /**
@@ -55,6 +61,29 @@ function internalLinks(node: CircuitNode): [string, string][] {
     case "push-button":
       if (node.settings.pressed === true) links.push(["a", "b"]);
       return links;
+    /*
+     * Rele — kalit: COM doim bitta kontaktga tegib turadi. Chulg'am
+     * tortmaganda NC ("normally closed"), tortganda NO ga o'tadi.
+     * `energized` ni simulyator har safar netlistni qayta qurganda beradi.
+     */
+    case "relay":
+      links.push(node.settings.energized === true ? ["com", "no"] : ["com", "nc"]);
+      return links;
+    /*
+     * Klaviatura — haqiqiy matritsa. Bosilgan tugma AYNAN o'z qatorini
+     * o'z ustuni bilan tutashtiradi, boshqa hech nimani emas.
+     *
+     * Shu sababli Arduino'ning oddiy skanerlash kodi ishlaydi: bitta
+     * qatorni LOW qilib, ustunlarni o'qiydi. Agar bu "tanlangan tugma"
+     * degan tayyor signal bo'lganida, skanerlash kodi hech narsa
+     * o'rgatmagan bo'lardi.
+     */
+    case "keypad-4x4": {
+      const key = typeof node.settings.key === "string" ? node.settings.key : "";
+      const position = key === "" ? null : keypadPosition(key);
+      if (position) links.push([`r${position.row + 1}`, `c${position.col + 1}`]);
+      return links;
+    }
     // Potensiometr va LDR — kuchlanish bo'luvchi: uchala oyoq bir zanjirda,
     // lekin signal chiqishi alohida hisoblanadi, shuning uchun bu yerda
     // vcc↔gnd ulanmaydi (aks holda qisqa tutashuv deb topilardi).
@@ -230,19 +259,32 @@ export function netFor(net: Netlist, nodeId: string, pinId: string): string | nu
   return net.netOf.get(pinKey(nodeId, pinId)) ?? null;
 }
 
-/** Rezistor kabi passiv elementlar orqali yetib boriladigan netlar. */
-export function reachableNets(net: Netlist, start: string): Set<string> {
+/**
+ * Rezistor kabi passiv elementlar orqali yetib boriladigan netlar.
+ *
+ * `extraLinks` — vaqtinchalik o'tkazuvchi juftliklar. Ular kerak, chunki
+ * LED, buzzer yoki motor netlarni doimiy bog'lamaydi: ular faqat tok
+ * o'tayotgan paytda o'tkazgich bo'ladi. Zanjir yopiqmi degan savolga
+ * javob berish uchun aynan shu holatdagi bog'lanishlar qo'shiladi.
+ */
+export function reachableNets(
+  net: Netlist,
+  start: string,
+  extraLinks: readonly (readonly [string, string])[] = [],
+): Set<string> {
   const reachable = new Set<string>([start]);
   const queue = [start];
 
   for (let i = 0; i < queue.length; i++) {
     const current = queue[i]!;
-    for (const { a, b } of net.passiveLinks) {
+    const step = (a: string, b: string) => {
       const next = a === current ? b : b === current ? a : null;
-      if (next === null || reachable.has(next)) continue;
+      if (next === null || reachable.has(next)) return;
       reachable.add(next);
       queue.push(next);
-    }
+    };
+    for (const { a, b } of net.passiveLinks) step(a, b);
+    for (const [a, b] of extraLinks) step(a, b);
   }
 
   return reachable;

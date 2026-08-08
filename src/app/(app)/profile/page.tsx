@@ -9,7 +9,7 @@ import {
   formatXp,
 } from "@/lib/queries";
 
-export const metadata = { title: "Profil — PilotKids" };
+export const metadata = { title: "Profil" };
 
 export default async function ProfilePage() {
   const user = await requireUser();

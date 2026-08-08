@@ -3,7 +3,7 @@ import { Icon } from "@/components/icon";
 import { requireUser } from "@/lib/auth/session";
 import { getCategories, getAllCourses, getUserCourses } from "@/lib/queries";
 
-export const metadata = { title: "Kurslar — PilotKids" };
+export const metadata = { title: "Kurslar" };
 
 export default async function CoursesPage({
   searchParams,

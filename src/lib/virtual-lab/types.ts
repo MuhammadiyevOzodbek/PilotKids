@@ -126,7 +126,16 @@ export interface Circuit {
 
 /* ─────────────────────────── Xatolar ─────────────────────────── */
 
-export type IssueSeverity = "error" | "warning";
+/**
+ * Muammoning jiddiyligi.
+ *
+ * `error` — eng yuqori daraja ("danger"): sxema shu holatda ishlamaydi yoki
+ *           detal kuyishi mumkin. Faqat shu daraja simulyatsiyani to'xtatishi
+ *           mumkin (`hasBlockingErrors`).
+ * `warning` — ishlaydi, lekin natija kutilganidan boshqacha bo'ladi.
+ * `info`    — maslahat: sxema to'g'ri, shunchaki yaxshiroq usuli bor.
+ */
+export type IssueSeverity = "error" | "warning" | "info";
 
 /** Sxemadagi muammo (ulanish, polarite, qisqa tutashuv). */
 export interface CircuitIssue {
@@ -263,6 +272,20 @@ export interface SerialLogEntry {
   text: string;
 }
 
+/**
+ * Bitta simdagi tok.
+ *
+ * `direction`: 1 — `from` dan `to` ga, −1 — teskari, 0 — aniqlanmadi.
+ * Nol qiymat "tok yo'q" degani EMAS: tugunda ikkitadan ortiq nuqta bo'lsa,
+ * tok qaysi shoxga qanchadan bo'linishini bitta sim bo'yicha aytib
+ * bo'lmaydi va yo'nalish ataylab ko'rsatilmaydi.
+ */
+export interface WireFlow {
+  /** Tok kuchi (mA). */
+  milliamps: number;
+  direction: 1 | -1 | 0;
+}
+
 /** Komponentning simulyatsiyadagi ko'rinadigan holati. */
 export interface ComponentRuntimeState {
   /** LED/RGB yorqinligi 0–1. */
@@ -279,6 +302,12 @@ export interface ComponentRuntimeState {
   direction?: number;
   /** Multimetr o'lchagan kuchlanish (V). */
   voltage?: number;
+  /**
+   * LCD ekranidagi matn — har bir element bitta qator.
+   * Bo'sh joylar saqlanadi, chunki `setCursor` bilan yozilgan matnning
+   * o'rni ham ko'rinishi kerak.
+   */
+  lines?: string[];
   /**
    * Plata pinlarining joriy darajasi: `"D13" → 1`, `"A0" → 734`.
    * Faqat `isBoard` komponentlar uchun to'ldiriladi.
@@ -298,7 +327,41 @@ export interface ComponentRuntimeState {
    * ulangan. Chizmada kichik indikator sifatida ko'rinadi.
    */
   active?: boolean;
+
+  /* ── Faza B komponentlari ── */
+
+  /** Element orqali o'tayotgan tok (mA) — diod, tranzistor, segment. */
+  milliamps?: number;
+  /** Diod/tranzistor to'g'ri yo'nalishda ochilganmi. */
+  forward?: boolean;
+  /** Tranzistor holati: o'chiq, chiziqli yoki to'yingan. */
+  transistor?: "off" | "active" | "saturated";
+  /** Tranzistor bazasidagi tok (mA) — inspektor uchun. */
+  baseMilliamps?: number;
+  /** 7-segment: `a`…`g`, `dp` yonayotganmi. */
+  segments?: Record<string, boolean>;
+  /** 7-segment: segment naqshi 0–9 ga mos kelsa — o'sha raqam. */
+  digit?: string | null;
+  /** 74HC595: siljitish registri holati (8 bit, Q7 birinchi). */
+  shiftBits?: boolean[];
+  /** 74HC595: chiqish (latch) registri holati. */
+  latchBits?: boolean[];
+  /** Joystik o'qlari −100…+100. */
+  axisX?: number;
+  axisY?: number;
+  /** Joystik/keypad tugmasi bosilganmi. */
+  pressed?: boolean;
+  /** Keypad: hozir bosilgan tugma belgisi. */
+  key?: string | null;
+  /** L298N kanallari: tezlik (0–1) va yo'nalish (1/−1/0). */
+  channelA?: { speed: number; direction: number; mode: MotorDriverMode };
+  channelB?: { speed: number; direction: number; mode: MotorDriverMode };
+  /** Kondensator/modul uchun o'lchangan kuchlanish farqi (V). */
+  acrossVolts?: number;
 }
+
+/** Motor drayveri kanalining holati. */
+export type MotorDriverMode = "stop" | "forward" | "reverse" | "brake";
 
 export interface SimulationSnapshot {
   status: SimulationStatus;
