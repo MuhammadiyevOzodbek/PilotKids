@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { LCD_COLUMNS, LCD_ROWS } from "@/lib/virtual-lab/catalog";
 import { sizeOf } from "@/lib/virtual-lab/lab3d/layout";
 import { Box, Cyl, Emissive, Leg, M, bool, mat, num, resistorBands, str } from "./model-kit";
 import type { ModelProps } from "./models-boards";
@@ -11,7 +10,10 @@ import type { ModelProps } from "./models-boards";
  *
  * Har biri o'nlab qatordan iborat: shakl `model-kit` dagi bo'laklardan
  * yig'iladi, holat esa SIMULYATORDAN keladi (§46) — LED yorqinligi,
- * servo burchagi, LCD matni hech qachon o'ylab topilmaydi.
+ * servo burchagi, segment holati hech qachon o'ylab topilmaydi.
+ *
+ * Kattaroq modullar (HC-SR04, LCD1602) O'Z fayliga ajratilgan — ular ko'p
+ * qatlamli va bu yerda o'qib bo'lmas darajada joy egallardi.
  */
 
 /* ═══════════════════════ Chiroqlar ═══════════════════════ */
@@ -172,26 +174,6 @@ export function ButtonModel({ settings }: ModelProps) {
   );
 }
 
-export function PotentiometerModel({ settings }: ModelProps) {
-  const value = num(settings, "value", 512);
-  // 0–1023 → −135°…+135° (haqiqiy potensiometr shuncha buriladi).
-  const angle = ((value / 1023) * 270 - 135) * (Math.PI / 180);
-
-  return (
-    <group>
-      <Cyl pos={[0, 0.35, 0]} r={0.7} h={0.7} material={M.metal()} />
-      <group position={[0, 0.7, 0]} rotation={[0, angle, 0]}>
-        <Cyl pos={[0, 0.35, 0]} r={0.32} h={0.7} material={M.plasticBlack()} />
-        {/* Burilish ko'rsatkichi */}
-        <Box pos={[0, 0.72, -0.18]} size={[0.07, 0.04, 0.3]} material={mat("#f2f4f7")} />
-      </group>
-      {[-0.25, 0, 0.25].map((x) => (
-        <Leg key={x} x={x} z={0.55} h={0.5} />
-      ))}
-    </group>
-  );
-}
-
 export function JoystickModel({ settings }: ModelProps) {
   const { w, d, h } = sizeOf("joystick");
   // −100…100 → tayoqchaning egilishi (radian).
@@ -324,30 +306,10 @@ export function PirModel({ settings }: ModelProps) {
   );
 }
 
-export function UltrasonicModel() {
-  const { w, d, h } = sizeOf("ultrasonic");
-  return (
-    <group>
-      <Box pos={[0, h / 2, 0]} size={[w, 0.3, d]} material={M.pcbBlue()} />
-      {/* Ikki ultratovush o'zgartkichi — modulning tanish "ko'zlari" */}
-      {[-1.1, 1.1].map((x) => (
-        <group key={x}>
-          <Cyl pos={[x, h - 0.35, 0]} r={0.75} h={0.8} material={M.metal()} axis="z" />
-          <Cyl
-            pos={[x, h - 0.35, d / 2 - 0.02]}
-            r={0.62}
-            h={0.05}
-            material={mat("#2b3038")}
-            axis="z"
-          />
-        </group>
-      ))}
-      {/* O'rtadagi kvarts */}
-      <Box pos={[0, h - 0.5, 0]} size={[0.5, 0.3, 0.3]} material={M.metal()} />
-      <Box pos={[0, 0.4, -d / 2 + 0.2]} size={[1.3, 0.24, 0.26]} material={M.plasticBlack()} />
-    </group>
-  );
-}
+/*
+ * HC-SR04 modeli `models-ultrasonic.tsx` da — u ko'p qatlamli
+ * (metall banka, botiq membrana, silkscreen) va shu faylga sig'masdi.
+ */
 
 export function Dht11Model() {
   const { w, d, h } = sizeOf("dht11");
@@ -369,69 +331,6 @@ export function Dht11Model() {
 }
 
 /* ═══════════════════════ Motorlar ═══════════════════════ */
-
-export function ServoModel({ settings, runtime }: ModelProps) {
-  const { w, d, h } = sizeOf("servo");
-  // Burchak simulyatordan; simulyatsiya yo'q bo'lsa sozlamadagi qiymat.
-  const angle = runtime?.angle ?? num(settings, "angle", 90);
-  const rad = ((angle - 90) * Math.PI) / 180;
-
-  return (
-    <group>
-      {/* Ko'k korpus va o'rnatish qanotlari */}
-      <Box pos={[0, h / 2 - 0.4, 0]} size={[w * 0.75, h - 0.8, d]} material={M.plasticBlue()} />
-      <Box pos={[0, h - 0.9, 0]} size={[w, 0.25, d * 0.55]} material={M.plasticBlue()} />
-      {/* Reduktor qopqog'i */}
-      <Cyl pos={[-0.9, h - 0.45, 0]} r={0.55} h={0.5} material={M.plasticWhite()} />
-
-      {/* Aylanadigan qanot — SIMULYATOR burchagi bo'yicha */}
-      <group position={[-0.9, h - 0.1, 0]} rotation={[0, rad, 0]}>
-        <Cyl pos={[0, 0.06, 0]} r={0.3} h={0.14} material={M.plasticWhite()} />
-        <Box pos={[0.7, 0.1, 0]} size={[1.4, 0.09, 0.22]} material={M.plasticWhite()} />
-        <Box pos={[-0.7, 0.1, 0]} size={[1.4, 0.09, 0.22]} material={M.plasticWhite()} />
-      </group>
-
-      {/* Uch simli kabel chiqishi */}
-      <Box pos={[w / 2 - 0.15, 1.0, 0]} size={[0.35, 0.5, 0.9]} material={M.plasticBlack()} />
-    </group>
-  );
-}
-
-export function DcMotorModel({ runtime }: ModelProps) {
-  const { w, h } = sizeOf("dc-motor");
-  const speed = runtime?.speed ?? 0;
-  const direction = runtime?.direction ?? 1;
-  /*
-   * Val aylanishi kadr vaqtiga emas, TEZLIKKA bog'liq. Uzluksiz aylantirish
-   * `useFrame` talab qiladi va u har kadrda React'ni qo'zg'atardi; shu bois
-   * bu yerda faqat burchak ko'rsatkichi — tezlik chizig'i bilan.
-   */
-  const marker = speed > 0.02 ? direction * 0.6 : 0;
-
-  return (
-    <group>
-      <Cyl pos={[0, h / 2, 0]} r={w * 0.35} h={h * 0.8} material={M.metal()} axis="x" />
-      {/* Val */}
-      <Cyl pos={[w / 2 + 0.3, h / 2, 0]} r={0.1} h={0.7} material={M.silver()} axis="x" />
-      {/* Aylanish ko'rsatkichi: tezlik oshsa uzunroq */}
-      <Box
-        pos={[w / 2 + 0.3, h / 2, 0]}
-        rot={[marker, 0, 0]}
-        size={[0.12, 0.5 + speed * 0.6, 0.06]}
-        material={mat(speed > 0.02 ? "#33d17a" : "#5a616b")}
-      />
-      {/* Ikki klemma */}
-      {[-0.4, 0.4].map((z) => (
-        <Box
-          key={z}
-          pos={[-w / 2 - 0.05, h * 0.75, z]}
-          size={[0.2, 0.16, 0.25]}
-          material={M.gold()}
-        />
-      ))}
-    </group>
-  );
-}
 
 export function L298nModel() {
   const { w, d } = sizeOf("l298n");
@@ -475,83 +374,6 @@ export function BuzzerModel({ runtime }: ModelProps) {
       />
       <Leg x={-0.2} z={0} h={0.5} />
       <Leg x={0.2} z={0} h={0.5} />
-    </group>
-  );
-}
-
-/**
- * LCD 16×2.
- *
- * Ekrandagi matn `runtime.lines` dan keladi — ya'ni Arduino kodidagi
- * `lcd.print("PilotKids")` natijasi (§11). Har bir belgi alohida mesh
- * bo'lmasligi uchun matn `Text` bilan emas, belgi kataklari sifatida
- * chiziladi: 32 ta katak bitta instansiyada.
- */
-export function Lcd1602Model({ settings, runtime }: ModelProps) {
-  const { w, d, h } = sizeOf("lcd1602");
-  const backlight = bool(settings, "backlight", true);
-  const lines = runtime?.lines ?? [];
-
-  return (
-    <group>
-      <Box pos={[0, h / 2, 0]} size={[w, h, d]} material={M.pcbGreen()} />
-      {/* Ko'k ekran */}
-      <mesh position={[0, h + 0.03, 0]} scale={[w * 0.82, 0.06, d * 0.6]}>
-        <boxGeometry />
-        <Emissive
-          color={backlight ? "#2f6fd0" : "#16324f"}
-          intensity={backlight ? 0.85 : 0.12}
-          opacity={1}
-        />
-      </mesh>
-
-      {/* Matn kataklari — yozilgan belgilar ochroq nuqta bilan ko'rinadi */}
-      {lines
-        .slice(0, LCD_ROWS)
-        .map((line, row) =>
-          Array.from(line.slice(0, LCD_COLUMNS)).map((ch, col) =>
-            ch === " " ? null : (
-              <Box
-                key={`${row}:${col}`}
-                pos={[
-                  (col - (LCD_COLUMNS - 1) / 2) * ((w * 0.82) / LCD_COLUMNS),
-                  h + 0.07,
-                  (row - (LCD_ROWS - 1) / 2) * (d * 0.3),
-                ]}
-                size={[(w * 0.82) / LCD_COLUMNS - 0.06, 0.02, d * 0.16]}
-                material={mat("#eaf2ff")}
-              />
-            ),
-          ),
-        )}
-
-      <Box
-        pos={[0, h + 0.12, -d / 2 + 0.2]}
-        size={[w * 0.55, 0.24, 0.26]}
-        material={M.plasticBlack()}
-      />
-    </group>
-  );
-}
-
-export function RelayModel({ runtime }: ModelProps) {
-  const { w, d } = sizeOf("relay");
-  const on = runtime?.active === true;
-
-  return (
-    <group>
-      <Box pos={[0, 0.2, 0]} size={[w, 0.4, d]} material={M.pcbBlue()} />
-      {/* Ko'k rele kubi */}
-      <Box pos={[0.6, 1.0, 0]} size={[2.0, 1.5, 1.6]} material={mat("#2a5ec0")} />
-      {/* Vintli klemmalar */}
-      {[-1.4, -0.7].map((x) => (
-        <Box key={x} pos={[x, 0.75, 0]} size={[0.6, 0.7, 1.4]} material={mat("#2a9c6f")} />
-      ))}
-      <mesh position={[-1.9, 0.5, -d / 2 + 0.3]} scale={[0.16, 0.1, 0.16]}>
-        <boxGeometry />
-        <Emissive color="#33d17a" intensity={on ? 2.5 : 0.05} opacity={1} />
-      </mesh>
-      <Box pos={[1.6, 0.55, d / 2 - 0.3]} size={[0.9, 0.3, 0.26]} material={M.plasticBlack()} />
     </group>
   );
 }
@@ -625,52 +447,6 @@ export function ShiftRegisterModel() {
           <Leg key={`${side}:${i}`} x={-0.87 + i * 0.25} z={(side * d) / 2} h={0.35} />
         )),
       )}
-    </group>
-  );
-}
-
-/* ═══════════════════════ Quvvat ═══════════════════════ */
-
-export function BatteryModel({ settings, runtime }: ModelProps) {
-  const { w, d, h } = sizeOf("battery");
-  const volts = num(settings, "voltage", 9);
-  const enabled = bool(settings, "enabled", true);
-  const active = runtime?.active === true;
-
-  return (
-    <group>
-      <Box pos={[0, h / 2, 0]} size={[w, h, d]} material={mat(enabled ? "#2b3038" : "#4a4f58")} />
-      {/* Musbat va manfiy klemmalar */}
-      <Cyl pos={[-w / 2 + 0.5, h + 0.15, 0]} r={0.28} h={0.3} material={M.gold()} />
-      <Cyl pos={[-w / 2 + 1.3, h + 0.15, 0]} r={0.22} h={0.3} material={M.silver()} />
-      {/* Kuchlanish yorlig'i — qiymat oshsa chiziq uzunroq */}
-      <Box
-        pos={[0.8, h + 0.01, 0]}
-        size={[Math.min(2.6, 0.6 + volts * 0.12), 0.02, 0.5]}
-        material={mat(active ? "#33d17a" : "#8d99a8")}
-      />
-    </group>
-  );
-}
-
-/** 5V va GND terminallari — rangi bilan farqlanadi. */
-export function TerminalModel({ kind }: { kind: "power" | "ground" }) {
-  const { w, d, h } = sizeOf(kind === "power" ? "power-5v" : "ground");
-  const color = kind === "power" ? "#c8443c" : "#2b3038";
-  return (
-    <group>
-      <Box pos={[0, h / 2, 0]} size={[w, h, d]} material={mat(color)} />
-      <Cyl pos={[0, h + 0.08, 0]} r={0.22} h={0.16} material={M.gold()} />
-      {/* Yer belgisi: uchta qisqaruvchi chiziq */}
-      {kind === "ground" &&
-        [0.5, 0.34, 0.18].map((len, i) => (
-          <Box
-            key={len}
-            pos={[0, h + 0.005, -0.3 + i * 0.18]}
-            size={[len, 0.01, 0.06]}
-            material={mat("#e8ecf2")}
-          />
-        ))}
     </group>
   );
 }

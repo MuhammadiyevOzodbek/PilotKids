@@ -368,6 +368,20 @@ export function resistanceToGround(net: Netlist, nodeId: string, pinId: string):
   return resistanceToward(net, start, (id) => net.groundNets.has(id));
 }
 
+/**
+ * Pinga umuman sim tortilganmi?
+ *
+ * `netFor` bu savolga JAVOB BERMAYDI: netlist har bir pinga tugun beradi,
+ * hatto bo'sh turganiga ham (aks holda tugun raqamlari sxema o'zgarganda
+ * siljib ketardi). Ulangani esa o'sha tugunda BOSHQA pin borligidan
+ * bilinadi. Ilgari har bir tekshiruv buni o'zicha yozardi va bittasi
+ * adashsa, «ulanmagan» pin ulangandek ko'rinardi.
+ */
+export function isPinWired(net: Netlist, nodeId: string, pinId: string): boolean {
+  const id = netFor(net, nodeId, pinId);
+  return id !== null && (net.pinsOf.get(id) ?? []).length > 1;
+}
+
 /** Pin GND tugunidami? */
 export function isGrounded(net: Netlist, nodeId: string, pinId: string): boolean {
   const n = netFor(net, nodeId, pinId);

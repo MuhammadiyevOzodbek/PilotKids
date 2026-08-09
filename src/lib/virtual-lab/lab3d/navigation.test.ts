@@ -49,13 +49,23 @@ describe("tugmalarni yig'ish", () => {
   });
 
   it("begona tugma e'tiborga olinmaydi", () => {
-    expect(movementFrom(["KeyZ", "Space"])).toEqual({ forward: 0, strafe: 0, lift: 0 });
+    expect(movementFrom(["KeyZ", "KeyP"])).toEqual({ forward: 0, strafe: 0, lift: 0 });
+  });
+
+  it("balandlik chap Shift va bo'shliqda", () => {
+    expect(movementFrom(["Space"])).toEqual({ forward: 0, strafe: 0, lift: 1 });
+    expect(movementFrom(["ShiftLeft"])).toEqual({ forward: 0, strafe: 0, lift: -1 });
+    expect(movementFrom(["Space", "ShiftLeft"])).toEqual({ forward: 0, strafe: 0, lift: 0 });
+    // Eski tugmalar endi kameraga tegmaydi.
+    expect(movementFrom(["KeyQ", "KeyE"])).toEqual({ forward: 0, strafe: 0, lift: 0 });
   });
 
   it("kalitlar fizik tugma kodlari — klaviatura tili ahamiyatsiz", () => {
     // `key` ishlatilganda kirill tartibida "ц" kelib, harakat to'xtardi.
+    // `ShiftLeft` ham fizik kod: `key` da u shunchaki "Shift" bo'lardi va
+    // chap bilan o'ng Shift ajralmasdi.
     for (const code of Object.keys(MOVE_KEYS)) {
-      expect(code).toMatch(/^(Key[A-Z]|Arrow(Up|Down|Left|Right))$/);
+      expect(code).toMatch(/^(Key[A-Z]|Arrow(Up|Down|Left|Right)|Space|ShiftLeft)$/);
     }
   });
 });

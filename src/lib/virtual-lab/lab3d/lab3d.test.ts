@@ -4,6 +4,7 @@ import {
   DESK,
   PX_PER_CM,
   TABLE,
+  clampToTable,
   collectPinPositions,
   hasExplicitSize,
   localPinPosition,
@@ -185,5 +186,25 @@ describe("ish stoli", () => {
     expect(DESK.height).toBeGreaterThan(60);
     expect(DESK.height).toBeLessThan(85);
     expect(sizeOf("arduino-uno").w).toBeLessThan(DESK.width / 10);
+  });
+});
+
+describe("sudrash chegarasi", () => {
+  it("ish maydoni ichidagi nuqta o'zgarmaydi", () => {
+    expect(clampToTable(12.5, -8.25)).toEqual({ x: 12.5, z: -8.25 });
+  });
+
+  it("chetdan chiqqan komponent gilamcha qirrasida to'xtaydi", () => {
+    // Kursor stoldan uzoqlashsa ham komponent ko'rinadigan joyda qolsin.
+    const far = clampToTable(500, -500);
+    expect(far.x).toBe(TABLE.width / 2);
+    expect(far.z).toBe(-TABLE.depth / 2);
+  });
+
+  it("chegara aynan ish maydoni bo'yicha", () => {
+    expect(clampToTable(TABLE.width / 2, TABLE.depth / 2)).toEqual({
+      x: TABLE.width / 2,
+      z: TABLE.depth / 2,
+    });
   });
 });

@@ -6,11 +6,9 @@ import { Box, M } from "./model-kit";
 import { BreadboardModel, type ModelProps } from "./models-boards";
 import { ArduinoUnoModel } from "./models-uno";
 import {
-  BatteryModel,
   ButtonModel,
   BuzzerModel,
   CapacitorModel,
-  DcMotorModel,
   Dht11Model,
   DiodeModel,
   JoystickModel,
@@ -18,22 +16,24 @@ import {
   L298nModel,
   LdrModel,
   LedModel,
-  Lcd1602Model,
   MultimeterModel,
   PirModel,
-  PotentiometerModel,
-  RelayModel,
   ResistorModel,
   RgbLedModel,
-  ServoModel,
   SevenSegmentModel,
   ShiftRegisterModel,
   SoilMoistureModel,
-  TerminalModel,
   Tmp36Model,
   TransistorModel,
-  UltrasonicModel,
 } from "./models-parts";
+import { BatteryModel } from "./models-battery";
+import { Lcd1602Model } from "./models-lcd";
+import { DcMotorModel } from "./models-motor";
+import { PotentiometerModel } from "./models-potentiometer";
+import { PowerTerminalModel } from "./models-power";
+import { RelayModel } from "./models-relay";
+import { ServoMotorModel } from "./models-servo";
+import { UltrasonicModel } from "./models-ultrasonic";
 
 /**
  * Komponent turi → 3D model registri (§5).
@@ -70,7 +70,7 @@ const REGISTRY: Record<string, ModelComponent> = {
   ultrasonic: UltrasonicModel,
   dht11: Dht11Model,
 
-  servo: ServoModel,
+  servo: ServoMotorModel,
   "dc-motor": DcMotorModel,
   l298n: L298nModel,
 
@@ -81,8 +81,8 @@ const REGISTRY: Record<string, ModelComponent> = {
   "shift-register": ShiftRegisterModel,
 
   battery: BatteryModel,
-  "power-5v": () => <TerminalModel kind="power" />,
-  ground: () => <TerminalModel kind="ground" />,
+  "power-5v": () => <PowerTerminalModel kind="power" />,
+  ground: () => <PowerTerminalModel kind="ground" />,
 
   multimeter: MultimeterModel,
 };

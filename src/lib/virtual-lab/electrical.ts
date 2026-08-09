@@ -68,6 +68,15 @@ const MODULE_OHMS: Record<string, number> = {
   ultrasonic: 400,
 };
 
+/**
+ * LCD orqa yoritish LEDlari (Ω).
+ *
+ * Haqiqiy modulda ular ~20 mA tortadi, ya'ni 5 V da taxminan 250 Ω.
+ * Ko'pchilik modulda cheklovchi rezistor plataning o'zida bor, shuning
+ * uchun bu yerda ham qarshilik ichkarida hisoblanadi.
+ */
+const LCD_BACKLIGHT_OHMS = 250;
+
 /** Potensiometr yo'lakchasining to'liq qarshiligi. */
 const POT_TOTAL_OHMS = 10000;
 
@@ -544,6 +553,33 @@ export function buildElements(
 
         channel("ena", "in1", "in2", "out1", "out2");
         channel("enb", "in3", "in4", "out3", "out4");
+        break;
+      }
+
+      case "lcd1602": {
+        // Mantiq qismi VDD–VSS orasidan tok tortadi.
+        between(node, "vcc", "gnd", (a, b, id) => ({
+          id,
+          kind: "resistor",
+          a,
+          b,
+          ohms: MODULE_OHMS.lcd1602!,
+        }));
+        /*
+         * Orqa yoritish ALOHIDA zanjir: A (anod) va K (katod).
+         *
+         * Haqiqiy modulda ham u mantiqdan mustaqil — VDD ulanmasa ham
+         * yoritish yonaveradi. Shu sababli u yerda ham alohida element:
+         * bolaning "ekran yorug', lekin matn yo'q" holatini ko'rishi
+         * xatoni topishga yordam beradi.
+         */
+        between(node, "a", "k", (a, b, id) => ({
+          id,
+          kind: "resistor",
+          a,
+          b,
+          ohms: LCD_BACKLIGHT_OHMS,
+        }));
         break;
       }
 

@@ -75,7 +75,12 @@ const SIZES: Record<string, Size3D> = {
   capacitor: { w: 0.6, d: 0.6, h: 1.1, pinY: 0 },
   "npn-transistor": { w: 0.55, d: 0.45, h: 0.55, pinY: 0 },
   "push-button": { w: 0.62, d: 0.62, h: 0.45, pinY: 0 },
-  potentiometer: { w: 1.6, d: 1.6, h: 1.9, pinY: 0 },
+  /*
+   * 16 mm li potensiometr: korpus ⌀16 × 9 mm, bo'yin va o'q ustida.
+   * `h` — murvat qirrasi (tanlov ramkasi shundan). `w`/`d` va `pinY`
+   * ATAYLAB o'zgarmagan: ulanish nuqtalari o'sha-o'sha joyda qoladi.
+   */
+  potentiometer: { w: 1.6, d: 1.6, h: 2.15, pinY: 0 },
   joystick: { w: 3.4, d: 2.6, h: 3.2, pinY: 0.35 },
   "keypad-4x4": { w: 7.0, d: 7.6, h: 0.25, pinY: 0.25 },
 
@@ -83,22 +88,83 @@ const SIZES: Record<string, Size3D> = {
   tmp36: { w: 3.0, d: 1.5, h: 0.8, pinY: 0.8 },
   "soil-moisture": { w: 6.0, d: 2.0, h: 0.5, pinY: 0.5 },
   pir: { w: 3.2, d: 2.4, h: 2.4, pinY: 0.35 },
-  ultrasonic: { w: 4.5, d: 2.0, h: 1.5, pinY: 0.35 },
+  /*
+   * HC-SR04 — haqiqiy plata 45 × 20 × 1.6 mm, o'zgartkich bankasi 12 mm.
+   * `h` modelning HAQIQIY tepasi (banka qirrasi 1.37 sm) bo'yicha
+   * qo'yilgan: tanlov ramkasi shu o'lchamdan quriladi, ya'ni komponent
+   * atrofida bo'sh joy qolmaydi. `pinY` esa oltin oyoqning UCHI —
+   * sim ko'zga ko'ringan oyoqdan chiqadi.
+   */
+  ultrasonic: { w: 4.5, d: 2.0, h: 1.4, pinY: 0.56 },
   dht11: { w: 2.3, d: 1.2, h: 0.7, pinY: 0.7 },
 
-  servo: { w: 4.0, d: 2.0, h: 3.6, pinY: 1.0 },
-  "dc-motor": { w: 3.4, d: 2.4, h: 2.4, pinY: 1.2 },
+  /*
+   * SG90 mikroservo: korpus 22.8 × 12.2 × 22.5 mm, qanotlari bilan
+   * uzunligi 32.2 mm. Servo KICHIK — ilgari u 4 × 3.6 sm edi, ya'ni
+   * Arduino bo'yicha, va sahnada masshtab hissini buzardi.
+   *
+   * `d` korpus chuqurligidan kengroq (2.2 sm): u kabel uchidagi
+   * uyachalarni ham qamrab oladi. Katalog nisbati (0.95) shu o'lchamda
+   * uyachalarni korpus oldiga, z = 0.99 ga qo'yadi.
+   *
+   * `h` — rul vintining tepasi; `pinY` esa uyacha markazi, ya'ni sim
+   * stolga yaqin joydan chiqadi.
+   */
+  servo: { w: 3.3, d: 2.2, h: 2.8, pinY: 0.28 },
+  /*
+   * Kichik cho'tkali motor: banka ⌀25 × 32 mm, val 9 mm chiqadi.
+   *
+   * `d` — val uchidan klemma tilchasigacha bo'lgan TO'LIQ uzunlik (Z
+   * bo'ylab), `w` esa bankaning diametri. Katalogdagi nisbatlar shu
+   * o'lchamda klemmalarni orqa qopqoqdagi tilchalar markaziga —
+   * (±0.55, 1.55, 1.98) ga — qo'yadi.
+   */
+  "dc-motor": { w: 2.5, d: 4.4, h: 2.5, pinY: 1.55 },
   l298n: { w: 4.3, d: 4.3, h: 2.7, pinY: 0.9 },
 
   buzzer: { w: 1.2, d: 1.2, h: 0.9, pinY: 0 },
-  lcd1602: { w: 8.0, d: 3.6, h: 1.2, pinY: 1.2 },
-  relay: { w: 5.0, d: 2.6, h: 1.8, pinY: 0.4 },
+  /*
+   * LCD1602 — haqiqiy plata 80 × 36 × 1.6 mm, metall ramka plata yuzasidan
+   * 5.5 mm baland. `h` shu ramkaning qirrasi bo'yicha: tanlov ramkasi shu
+   * o'lchamdan quriladi, ya'ni modul atrofida bo'sh joy qolmaydi (ilgari
+   * 1.2 sm edi va displey qalin g'ishtdek ko'rinardi). `pinY` esa oltin
+   * oyoqning UCHI — sim ko'zga ko'ringan oyoqdan chiqadi.
+   */
+  lcd1602: { w: 8.0, d: 3.6, h: 0.74, pinY: 0.56 },
+  /*
+   * Bir kanalli rele moduli: plata 50 × 26 mm, ustida rele korpusi.
+   * `h` — rele korpusining tepasi (tanlov ramkasi shundan quriladi).
+   * `w`, `d` va `pinY` ATAYLAB o'zgarmagan: ulanish nuqtalari o'z
+   * joyida qoladi.
+   */
+  relay: { w: 5.0, d: 2.6, h: 1.7, pinY: 0.4 },
   "seven-segment": { w: 1.9, d: 2.5, h: 0.8, pinY: 0 },
   "shift-register": { w: 2.0, d: 0.72, h: 0.42, pinY: 0 },
 
-  battery: { w: 5.0, d: 2.6, h: 1.7, pinY: 0.85 },
-  "power-5v": { w: 1.6, d: 1.6, h: 1.0, pinY: 1.0 },
-  ground: { w: 1.6, d: 1.6, h: 1.0, pinY: 1.0 },
+  /*
+   * 9 V batareya (PP3) va unga kiygizilgan klipsa.
+   *
+   * Korpusning O'ZI 26.5 × 17.5 × 48.5 mm, lekin `w` kengroq (3.8 sm):
+   * u klipsadan chiqqan ikkita simchaning UCHINI ham qamrab oladi.
+   * Aynan shu uchlarga sim ulanadi, ya'ni katalog nisbatlari (0.046 va
+   * 0.954) shu kenglikda ferrulalarning markaziga — ±1.725 sm ga —
+   * tushadi. Kenglikni o'zgartirish ulanish nuqtasini ko'rinadigan
+   * metalldan ajratib yuboradi.
+   *
+   * `h` — klipsa qirrasigacha: tanlov ramkasi shundan quriladi.
+   * `pinY` esa ferrulalar yotgan balandlik, ya'ni sim stolga yaqin
+   * joydan chiqadi.
+   */
+  battery: { w: 3.8, d: 1.75, h: 5.55, pinY: 0.15 },
+  /*
+   * 5V va GND bloklari — bir xil korpus, faqat qutbi boshqa.
+   *
+   * 34 × 28 mm korpus, ustida bitta klemma; `h` klemma shtirining uchiga
+   * qadar (tanlov ramkasi shundan quriladi). `pinY` — shtirning o'rtasi,
+   * ya'ni sim ko'zga ko'ringan metallga yopishadi.
+   */
+  "power-5v": { w: 3.4, d: 2.8, h: 1.92, pinY: 1.8 },
+  ground: { w: 3.4, d: 2.8, h: 1.92, pinY: 1.8 },
 
   multimeter: { w: 8.0, d: 13.0, h: 2.6, pinY: 1.3 },
 };
@@ -247,4 +313,22 @@ export const GRID_STEP = 0.5;
 
 export function snapToGrid(value: number, enabled: boolean): number {
   return enabled ? Math.round(value / GRID_STEP) * GRID_STEP : value;
+}
+
+/**
+ * Komponentni ISH MAYDONI ichida ushlab turadi.
+ *
+ * Sudrash paytida kursor stol chetidan chiqib ketishi mumkin va komponent
+ * ergashardi: u gilamchadan tashqarida, ba'zan stol qirrasidan tashqarida
+ * qolib, uni topish uchun kamerani izlab yurishga to'g'ri kelardi. Endi
+ * kursor uzoqlashsa ham komponent chekkada to'xtaydi — xuddi haqiqiy
+ * stolda buyumni chetiga surganingdek.
+ */
+export function clampToTable(x: number, z: number): { x: number; z: number } {
+  const limitX = TABLE.width / 2;
+  const limitZ = TABLE.depth / 2;
+  return {
+    x: Math.max(-limitX, Math.min(limitX, x)),
+    z: Math.max(-limitZ, Math.min(limitZ, z)),
+  };
 }

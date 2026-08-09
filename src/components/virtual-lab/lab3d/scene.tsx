@@ -9,6 +9,7 @@ import {
   CylinderGeometry,
   MOUSE,
   Matrix4,
+  PCFShadowMap,
   Quaternion,
   TOUCH,
   Vector3,
@@ -17,6 +18,7 @@ import {
 import {
   DESK,
   TABLE,
+  clampToTable,
   nodePosition,
   snapToGrid,
   toWorkspaceXY,
@@ -140,6 +142,28 @@ const ROAM_BOUNDS = {
  * har kadr o'zi so'rab turadi — tugma qo'yib yuborilishi bilan sikl
  * to'xtaydi va bo'sh turgan laboratoriya batareyani yemaydi.
  */
+/**
+ * Ctrl bilan birga bosilganda YURISHGA emas, qisqartmaga tegishli tugmalar.
+ *
+ * Ctrl tezlatgichga aylangach, `Ctrl+S` (saqlash) va `Ctrl+D` (nusxalash)
+ * bir vaqtning o'zida kamerani ham qimirlatib yuborardi.
+ */
+const CTRL_SHORTCUT_KEYS = new Set(["KeyS", "KeyD", "ShiftLeft"]);
+
+/**
+ * Bo'shliq fokusdagi tugmani bosishi kerakmi.
+ *
+ * Bo'shliq endi kamerani ko'taradi, lekin brauzerda u fokusdagi tugmani
+ * bosadigan STANDART tugma ham. Uni hamma joyda o'zlashtirib olish
+ * klaviatura bilan ishlaydigan foydalanuvchidan asboblar panelini
+ * tortib olardi — shu sababli fokus tugmada bo'lsa bo'shliq unga qoladi.
+ */
+function activatesControl(code: string, target: EventTarget | null): boolean {
+  if (code !== "Space") return false;
+  const element = target as HTMLElement | null;
+  return Boolean(element?.closest?.("button, a, [role='button']"));
+}
+
 function KeyboardNavigation({ controls }: { controls: React.RefObject<OrbitRef | null> }) {
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
@@ -159,18 +183,29 @@ function KeyboardNavigation({ controls }: { controls: React.RefObject<OrbitRef |
 
     const onDown = (event: KeyboardEvent) => {
       /*
-       * Shift har qanday tugmada yangilanadi.
+       * Ctrl har qanday tugmada yangilanadi.
        *
        * Ilgari u faqat yurish tugmasi bosilganda o'qilardi, shuning uchun
-       * `W` ni ushlab turib keyin `Shift` ni bosish hech narsa qilmasdi —
-       * tezlashtirish faqat Shift OLDIN bosilgan bo'lsa ishlardi.
+       * `W` ni ushlab turib keyin tezlatgichni bosish hech narsa qilmasdi —
+       * tezlashtirish faqat u OLDIN bosilgan bo'lsa ishlardi.
        */
-      boost.current = event.shiftKey;
+      boost.current = event.ctrlKey;
 
-      // Ctrl+S, Ctrl+D kabi qisqartmalar o'z ishini qilsin.
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      /*
+       * Ctrl endi TEZLATGICH, ya'ni u bosilganda ham yurish davom etadi.
+       * Lekin Ctrl+S va Ctrl+D qisqartmalari o'z ishini qilishi kerak —
+       * shu sababli aynan o'sha tugmalar Ctrl bilan yurishga qo'shilmaydi
+       * (Shift ham: Ctrl+Shift+Z bosilganda kamera pastga sho'ng'imasin).
+       *
+       * Bu kichik nomutanosiblik qoldiradi: avval Ctrl, keyin `S` bosilsa
+       * orqaga yurilmaydi. Teskarisi — avval `S`, keyin Ctrl — ishlaydi,
+       * chunki tugma allaqachon ro'yxatda.
+       */
+      if (event.metaKey || event.altKey) return;
+      if (event.ctrlKey && CTRL_SHORTCUT_KEYS.has(event.code)) return;
       if (!(event.code in MOVE_KEYS)) return;
       if (typing(event.target)) return;
+      if (activatesControl(event.code, event.target)) return;
 
       // O'q tugmalari sahifani aylantirmasin.
       event.preventDefault();
@@ -179,7 +214,7 @@ function KeyboardNavigation({ controls }: { controls: React.RefObject<OrbitRef |
     };
 
     const onUp = (event: KeyboardEvent) => {
-      boost.current = event.shiftKey;
+      boost.current = event.ctrlKey;
       held.current.delete(event.code);
     };
 
@@ -439,9 +474,18 @@ function Scenery({ groundY }: { groundY: number }) {
 
 interface DragState {
   nodeId: string;
-  /** Bosilgan nuqta bilan komponent markazi orasidagi farq. */
-  offsetX: number;
-  offsetZ: number;
+  /**
+   * Bosilgan nuqta bilan komponent markazi orasidagi farq.
+   *
+   * BOSILGANDA emas, birinchi HARAKATDA hisoblanadi va shu sababli
+   * boshida `null`. Sababi — parallaks: bosish hodisasidagi nuqta
+   * komponentning O'Z yuzasida (servoning tepasi stoldan 3.6 sm baland),
+   * keyingi harakatlarda esa nuqta stol tekisligida o'lchanadi. Ikkalasi
+   * aralashtirilganda baland komponent qiya kameradan sudralganda
+   * birinchi pikseldayoq sakrab ketardi.
+   */
+  offsetX: number | null;
+  offsetZ: number | null;
   moved: boolean;
 }
 
@@ -509,18 +553,11 @@ function SceneContents({ onToast }: { onToast: (message: string) => void }) {
   /* ── Komponentni sudrash ── */
 
   const beginDrag = useCallback(
-    (nodeId: string, event: ThreeEvent<PointerEvent>) => {
+    (nodeId: string) => {
       if (tool !== "select") return;
-      const node = circuit.nodes.find((n) => n.id === nodeId);
-      if (!node) return;
+      if (!circuit.nodes.some((n) => n.id === nodeId)) return;
 
-      const at = nodePosition(node);
-      dragRef.current = {
-        nodeId,
-        offsetX: at.x - event.point.x,
-        offsetZ: at.z - event.point.z,
-        moved: false,
-      };
+      dragRef.current = { nodeId, offsetX: null, offsetZ: null, moved: false };
       // Sudrash paytida kamera aylanmasin.
       if (controls.current) controls.current.enabled = false;
     },
@@ -536,14 +573,34 @@ function SceneContents({ onToast }: { onToast: (message: string) => void }) {
 
       const drag = dragRef.current;
       if (!drag) return;
+
+      const node = circuit.nodes.find((n) => n.id === drag.nodeId);
+      if (!node) return;
+
+      /*
+       * Birinchi harakat — ushlash nuqtasini belgilaydi.
+       *
+       * Komponent shu paytda QIMIRLAMAYDI: markaz bilan kursor orasidagi
+       * farq eslab qolinadi va keyingi harakatlarda saqlanadi. Shu sababli
+       * baland komponentni chetidan ushlab sudrash ham to'g'ri ishlaydi.
+       */
+      if (drag.offsetX === null || drag.offsetZ === null) {
+        const at = nodePosition(node);
+        drag.offsetX = at.x - event.point.x;
+        drag.offsetZ = at.z - event.point.z;
+        return;
+      }
+
       drag.moved = true;
 
-      const x = snapToGrid(event.point.x + drag.offsetX, settings.snapToGrid);
-      const z = snapToGrid(event.point.z + drag.offsetZ, settings.snapToGrid);
+      // Chegara `layout.ts` da — sof funksiya, testlar bilan qoplangan.
+      const inside = clampToTable(event.point.x + drag.offsetX, event.point.z + drag.offsetZ);
+      const x = snapToGrid(inside.x, settings.snapToGrid);
+      const z = snapToGrid(inside.z, settings.snapToGrid);
       const target = toWorkspaceXY(x, z);
       moveNode(drag.nodeId, target.x, target.y);
     },
-    [moveNode, pendingWire, settings.snapToGrid],
+    [circuit.nodes, moveNode, pendingWire, settings.snapToGrid],
   );
 
   const endDrag = useCallback(() => {
@@ -562,8 +619,22 @@ function SceneContents({ onToast }: { onToast: (message: string) => void }) {
   /* ── Sim ulash (§14) ── */
 
   const onPinDown = useCallback(
-    (nodeId: string, pinId: string) => {
-      if (tool !== "wire") return;
+    (nodeId: string, pinId: string, event: ThreeEvent<PointerEvent>) => {
+      /*
+       * Sim asbobi tanlanmagan — hodisa PASTGA o'tsin.
+       *
+       * Shunda pin ustiga bosish komponentni tanlaydi va sudraydi, xuddi
+       * plataning bo'sh joyiga bosgandek. Bir vaqtda nima qilish
+       * kerakligi ham aytiladi: asbob sukut bo'yicha «tanlash» va bola
+       * pinni bosaverib, laboratoriya buzuq deb o'ylardi.
+       */
+      if (tool !== "wire") {
+        onToast("Sim ulash uchun yuqoridagi «sim» asbobini tanlang");
+        return;
+      }
+
+      // Shu paytdan boshlab bosish SIMNIKI — komponent sudralmasin.
+      event.stopPropagation();
 
       if (!pendingWire) {
         startWire({ nodeId, pinId });
@@ -664,8 +735,8 @@ function SceneContents({ onToast }: { onToast: (message: string) => void }) {
             // Inspektor bir vaqtda bittasini ko'rsatadi.
             selectWire(null);
           }}
-          onDragStart={(event) => beginDrag(node.id, event)}
-          onPinDown={(pinId) => onPinDown(node.id, pinId)}
+          onDragStart={() => beginDrag(node.id)}
+          onPinDown={(pinId, event) => onPinDown(node.id, pinId, event)}
         />
       ))}
 
@@ -697,7 +768,16 @@ function SceneContents({ onToast }: { onToast: (message: string) => void }) {
 export function LabScene({ onToast }: { onToast: (message: string) => void }) {
   return (
     <Canvas
-      shadows
+      /*
+       * Soya turi ATAYLAB ko'rsatilgan.
+       *
+       * `shadows` ni oddiy `true` qilib qo'yish PCFSoft turini tanlaydi,
+       * u esa three.js da eskirgan va konsolga har yuklanishda
+       * ogohlantirish yozadi (kutubxonaning o'zi baribir PCF ga
+       * qaytaradi). Turni o'zimiz aytsak, ko'rinish o'zgarmaydi, lekin
+       * ogohlantirish yo'qoladi.
+       */
+      shadows={{ type: PCFShadowMap }}
       dpr={[1, 2]}
       // Kamera boshlang'ich holati; keyin `CameraDirector` boshqaradi.
       /*

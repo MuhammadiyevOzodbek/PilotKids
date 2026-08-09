@@ -37,29 +37,18 @@ body:has(.lab3d-page) .app-header {
   display: none !important;
 }
 
-/* Desktopda yon panel ikonkalarga qisqaradi — ish maydoniga joy qoladi. */
-@media (min-width: 1025px) {
-  body:has(.lab3d-page) .app-sidebar {
-    width: 68px;
-    padding: 18px 10px;
-    overflow: visible;
-  }
-
-  body:has(.lab3d-page) .app-nav-label,
-  body:has(.lab3d-page) .app-parent-card {
-    display: none;
-  }
-
-  body:has(.lab3d-page) .app-sidebar a {
-    justify-content: center;
-    gap: 0;
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  body:has(.lab3d-page) .app-sidebar > a:first-of-type {
-    padding: 6px 0 18px;
-  }
+/*
+ * Yon panel ham olib tashlanadi.
+ *
+ * Ilgari u desktopda ikonkalar ustuniga qisqarardi, lekin baribir ~68 px
+ * enni egallardi va 3D stol yonida ortiqcha ko'rinardi. Mobilda esa uni
+ * ochadigan yagona tugma yashiringan sarlavha ichida — ya'ni panel
+ * baribir ochilmasdi. Shu bois bu sahifada u butunlay yashiriladi.
+ */
+body:has(.lab3d-page) .app-sidebar,
+body:has(.lab3d-page) .app-backdrop {
+  /* Panelning `display: flex` qiymati inline stilda — `!important` shart. */
+  display: none !important;
 }
 
 @media (max-width: 1024px) {
@@ -90,6 +79,21 @@ body:has(.lab3d-page) .app-header {
   overflow: hidden;
   background: var(--surface);
   color: var(--text);
+}
+
+/*
+ * To'liq ekran rejimi.
+ *
+ * Balandlik `100dvh` dan `100%` ga o'tadi: to'liq ekranda `dvh` brauzer
+ * paneli hisobga olingan ESKI qiymatda qolishi mumkin va laboratoriya
+ * pastdan bir necha piksel kesilardi. Fon esa ataylab takrorlanadi —
+ * brauzer to'liq ekran elementiga sukut bo'yicha QORA fon beradi.
+ */
+.lab3d:fullscreen,
+.lab3d:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
 }
 
 /* ═══════════════════ Yuqori panel ═══════════════════ */
@@ -598,41 +602,13 @@ body:has(.lab3d-page) .app-header {
 }
 
 /*
- * Yurish tugmalari — pastki O'NG burchakda.
+ * Tugma belgisi — boshlang'ich qo'llanmadagi WASD ro'yxati uchun.
  *
- * Chap tomonda muammolar ro'yxati chiqadi; ikkalasi bir burchakda
- * bo'lsa ustma-ust tushardi.
+ * Ilgari sahnaning pastki o'ng burchagida doimiy "yurish tugmalari"
+ * paneli ham turardi; u olib tashlandi, chunki bir marta o'qilgandan
+ * keyin faqat ko'rinishni to'sib turardi. Qo'llanma esa boshida bir
+ * marta chiqadi va o'sha yerda tugmalar aytiladi.
  */
-.lab3d-keyhint {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  padding: 7px 11px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 10px;
-  background: rgb(12 16 22 / 55%);
-  color: #97a3b2;
-  font-size: 11px;
-  pointer-events: none;
-  opacity: 0.55;
-  transition: opacity 0.18s ease;
-}
-
-/* Sahna ustida sichqoncha bo'lsa yaxshiroq o'qilsin */
-.lab3d-viewport:hover .lab3d-keyhint {
-  opacity: 1;
-}
-
-.lab3d-keyhint span {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.lab3d-keyhint kbd,
 .lab3d-onboarding kbd {
   min-width: 18px;
   padding: 1px 5px;
@@ -646,12 +622,6 @@ body:has(.lab3d-page) .app-header {
   font-weight: 600;
   line-height: 1.5;
   text-align: center;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lab3d-keyhint {
-    transition: none;
-  }
 }
 
 /*

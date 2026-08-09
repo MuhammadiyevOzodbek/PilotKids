@@ -516,10 +516,20 @@ function Dht11({ width, height, settings, showDetail = true }: SymbolProps) {
 /* ─────────────────────────── LCD 16×2 ─────────────────────────── */
 
 function Lcd1602({ width, height, settings, runtime }: SymbolProps) {
-  const backlight = settings.backlight !== false;
+  /*
+   * Yoritish va kontrast SIMULYATORDAN keladi (§46): A/K oyoqlariga sim
+   * tortilgan bo'lsa ular ulanishdan hisoblanadi. Simulyatsiya
+   * ishlamayotganda esa inspektordagi katakcha ko'rsatiladi — chizma
+   * "o'lik" ko'rinmasligi uchun.
+   */
+  const backlight = runtime?.backlight ?? settings.backlight !== false;
   const powered = runtime?.powered === true;
   const lit = backlight && powered;
   const lines = runtime?.lines ?? [];
+  /* Kontrast past bo'lsa belgilar xiralashadi — VO ga ulangan
+     potensiometrni burash aynan shunday ko'rinadi. */
+  const contrast = runtime?.contrast ?? 1;
+  const textOpacity = Math.max(0, Math.min(1, contrast * 1.25));
 
   return (
     <svg
@@ -561,21 +571,48 @@ function Lcd1602({ width, height, settings, runtime }: SymbolProps) {
                 fontSize="17"
                 fontWeight="600"
                 fill="var(--lcd-text)"
+                opacity={textOpacity}
               >
                 {char}
               </text>
             ),
           );
         })}
-      {/* Ulanish pinlari */}
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-        <rect key={i} x={17 + i * 28.8} y="104" width="4" height="14" fill="#9aa4b2" />
+
+      {/* Kursor — `lcd.cursor()` chaqirilganda pastki chiziqcha */}
+      {lit && runtime?.cursorVisible && (
+        <rect
+          x={25 + (runtime.cursorCol ?? 0) * 12.2}
+          y={48 + (runtime.cursorRow ?? 0) * 28}
+          width="10"
+          height="2"
+          fill="var(--lcd-text)"
+          opacity={textOpacity}
+        />
+      )}
+
+      {/*
+        Ulanish oyoqlari — o'n oltitasi, katalogdagi nisbatlar bilan bir
+        xil qadamda (0.06 dan 0.94 gacha). Ular sim tortiladigan nuqtalar
+        ostida turishi kerak, aks holda bola oyoqqa emas, bo'shliqqa
+        ulayotgandek his qiladi.
+      */}
+      {LCD_PIN_INDEXES.map((i) => (
+        <rect
+          key={i}
+          x={(0.06 + i * (0.88 / 15)) * 240 - 1.5}
+          y="104"
+          width="3"
+          height="14"
+          fill="#9aa4b2"
+        />
       ))}
     </svg>
   );
 }
 
 const LCD_LINES = [0, 1];
+const LCD_PIN_INDEXES = Array.from({ length: 16 }, (_, i) => i);
 
 /* ─────────────────────────── Rele ─────────────────────────── */
 

@@ -309,6 +309,25 @@ export interface ComponentRuntimeState {
    */
   lines?: string[];
   /**
+   * LCD orqa yoritishi yonganmi.
+   *
+   * A/K oyoqlariga sim tortilgan bo'lsa ulanishdan, aks holda
+   * inspektordagi katakchadan olinadi.
+   */
+  backlight?: boolean;
+  /**
+   * LCD kontrasti 0–1: VO oyog'idagi kuchlanishdan hisoblanadi.
+   * 0 — belgilar ko'rinmaydi, 1 — eng to'q.
+   */
+  contrast?: number;
+  /** `lcd.cursor()` bilan yoqilgan pastki chiziqcha. */
+  cursorVisible?: boolean;
+  /** `lcd.blink()` bilan yoqilgan miltillovchi katak. */
+  cursorBlink?: boolean;
+  /** Kursorning joriy o'rni — kursor ko'rinadigan bo'lsa chiziladi. */
+  cursorCol?: number;
+  cursorRow?: number;
+  /**
    * Plata pinlarining joriy darajasi: `"D13" → 1`, `"A0" → 734`.
    * Faqat `isBoard` komponentlar uchun to'ldiriladi.
    */

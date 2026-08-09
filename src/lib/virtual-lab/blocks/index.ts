@@ -6,7 +6,7 @@
  * to'la, goh bo'sh bo'lardi va testlar tasodifiy yiqilardi.
  */
 
-import { registerBlocks } from "./registry";
+import { registerBlocks, resetRegistry } from "./registry";
 import { EVENT_BLOCKS } from "./defs/events";
 import { CONTROL_BLOCKS } from "./defs/control";
 import { ARDUINO_BLOCKS } from "./defs/arduino";
@@ -26,6 +26,17 @@ let registered = false;
 function registerAll() {
   if (registered) return;
   registered = true;
+  /*
+   * Toza holatdan boshlaymiz.
+   *
+   * `registered` bayrog'i SHU modulning nusxasiga tegishli, registr esa
+   * boshqa modulda turadi. Dasturlash muhitida bu ikkisi ajralib qolishi
+   * mumkin: `blocks/index.ts` qayta baholanadi (bayroq — yangi, ya'ni
+   * `false`), `registry.ts` esa keshda qoladi (ro'yxat — to'la). Natijada
+   * birinchi `registerBlocks` chaqiruvi «Blok turi takrorlandi:
+   * event_on_start» deb yiqilardi va butun laboratoriya ochilmasdi.
+   */
+  resetRegistry();
   registerBlocks(EVENT_BLOCKS);
   registerBlocks(CONTROL_BLOCKS);
   registerBlocks(LOGIC_BLOCKS);

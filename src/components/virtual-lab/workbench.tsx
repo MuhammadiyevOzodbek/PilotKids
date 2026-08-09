@@ -46,6 +46,7 @@ import { Inspector } from "./inspector";
 import { SerialMonitor } from "./serial-monitor";
 import { LessonPanel } from "./lesson-panel";
 import { ProblemsPanel } from "./problems-panel";
+import { useFullscreen } from "./use-fullscreen";
 import { emptyWorkspace, isEmptyWorkspace } from "@/lib/virtual-lab/blocks";
 import { useBlocksStore } from "@/stores/blocks";
 import { BlockEditor } from "./blocks/block-editor";
@@ -148,8 +149,6 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   // Tor ekranda uch ustun sig'maydi: bir vaqtda bittasi ko'rsatiladi.
   const [mobileView, setMobileView] = useState<MobileView>("canvas");
   const [view, setView] = useState<WorkbenchView>("circuit");
-  // Ish stolini butun ekranga ochish.
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const simRef = useRef<Simulator | null>(null);
@@ -222,37 +221,9 @@ export function Workbench({ lessonSlug }: { lessonSlug?: string }) {
   }, []);
 
   /* ── To'liq ekran ── */
-  // Vendor prefikslari (Safari) uchun standart API'ni kengaytiramiz.
-  const toggleFullscreen = useCallback(() => {
-    const el = rootRef.current as
-      (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null;
-    if (!el) return;
-    const doc = document as Document & {
-      webkitExitFullscreen?: () => Promise<void> | void;
-      webkitFullscreenElement?: Element | null;
-    };
-    const active = document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
-    const run = active
-      ? (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
-      : (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
-    if (run && typeof (run as Promise<void>).catch === "function") {
-      (run as Promise<void>).catch(() => showToast("To'liq ekran rejimini ochib bo'lmadi"));
-    }
-  }, [showToast]);
-
-  // Brauzer holatiga moslashamiz (Esc bilan chiqish yoki tashqi o'zgarish).
-  useEffect(() => {
-    const sync = () => {
-      const doc = document as Document & { webkitFullscreenElement?: Element | null };
-      setIsFullscreen((document.fullscreenElement ?? doc.webkitFullscreenElement ?? null) !== null);
-    };
-    document.addEventListener("fullscreenchange", sync);
-    document.addEventListener("webkitfullscreenchange", sync);
-    return () => {
-      document.removeEventListener("fullscreenchange", sync);
-      document.removeEventListener("webkitfullscreenchange", sync);
-    };
-  }, []);
+  // Brauzer qirralari (Safari prefikslari, `Esc` bilan chiqish) `useFullscreen`
+  // ichida — 3D laboratoriya ham xuddi shu hook'ni ishlatadi.
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(rootRef, showToast);
 
   /* ── Simulyatsiya sikli ── */
   // Kadr callback'i o'zini qayta rejalashtiradi. To'g'ridan-to'g'ri `tick` ga

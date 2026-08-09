@@ -192,10 +192,20 @@ export function PinField({
           if (id) setHoveredPin(`${node.id}:${id}`);
         }}
         onPointerOut={() => setHoveredPin(null)}
+        /*
+         * Hodisa bu yerda TO'XTATILMAYDI — buni `onPinDown` hal qiladi.
+         *
+         * Ilgari u shartsiz `stopPropagation()` qilardi, `onPinDown` esa
+         * sim asbobi tanlanmagan bo'lsa jim chiqib ketardi. Natijada
+         * «tanlash» rejimida pin ustiga bosish O'LIK edi: komponent na
+         * tanlanardi, na sudralardi. Arduinoda bu ayniqsa yomon —
+         * plataning katta qismi header, ya'ni deyarli butun plata
+         * bosilmasdi. Endi hodisani faqat haqiqatan ishlatilganda
+         * to'xtatamiz, aks holda u pastdagi komponentga o'tadi.
+         */
         onPointerDown={(event) => {
           const id = pinIdAt(event.instanceId);
           if (!id) return;
-          event.stopPropagation();
           onPinDown(id, event);
         }}
       >

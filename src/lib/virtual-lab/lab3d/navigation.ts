@@ -30,6 +30,11 @@ export interface Movement {
  * klaviaturadagi FIZIK tugmani bildiradi. Foydalanuvchi kirill yoki
  * o'zbek tartibiga o'tsa `key` "ц" bo'lib qoladi, `code` esa baribir
  * `KeyW` — ya'ni tugmalar har qanday tilda ishlaydi.
+ *
+ * Balandlik CHAP SHIFT va BO'SHLIQ da: ikkalasi ham katta, ko'zsiz
+ * topiladigan tugma va ular WASD ni ushlab turgan chap qo'lning bosh
+ * barmog'i bilan jimjilog'iga tushadi. `Q`/`E` esa barmoqni WASD dan
+ * uzib olishni talab qilardi.
  */
 export const MOVE_KEYS: Readonly<Record<string, Partial<Movement>>> = {
   KeyW: { forward: 1 },
@@ -40,8 +45,8 @@ export const MOVE_KEYS: Readonly<Record<string, Partial<Movement>>> = {
   ArrowLeft: { strafe: -1 },
   KeyD: { strafe: 1 },
   ArrowRight: { strafe: 1 },
-  KeyE: { lift: 1 },
-  KeyQ: { lift: -1 },
+  Space: { lift: 1 },
+  ShiftLeft: { lift: -1 },
 };
 
 /**
@@ -71,7 +76,7 @@ export interface NavigationInput extends Movement {
   direction: Vec;
   /** Oxirgi kadrdan beri o'tgan vaqt (sekund). */
   delta: number;
-  /** Shift bosilganmi — tez yurish. */
+  /** Ctrl bosilganmi — tez yurish. */
   boost: boolean;
   /** Nishon qaysi to'rtburchak ichida qola oladi (markazdan, sm). */
   bounds: { x: number; z: number };

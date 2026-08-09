@@ -26,7 +26,92 @@ import * as THREE from "three";
  */
 export const BOX = new THREE.BoxGeometry(1, 1, 1);
 export const CYL = new THREE.CylinderGeometry(1, 1, 1, 20);
+/**
+ * Silliq silindr — yon yuzasi katta ko'rinadigan qismlar uchun.
+ *
+ * 20 qirra mayda detalda sezilmaydi, lekin ultratovush o'zgartkichi kabi
+ * kaftdek katta metall bankada qirralar ochiq ko'rinadi va model
+ * "past-poli" bo'lib qoladi. 48 qirra silliq, lekin baribir arzon.
+ */
+export const CYL_SMOOTH = new THREE.CylinderGeometry(1, 1, 1, 48);
 export const SPHERE = new THREE.SphereGeometry(1, 16, 12);
+
+/* ─────────────────────────── Plata va halqa geometriyasi ─────────────────────────── */
+
+const plateCache = new Map<string, THREE.BufferGeometry>();
+
+/**
+ * Burchaklari yumaloqlangan YUPQA plata.
+ *
+ * Oddiy `BoxGeometry` plata emas, o'yinchoq g'isht bo'lib ko'rinadi:
+ * haqiqiy PCB ning burchagi yumaloq, qirrasi esa mayda fasqali. Bu yerda
+ * shakl chizilib, qalinlik bo'yicha cho'ziladi.
+ *
+ * Natija IKKI materialli: 0 — ustki/pastki yuza, 1 — yon qirra. Shu
+ * sababli qirrani quyuqroq rangda berish mumkin (haqiqiy platada kesilgan
+ * qirra lak ostidagi steklotekstolit rangida bo'ladi).
+ *
+ * Geometriya o'lchov bo'yicha keshlanadi va Y bo'yicha 0 dan `h` gacha
+ * turadi — ya'ni plataning tagi aynan stol yuzasida.
+ */
+export function roundedPlate(w: number, d: number, h: number, radius = 0.2): THREE.BufferGeometry {
+  const key = `${w}|${d}|${h}|${radius}`;
+  const cached = plateCache.get(key);
+  if (cached) return cached;
+
+  const r = Math.min(radius, w / 2, d / 2);
+  const bevel = Math.min(0.02, h / 4);
+
+  const shape = new THREE.Shape();
+  const x = w / 2 - r;
+  const y = d / 2 - r;
+  shape.moveTo(-x, -d / 2);
+  shape.lineTo(x, -d / 2);
+  shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -y);
+  shape.lineTo(w / 2, y);
+  shape.quadraticCurveTo(w / 2, d / 2, x, d / 2);
+  shape.lineTo(-x, d / 2);
+  shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, y);
+  shape.lineTo(-w / 2, -y);
+  shape.quadraticCurveTo(-w / 2, -d / 2, -x, -d / 2);
+
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: h - 2 * bevel,
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelSegments: 1,
+    curveSegments: 5,
+  });
+
+  // Cho'zilish Z bo'yicha edi — plata yotishi uchun Y ga buriladi.
+  geometry.rotateX(-Math.PI / 2);
+  geometry.computeBoundingBox();
+  geometry.translate(0, -(geometry.boundingBox?.min.y ?? 0), 0);
+  geometry.computeVertexNormals();
+
+  plateCache.set(key, geometry);
+  return geometry;
+}
+
+const ringCache = new Map<string, THREE.TorusGeometry>();
+
+/**
+ * Yotgan halqa (torus) — metall qirra, chok yoki konsentrik naqsh uchun.
+ *
+ * `Cyl` dan farqi: halqa MIQYOSLANMAYDI, chunki miqyos naychaning
+ * qalinligini ham cho'zib, halqani ovalga aylantirardi. Shu sababli har
+ * o'lcham uchun alohida (lekin keshlangan) geometriya.
+ */
+export function ringGeometry(radius: number, tube: number, segments = 40): THREE.TorusGeometry {
+  const key = `${radius}|${tube}|${segments}`;
+  const cached = ringCache.get(key);
+  if (cached) return cached;
+  const created = new THREE.TorusGeometry(radius, tube, 6, segments);
+  created.rotateX(-Math.PI / 2);
+  ringCache.set(key, created);
+  return created;
+}
 
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 
@@ -165,6 +250,7 @@ export function Cyl({
   axis = "y",
   rTop,
   shadow = true,
+  smooth = false,
 }: {
   pos?: [number, number, number];
   r: number;
@@ -174,6 +260,8 @@ export function Cyl({
   /** Yuqori radius — konus qilish uchun. */
   rTop?: number;
   shadow?: boolean;
+  /** Katta silindrlar uchun — 48 qirrali silliq geometriya. */
+  smooth?: boolean;
 }) {
   const rot: [number, number, number] =
     axis === "x" ? [0, 0, Math.PI / 2] : axis === "z" ? [Math.PI / 2, 0, 0] : [0, 0, 0];
@@ -182,13 +270,40 @@ export function Cyl({
       position={pos}
       rotation={rot}
       scale={[r, h, r]}
-      geometry={CYL}
+      geometry={smooth ? CYL_SMOOTH : CYL}
       material={material}
       castShadow={shadow}
       receiveShadow={shadow}
     >
       {rTop !== undefined && <cylinderGeometry args={[rTop / r, 1, 1, 20]} attach="geometry" />}
     </mesh>
+  );
+}
+
+/** Yotgan metall halqa — `ringGeometry` dagi keshlangan shakl bilan. */
+export function Ring({
+  pos = [0, 0, 0],
+  r,
+  tube,
+  material,
+  segments,
+  shadow = false,
+}: {
+  pos?: [number, number, number];
+  r: number;
+  tube: number;
+  material: THREE.Material;
+  segments?: number;
+  shadow?: boolean;
+}) {
+  return (
+    <mesh
+      position={pos}
+      geometry={ringGeometry(r, tube, segments)}
+      material={material}
+      castShadow={shadow}
+      receiveShadow={shadow}
+    />
   );
 }
 

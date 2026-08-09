@@ -18,6 +18,8 @@ import {
   getBlockDefinition,
   messageKeysOf,
   parseWorkspace,
+  registerBlocks,
+  resetRegistry,
   removeBlock,
   sanitizeWorkspace,
   setField,
@@ -1731,5 +1733,32 @@ describe("blok tizimining butunligi", () => {
     expect(Object.keys(restored!.blocks)).toHaveLength(Object.keys(b.ws.blocks).length);
     expect(generateProgram(restored!).code).toBe(b.code());
     expectValidSketch(b.code());
+  });
+});
+
+/**
+ * Registr modul qayta baholanishiga chidamlimi.
+ *
+ * Dasturlash muhitida `blocks/index.ts` qayta baholanishi mumkin, registr
+ * moduli esa keshda qolishi mumkin. Ilgari shu holatda birinchi
+ * `registerBlocks` chaqiruvi «Blok turi takrorlandi: event_on_start» deb
+ * yiqilardi va butun laboratoriya ochilmasdi (3D sahna ham, 2D ham).
+ */
+describe("blok registri", () => {
+  it("qayta to'ldirilganda xato bermaydi va tartib saqlanadi", () => {
+    const before = allBlockDefinitions();
+
+    resetRegistry();
+    expect(allBlockDefinitions()).toHaveLength(0);
+
+    expect(() => registerBlocks(before)).not.toThrow();
+    expect(allBlockDefinitions().map((d) => d.type)).toEqual(before.map((d) => d.type));
+  });
+
+  it("BITTA to'ldirish ichidagi takroriy tur baribir xato beradi", () => {
+    // Bu himoya qolishi kerak: ikki xil blok bir xil ID bilan saqlansa
+    // loyihalar buzilardi.
+    const existing = allBlockDefinitions()[0]!;
+    expect(() => registerBlocks([existing])).toThrow(/takrorlandi/);
   });
 });

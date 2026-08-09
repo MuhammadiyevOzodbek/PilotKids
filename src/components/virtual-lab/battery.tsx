@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { BATTERY_DEFAULT_VOLTAGE } from "@/lib/virtual-lab/catalog";
+import { BATTERY_DEFAULT_VOLTAGE, formatVolts } from "@/lib/virtual-lab/catalog";
 import type { BatteryPolarity, ComponentRuntimeState } from "@/lib/virtual-lab/types";
 
 /**
@@ -26,11 +26,6 @@ export interface BatterySymbolProps {
   runtime?: ComponentRuntimeState;
   /** Mayda yozuvlarni ko'rsatishmi (uzoqlashtirilganda ular o'qilmaydi). */
   showDetail?: boolean;
-}
-
-/** Kuchlanish yozuvi: 9 → "9V", 1.5 → "1.5V". */
-function formatVolts(volts: number): string {
-  return `${Number.isInteger(volts) ? volts : volts.toFixed(1)}V`;
 }
 
 export function BatterySymbol({

@@ -40,6 +40,8 @@ export function Toolbar({
   onTogglePalette,
   serialVisible,
   onToggleSerial,
+  isFullscreen,
+  onToggleFullscreen,
 }: {
   onStart: () => void;
   onPause: () => void;
@@ -51,6 +53,8 @@ export function Toolbar({
   onTogglePalette: () => void;
   serialVisible: boolean;
   onToggleSerial: () => void;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
 }) {
   const tool = useLab3DStore((s) => s.tool);
   const setTool = useLab3DStore((s) => s.setTool);
@@ -167,6 +171,24 @@ export function Toolbar({
           </button>
         ))}
       </div>
+
+      {/*
+        To'liq ekran (§4).
+
+        3D sahnada balandlik hamma narsadan qimmat: stol ustidagi
+        komponentga past burchakdan qarash uchun joy kerak. Ilova
+        qobig'idan chiqib, laboratoriya butun ekranni oladi.
+      */}
+      <button
+        type="button"
+        className="lab3d-btn"
+        aria-pressed={isFullscreen}
+        onClick={onToggleFullscreen}
+        title={isFullscreen ? "To'liq ekrandan chiqish (F)" : "To'liq ekranni ochish (F)"}
+        aria-label={isFullscreen ? "To'liq ekrandan chiqish" : "To'liq ekranni ochish"}
+      >
+        <Icon name={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={16} />
+      </button>
 
       <span className="vlab-spacer" style={{ flex: 1 }} />
 
@@ -350,18 +372,29 @@ export function Inspector3D() {
   const setWireColorFor = useCircuitStore((s) => s.setWireColor);
 
   const runtime = useSimulationStore((s) => s.runtime);
+  const setSelection = useCircuitStore((s) => s.setSelection);
   const selectedWireId = useLab3DStore((s) => s.selectedWireId);
   const selectWire = useLab3DStore((s) => s.selectWire);
 
   const wire = circuit.wires.find((w) => w.id === selectedWireId);
   const node = circuit.nodes.find((n) => n.id === selectedIds[0]);
 
+  /**
+   * Pinning KATALOGDAGI yozuvi — `gnd` emas, «VSS (GND)».
+   *
+   * Ro'yxatda xom ID ko'rsatish LCD kabi ko'p oyoqli modullarda
+   * chalkashtirardi: 3D dagi tooltip bir nomni, inspektor esa boshqasini
+   * aytardi.
+   */
+  const pinLabel = (type: string | undefined, pinId: string) =>
+    getDefinition(type ?? "")?.pins.find((p) => p.id === pinId)?.label ?? pinId;
+
   /* ── Sim tanlangan (§29) ── */
   if (wire) {
     const label = (end: { nodeId: string; pinId: string }) => {
       const target = circuit.nodes.find((n) => n.id === end.nodeId);
       const name = target ? (getDefinition(target.type)?.name ?? target.type) : "?";
-      return `${name} · ${end.pinId}`;
+      return `${name} · ${pinLabel(target?.type, end.pinId)}`;
     };
 
     return (
@@ -497,9 +530,20 @@ export function Inspector3D() {
             const farNode = circuit.nodes.find((n) => n.id === far.nodeId);
             return (
               <li key={w.id}>
-                <button type="button" onClick={() => selectWire(w.id)}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Sim va komponent bir vaqtda tanlangan bo'lmaydi: aks
+                    // holda inspektor simni ko'rsatib turganda stolda
+                    // komponent ramkasi qolib ketardi.
+                    selectWire(w.id);
+                    setSelection([]);
+                  }}
+                >
                   <span className="lab3d-dot" style={{ background: WIRE_HEX[w.color] }} />
-                  {near.pinId} → {getDefinition(farNode?.type ?? "")?.name ?? "?"} · {far.pinId}
+                  {pinLabel(node.type, near.pinId)} →{" "}
+                  {getDefinition(farNode?.type ?? "")?.name ?? "?"} ·{" "}
+                  {pinLabel(farNode?.type, far.pinId)}
                 </button>
               </li>
             );
@@ -594,6 +638,17 @@ function RuntimeFacts({
   if (state.milliamps !== undefined) facts.push(["Tok", `${state.milliamps.toFixed(1)} mA`]);
   if (state.digit) facts.push(["Raqam", state.digit]);
   if (state.lines?.length) facts.push(["Ekran", state.lines.join(" ⏎ ").trimEnd() || "—"]);
+  /*
+   * LCD ning quvvati, yoritishi va kontrasti.
+   *
+   * Aynan shu uchtasi «ekran yonyapti, lekin matn yo'q» holatini
+   * tushuntiradi: kontrast nolga tushgan bo'lsa VO ga ulangan
+   * potensiometr aybdor, yoritish o'chgan bo'lsa — A/K simlari.
+   */
+  if (state.backlight !== undefined)
+    facts.push(["Orqa yoritish", state.backlight ? "Yonmoqda" : "O'chiq"]);
+  if (state.contrast !== undefined)
+    facts.push(["Kontrast", `${Math.round(state.contrast * 100)} %`]);
   if (facts.length === 0) return null;
 
   return (
@@ -667,6 +722,14 @@ export function StatusBar({ problems }: { problems: number }) {
           ["snapToGrid", "Panjaraga tegish"],
           ["showLabels", "Nomlar"],
           ["showPinNames", "Pin izohi"],
+          /*
+           * Tok oqimi (§24) — simda yurgan nuqtalar.
+           *
+           * Ilgari bu sozlama do'konda bor edi, lekin uni YOQADIGAN joy
+           * yo'q edi: kod hech qachon o'qimasdi ham. Endi katakcha ham,
+           * animatsiya ham bor.
+           */
+          ["showCurrentFlow", "Tok oqimi"],
         ] as const
       ).map(([key, label]) => (
         <label key={key} className="lab3d-toggle">

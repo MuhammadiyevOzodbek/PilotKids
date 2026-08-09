@@ -3,6 +3,7 @@ import {
   boardPinFor,
   buildNetlist,
   isGrounded,
+  isPinWired,
   isPowered,
   netFor,
   pinKey,
@@ -179,10 +180,7 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
     const boardGroundPins = (getDefinition(board.type)?.pins ?? []).filter(
       (p) => p.role === "ground",
     );
-    const boardGrounded = boardGroundPins.some((p) => {
-      const n = netFor(net, board.id, p.id);
-      return n !== null && (net.pinsOf.get(n) ?? []).length > 1;
-    });
+    const boardGrounded = boardGroundPins.some((p) => isPinWired(net, board.id, p.id));
     const needsGround = circuit.nodes.some((n) => {
       if (
         ![
@@ -224,10 +222,7 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
     if (!def || def.isBoard || def.pins.length === 0) continue;
 
     // Umuman ulanmagan komponent.
-    const connected = def.pins.some((p) => {
-      const n = netFor(net, node.id, p.id);
-      return n !== null && (net.pinsOf.get(n) ?? []).length > 1;
-    });
+    const connected = def.pins.some((p) => isPinWired(net, node.id, p.id));
     if (!connected) {
       issues.push(
         issue(
@@ -403,6 +398,40 @@ export function validateCircuit(circuit: Circuit): CircuitIssue[] {
             "warning",
             `LCD displeyning ${missing.map((m) => m.toUpperCase()).join(", ")} pini Arduino'ga ulanmagan.`,
             "LiquidCrystal kutubxonasi oltita simni talab qiladi: RS, E va D4–D7.",
+            [node.id],
+          ),
+        );
+      }
+
+      /*
+       * RW — yozish/o'qish tanlagichi. Yerga ulanmasa modul o'qish
+       * rejimida qolib ketishi mumkin va ekranga hech nima yozilmaydi.
+       * Darsliklarda u DOIM GND ga ulanadi, shuning uchun Arduino piniga
+       * borgani ham to'g'ri hisoblanadi — faqat butunlay bo'sh qolgani
+       * ogohlantiradi.
+       */
+      if (!isGrounded(net, node.id, "rw") && boardPinFor(net, node.id, "rw") === null) {
+        issues.push(
+          issue(
+            "warning",
+            "LCD displeyning RW pini ulanmagan.",
+            "RW ni Arduino GND ga ulang — shunda modul doim yozish rejimida ishlaydi.",
+            [node.id],
+          ),
+        );
+      }
+
+      /*
+       * VO — kontrast. Ulanmagan bo'lsa haqiqiy modulda ekran ko'pincha
+       * bo'm-bo'sh yoki to'la qora kvadratlar bo'lib qoladi. Bu eng ko'p
+       * uchraydigan "displey ishlamayapti" sababi.
+       */
+      if (!isPinWired(net, node.id, "vo")) {
+        issues.push(
+          issue(
+            "warning",
+            "LCD displeyning VO (kontrast) pini ulanmagan.",
+            "VO ni 10 kΩ potensiometrning o'rta oyog'iga, yoki to'g'ridan-to'g'ri GND ga ulang.",
             [node.id],
           ),
         );

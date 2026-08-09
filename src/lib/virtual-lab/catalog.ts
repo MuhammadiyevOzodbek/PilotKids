@@ -116,6 +116,11 @@ export function formatOhms(ohms: number): string {
   return `${ohms} Ω`;
 }
 
+/** Kuchlanish yozuvi: 9 → "9V", 1.5 → "1.5V". */
+export function formatVolts(volts: number): string {
+  return `${Number.isInteger(volts) ? volts : volts.toFixed(1)}V`;
+}
+
 /**
  * Batareya kuchlanishi uchun ruxsat etilgan oraliq.
  * 24 V — o'quv sxemalari uchun xavfsiz yuqori chegara.
@@ -576,20 +581,57 @@ export const CATALOG: ComponentDefinition[] = [
     defaults: { backlight: true },
     settings: [{ key: "backlight", label: "Orqa yoritish", kind: "boolean" }],
     /*
-     * To'rt simli (4-bit) ulanish — darsliklarda ishlatiladigan usul.
-     * Kontrast (V0) va RW pinlari qoldirilgan: ular doim bir xil ulanadi
-     * va bola uchun faqat chalkashlik qo'shardi.
+     * HAQIQIY moduldagi o'n olti oyoq, o'sha tartibda: VSS, VDD, VO, RS,
+     * RW, E, D0…D7, A, K.
+     *
+     * ── Nega D0–D3 ham bor ──────────────────────────────────────────────
+     * Darsliklarda 4-bitli ulanish ishlatiladi va ular bo'sh qoladi, lekin
+     * haqiqiy modulda ular mavjud. Ilgari ro'yxatda yo'q edi va bola
+     * "modulda 16 oyoq bor, bu yerda 8 ta — nega?" degan savolga javob
+     * topolmasdi. Ulanmagan oyoq hech narsani buzmaydi: simulyator
+     * 4-bitli rejimda faqat D4–D7 ni o'qiydi.
+     *
+     * ── Nega birinchi ikkitasining ID'si `gnd`/`vcc` ────────────────────
+     * Yorlig'i VSS/VDD, lekin ID ATAYLAB o'zgartirilmagan: saqlangan
+     * loyihalardagi simlar `lcd:gnd` va `lcd:vcc` ga ishora qiladi va ID
+     * almashtirilsa eski sxemalarning quvvat simlari yo'qolardi (§29).
+     * Elektr jihatdan ular ayni bir narsa.
+     *
+     * ── Qadam ───────────────────────────────────────────────────────────
+     * Oyoqlar plataning butun eni bo'ylab tarqatilgan, haqiqiy 2.54 mm
+     * qadamda emas: 2D chizmada 16 ta nuqta 7 pikselda turib qolardi va
+     * ularga sim ulash imkonsiz bo'lardi (§17 — bosish sohasi).
      */
-    pins: pins([
-      { id: "gnd", label: "GND", role: "ground", polarity: "negative", x: 0.08, y: 0.94 },
-      { id: "vcc", label: "5V", role: "power", polarity: "positive", x: 0.2, y: 0.94 },
-      { id: "rs", label: "RS", role: "digital", x: 0.32, y: 0.94 },
-      { id: "e", label: "E", role: "digital", x: 0.44, y: 0.94 },
-      { id: "d4", label: "D4", role: "digital", x: 0.56, y: 0.94 },
-      { id: "d5", label: "D5", role: "digital", x: 0.68, y: 0.94 },
-      { id: "d6", label: "D6", role: "digital", x: 0.8, y: 0.94 },
-      { id: "d7", label: "D7", role: "digital", x: 0.92, y: 0.94 },
-    ]),
+    pins: pins(
+      (
+        [
+          ["gnd", "VSS (GND)", "ground"],
+          ["vcc", "VDD (+5V)", "power"],
+          ["vo", "VO (kontrast)", "analog"],
+          ["rs", "RS", "digital"],
+          ["rw", "RW", "digital"],
+          ["e", "E", "digital"],
+          ["d0", "D0", "digital"],
+          ["d1", "D1", "digital"],
+          ["d2", "D2", "digital"],
+          ["d3", "D3", "digital"],
+          ["d4", "D4", "digital"],
+          ["d5", "D5", "digital"],
+          ["d6", "D6", "digital"],
+          ["d7", "D7", "digital"],
+          ["a", "A (yoritish +)", "power"],
+          ["k", "K (yoritish −)", "ground"],
+        ] as const
+      ).map(([id, label, role], i) => ({
+        id,
+        label,
+        role,
+        x: 0.06 + i * (0.88 / 15),
+        y: 0.94,
+        ...(role === "power" ? { polarity: "positive" as const } : {}),
+        ...(role === "ground" ? { polarity: "negative" as const } : {}),
+      })),
+    ),
   },
   {
     type: "relay",

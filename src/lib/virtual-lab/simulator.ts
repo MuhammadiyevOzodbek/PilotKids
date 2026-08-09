@@ -13,6 +13,7 @@ import {
   boardPinFor,
   buildNetlist,
   isGrounded,
+  isPinWired,
   isPowered,
   netFor,
   reachableNets,
@@ -110,6 +111,14 @@ const MAX_OPS_PER_LOOP = 200_000;
 const MAX_CALL_DEPTH = 32;
 /** Serial monitorda saqlanadigan maksimal log soni. */
 const MAX_LOGS = 500;
+/**
+ * VO (kontrast) oyog'i ulanmaganda ishlatiladigan kontrast.
+ *
+ * To'liq 1 emas: haqiqiy modulda murvat odatda o'rtacha holatda turadi.
+ * Nolga yaqin ham emas — VO haqida hali bilmagan bola yig'gan sxemada
+ * matn baribir o'qilishi kerak.
+ */
+const LCD_DEFAULT_CONTRAST = 0.85;
 /** Massivning maksimal uzunligi — `int buf[999999]` xotirani yeb qo'ymasin. */
 const MAX_ARRAY_LENGTH = 4096;
 
@@ -296,6 +305,15 @@ export class Simulator {
   /** LCD ekranidagi matn: o'zgaruvchi nomi → qatorlar (probellar saqlanadi). */
   private lcdText = new Map<string, string[]>();
   private lcdCursor = new Map<string, { col: number; row: number }>();
+  /**
+   * Ekranning KO'RINISH holati: `display()`/`noDisplay()`,
+   * `cursor()`/`noCursor()`, `blink()`/`noBlink()`.
+   *
+   * Matndan ALOHIDA saqlanadi, chunki `noDisplay()` yozilgan matnni
+   * o'chirmaydi — faqat berkitadi, `display()` esa o'shani qaytaradi.
+   * Haqiqiy HD44780 ham shunday ishlaydi.
+   */
+  private lcdView = new Map<string, { on: boolean; cursor: boolean; blink: boolean }>();
   /** DHT obyektlari: o'zgaruvchi nomi → DATA pini. */
   private dhtPins = new Map<string, number>();
   /** Bir marta aytilgan ogohlantirishlar — jurnal takrordan to'lib ketmasin. */
@@ -1067,17 +1085,33 @@ export class Simulator {
     const numbers = args.map((a) => Math.trunc(this.toNumber(this.evaluate(a))));
 
     if (type === "LiquidCrystal") {
-      // 4-bit ulanish: (RS, E, D4, D5, D6, D7). 8-bit varianti ham keladi,
-      // lekin bizga faqat RS va E kerak — qolganini e'tiborsiz qoldiramiz.
-      if (numbers.length < 6) {
+      /*
+       * 4-bitli ulanish: (RS, E, D4, D5, D6, D7) — darsliklardagi variant.
+       * 8-bitli e'londa (RS, RW, E, D0…D7) o'n bitta raqam keladi; unda RW
+       * o'rtada turadi, shuning uchun boshqaruv pinlari boshqa joydan
+       * olinadi. `lcdPins` DOIM bir xil shaklda saqlanadi: [RS, E, D4…D7]
+       * — sxema bilan solishtirish shu ro'yxat orqali ketadi.
+       */
+      if (numbers.length !== 6 && numbers.length !== 7 && numbers.length !== 11) {
         throw new RuntimeError(
           "LiquidCrystal uchun 6 ta pin kerak: LiquidCrystal lcd(RS, E, D4, D5, D6, D7);",
         );
       }
       for (const pin of numbers) this.assertPin(pin, "LiquidCrystal");
-      this.lcdPins.set(name, numbers);
+
+      // 7 va 11 raqamli variantlarda ikkinchi o'rinda RW turadi.
+      const withRw = numbers.length === 7 || numbers.length === 11;
+      const rs = numbers[0]!;
+      const e = numbers[withRw ? 2 : 1]!;
+      const data = numbers.slice(withRw ? 3 : 2);
+      // 8-bitli ulanishda ma'lumot D0 dan boshlanadi; yuqori to'rttasi
+      // (D4–D7) HAR IKKALA rejimda ham ekranga yozadi.
+      const high = data.length >= 8 ? data.slice(4, 8) : data.slice(0, 4);
+
+      this.lcdPins.set(name, [rs, e, ...high]);
       this.lcdText.set(name, this.lcdBlank());
       this.lcdCursor.set(name, { col: 0, row: 0 });
+      this.lcdView.set(name, { on: true, cursor: false, blink: false });
       return;
     }
 
@@ -1114,16 +1148,151 @@ export class Simulator {
     this.lcdCursor.set(instance, { col: cursor.col + written.length, row: cursor.row });
   }
 
+  /** Ekranning ko'rinish holati — e'lon qilinmagan bo'lsa, yoqilgan deb hisoblanadi. */
+  private lcdViewOf(instance: string): { on: boolean; cursor: boolean; blink: boolean } {
+    return this.lcdView.get(instance) ?? { on: true, cursor: false, blink: false };
+  }
+
+  /* ─────────────── LCD: sxema bilan bog'lash ─────────────── */
+
+  /** Boshqaruv pinlari e'londagi tartibda — [RS, E, D4…D7]. */
+  private static readonly LCD_CONTROL_PINS = ["rs", "e", "d4", "d5", "d6", "d7"] as const;
+
   /**
-   * `lcd.*` chaqiruvi. Qo'llab-quvvatlanmagan bezak metodlari (kursor
-   * miltillashi, siljitish) jim o'tkazib yuboriladi — ular ekrandagi
+   * Sxemadagi displey qaysi Arduino pinlariga ulangan.
+   *
+   * Har element — plata pini raqami yoki `null` (sim yo'q).
+   */
+  private lcdWiring(nodeId: string): (number | null)[] {
+    return Simulator.LCD_CONTROL_PINS.map((pinId) => boardPinFor(this.netlist, nodeId, pinId));
+  }
+
+  /**
+   * Kodda e'lon qilingan qaysi `LiquidCrystal` obyekti SHU ekranga ulangan
+   * (§46).
+   *
+   * Ilgari faqat RS pini solishtirilardi. Bu yetarli emas edi: E yoki
+   * D4–D7 simi boshqa pinga tushib qolsa ham matn ekranda ko'rinaverardi
+   * va bola xatosini SEZMASDAN darsni davom ettirardi. Haqiqiy modulda
+   * bunday ulanishda ekran jim qoladi. Endi OLTALA pin ham mos kelishi
+   * shart — ya'ni `LiquidCrystal lcd(12, 11, 5, 4, 3, 2)` yozilgan bo'lsa,
+   * simlar ham aynan o'sha pinlarga borishi kerak.
+   */
+  private lcdInstanceFor(nodeId: string): string | null {
+    const wiring = this.lcdWiring(nodeId);
+    if (wiring.some((pin) => pin === null)) return null;
+
+    for (const [instance, declared] of this.lcdPins) {
+      if (wiring.every((pin, i) => declared[i] === pin)) return instance;
+    }
+    return null;
+  }
+
+  /**
+   * Orqa yoritish (A/K oyoqlari).
+   *
+   * A yoki K ga sim tortilgan bo'lsa — HAQIQIY ulanish hal qiladi: anod
+   * 5V da, katod yerda bo'lsagina yoritish yonadi. Ikkalasi ham bo'sh
+   * bo'lsa, eski sxemalar uchun inspektordagi katakcha ishlaydi: ilgari
+   * bu oyoqlar umuman yo'q edi va ularsiz yig'ilgan darslar qorong'i
+   * ekran bilan qolib ketardi (§29).
+   */
+  private lcdBacklight(node: CircuitNode): boolean {
+    const wired = isPinWired(this.netlist, node.id, "a") || isPinWired(this.netlist, node.id, "k");
+    if (!wired) return node.settings.backlight !== false;
+    return isPowered(this.netlist, node.id, "a") && isGrounded(this.netlist, node.id, "k");
+  }
+
+  /**
+   * Kontrast (0 — belgilar ko'rinmaydi, 1 — to'q va aniq).
+   *
+   * VO oyog'idagi kuchlanishdan olinadi: haqiqiy modulda u yerga yaqin
+   * bo'lganda belgilar to'q, 5V ga yaqinlashganda esa ekran bo'shdek
+   * ko'rinadi. Aynan shu sababli darsliklarda VO ga potensiometr ulanadi —
+   * endi laboratoriyada ham murvatni burash matnni xiralashtiradi.
+   *
+   * Sim yo'q bo'lsa o'qilarli qiymat qaytadi: bola VO haqida bilmasdan
+   * yig'gan sxema ham ishlashi kerak.
+   */
+  private lcdContrast(nodeId: string): number {
+    if (!isPinWired(this.netlist, nodeId, "vo")) return LCD_DEFAULT_CONTRAST;
+    const volts = this.voltageOfNet(netFor(this.netlist, nodeId, "vo"));
+    if (volts === null) return LCD_DEFAULT_CONTRAST;
+    return Math.max(0, Math.min(1, 1 - volts / 5));
+  }
+
+  /** Displeyning ko'rinadigan holati: matn, quvvat, yoritish, kontrast. */
+  private lcdRuntime(node: CircuitNode): ComponentRuntimeState {
+    const powered =
+      isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd");
+    const instance = powered ? this.lcdInstanceFor(node.id) : null;
+    const view = instance === null ? null : this.lcdViewOf(instance);
+    const cursor = instance === null ? undefined : this.lcdCursor.get(instance);
+
+    /*
+     * Sxema to'liq ulangan, lekin kodda mos e'lon yo'q — eng chalkash
+     * holat: ekran qorong'i, sabab esa ko'rinmaydi. Shuning uchun jurnalga
+     * SXEMADAGI ulanish yozib qo'yiladi va bola kodidagi raqamlar bilan
+     * solishtira oladi.
+     */
+    if (powered && instance === null && this.lcdPins.size > 0) {
+      const wiring = this.lcdWiring(node.id);
+      if (wiring.every((pin) => pin !== null)) {
+        this.warnOnce(
+          `lcd-mismatch:${node.id}`,
+          `LCD: koddagi LiquidCrystal(...) pinlari sxemaga mos emas. Sxemada: ${Simulator.LCD_CONTROL_PINS.map(
+            (id, i) => `${id.toUpperCase()}→${wiring[i]}`,
+          ).join(", ")}.`,
+        );
+      }
+    }
+
+    return {
+      // `noDisplay()` matnni berkitadi, lekin o'chirmaydi.
+      lines: instance !== null && view?.on !== false ? (this.lcdText.get(instance) ?? []) : [],
+      powered,
+      backlight: this.lcdBacklight(node),
+      contrast: this.lcdContrast(node.id),
+      cursorVisible: view?.cursor === true,
+      cursorBlink: view?.blink === true,
+      cursorCol: cursor?.col,
+      cursorRow: cursor?.row,
+    };
+  }
+
+  /**
+   * `lcd.*` chaqiruvi. Qo'llab-quvvatlanmagan bezak metodlari (matnni
+   * siljitish, avtoskroll) jim o'tkazib yuboriladi — ular ekrandagi
    * matnga ta'sir qilmaydi, lekin kod ularsiz ham ishlashi kerak.
    */
   private callLcd(instance: string, method: string, args: (number | string)[]): number | string {
     switch (method) {
+      /*
+       * Ko'rinish buyruqlari matnga TEGMAYDI.
+       *
+       * `noDisplay()` dan keyin `display()` chaqirilsa, ekranda o'sha-o'sha
+       * matn qaytadi — HD44780 kontrollerida ham yozuv xotirada qoladi.
+       */
+      case "display":
+      case "noDisplay":
+      case "cursor":
+      case "noCursor":
+      case "blink":
+      case "noBlink": {
+        const view = this.lcdViewOf(instance);
+        this.lcdView.set(instance, {
+          on: method === "display" ? true : method === "noDisplay" ? false : view.on,
+          cursor: method === "cursor" ? true : method === "noCursor" ? false : view.cursor,
+          blink: method === "blink" ? true : method === "noBlink" ? false : view.blink,
+        });
+        return 0;
+      }
       case "begin":
         this.lcdText.set(instance, this.lcdBlank());
         this.lcdCursor.set(instance, { col: 0, row: 0 });
+        // `begin()` kontrollerni boshlang'ich holatga qaytaradi: ekran
+        // yoqiladi, kursor esa ko'rinmaydi.
+        this.lcdView.set(instance, { on: true, cursor: false, blink: false });
         return 0;
       case "clear":
         this.lcdText.set(instance, this.lcdBlank());
@@ -1853,24 +2022,8 @@ export class Simulator {
         continue;
       }
 
-      /*
-       * LCD: kodda qaysi obyekt shu ekranga ulanganini RS pini bo'yicha
-       * topamiz. Ikkita LCD bo'lsa ham ular boshqa-boshqa RS pinlarida
-       * bo'ladi, shuning uchun bu belgi yetarli.
-       */
       if (node.type === "lcd1602") {
-        const rs = boardPinFor(this.netlist, node.id, "rs");
-        const powered =
-          isPowered(this.netlist, node.id, "vcc") && isGrounded(this.netlist, node.id, "gnd");
-        let lines: string[] | undefined;
-        if (powered && rs !== null) {
-          for (const [instance, pinList] of this.lcdPins) {
-            if (pinList[0] !== rs) continue;
-            lines = this.lcdText.get(instance);
-            break;
-          }
-        }
-        out[node.id] = { lines: lines ?? [], powered };
+        out[node.id] = this.lcdRuntime(node);
         continue;
       }
 
@@ -2284,6 +2437,7 @@ export class Simulator {
     this.lcdPins.clear();
     this.lcdText.clear();
     this.lcdCursor.clear();
+    this.lcdView.clear();
     this.dhtPins.clear();
     this.warned.clear();
     this.relayState.clear();

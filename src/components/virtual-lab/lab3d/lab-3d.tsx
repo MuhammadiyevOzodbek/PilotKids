@@ -27,6 +27,7 @@ import {
 import { useLab3DStore } from "@/stores/lab3d";
 import { CodeEditor } from "../code-editor";
 import { SerialMonitor } from "../serial-monitor";
+import { useFullscreen } from "../use-fullscreen";
 import { ComponentPalette3D, Inspector3D, StatusBar, Toolbar } from "./panels";
 import { useLab3DSimulation } from "./use-lab3d-simulation";
 import "./lab-3d.css";
@@ -80,6 +81,14 @@ export function Lab3D() {
 
   const simulation = useLab3DSimulation(showToast);
 
+  /*
+   * To'liq ekran butun `.lab3d` qutisiga beriladi, faqat sahnaga emas:
+   * aks holda asboblar paneli, palitra va kod muharriri ekran ortida
+   * qolib, laboratoriya boshqarib bo'lmaydigan holga kelardi.
+   */
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(rootRef, showToast);
+
   const circuit = useCircuitStore((s) => s.circuit);
   const addNode = useCircuitStore((s) => s.addNode);
   const removeSelected = useCircuitStore((s) => s.removeSelected);
@@ -115,16 +124,25 @@ export function Lab3D() {
    * bosilmaguncha hech narsa aytilmasdi.
    */
   const problems = useMemo(() => {
-    const list: { severity: "error" | "warning"; message: string }[] = [];
+    /*
+     * Har bir yozuvda NOYOB `id` bor: xabarning o'zi kalit bo'la olmaydi,
+     * chunki ikkita bir xil komponent («LED hech narsaga ulanmagan»)
+     * so'zma-so'z bir xil matn beradi.
+     */
+    const list: { id: string; severity: "error" | "warning"; message: string }[] = [];
     for (const issue of validateCircuit(circuit)) {
       if (issue.severity === "error" || issue.severity === "warning") {
-        list.push({ severity: issue.severity, message: issue.message });
+        list.push({ id: issue.id, severity: issue.severity, message: issue.message });
       }
     }
-    for (const error of codeErrors) {
-      list.push({ severity: "error", message: `${error.line}-qator: ${error.message}` });
-    }
-    for (const message of simErrors) list.push({ severity: "error", message });
+    codeErrors.forEach((error, i) => {
+      list.push({
+        id: `code-${i}`,
+        severity: "error",
+        message: `${error.line}-qator: ${error.message}`,
+      });
+    });
+    simErrors.forEach((message, i) => list.push({ id: `sim-${i}`, severity: "error", message }));
 
     // Xatolar oldinda — ular ishga tushirishga to'sqinlik qiladi.
     return list.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1));
@@ -294,13 +312,14 @@ export function Lab3D() {
         handleSave();
         return;
       }
-      // Bo'shliq — ishga tushirish/pauza (2D dagi bilan bir xil).
-      if (event.key === " ") {
-        event.preventDefault();
-        if (useSimulationStore.getState().status === "running") simulation.pause();
-        else simulation.start();
-        return;
-      }
+      /*
+       * Bo'shliq bu yerda YO'Q.
+       *
+       * 3D da u kamerani ko'taradi (`MOVE_KEYS`), shuning uchun bir vaqtda
+       * simulyatsiyani ham boshlab yuborishi mumkin emas edi: stol bo'ylab
+       * uchayotgan bola har safar kodni qayta ishga tushirardi. 2D
+       * laboratoriyada bo'shliq o'z vazifasida qoladi.
+       */
       if (mod && key === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
@@ -317,7 +336,35 @@ export function Lab3D() {
       if (mod && key === "v") return void pasteClipboard();
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
+        /*
+         * Tanlangan SIM ham o'chadi.
+         *
+         * Ilgari faqat komponentlar o'chardi: simni bosgan bola Delete
+         * bosardi, hech nima bo'lmasdi va uni olib tashlash uchun
+         * inspektordagi tugmani izlashga to'g'ri kelardi. Sim va
+         * komponent bir vaqtda tanlangan bo'lmaydi (ikkalasi
+         * bir-birining tanlovini bo'shatadi), shuning uchun tartib
+         * muhim emas.
+         */
+        const wireId = useLab3DStore.getState().selectedWireId;
+        if (wireId) {
+          useCircuitStore.getState().removeWire(wireId);
+          selectWire(null);
+          return;
+        }
         removeSelected();
+        return;
+      }
+      /*
+       * `F` — to'liq ekran (2D laboratoriyadagi bilan bir xil).
+       *
+       * Ataylab modifikatorsiz: `Ctrl+F` brauzerning o'z qidiruvi va uni
+       * tortib olish noto'g'ri bo'lardi. `F` yurish tugmalari orasida
+       * emas, shuning uchun kamera bilan to'qnashmaydi.
+       */
+      if (!mod && key === "f") {
+        event.preventDefault();
+        toggleFullscreen();
         return;
       }
       if (event.key === "Escape") {
@@ -338,12 +385,12 @@ export function Lab3D() {
     removeSelected,
     selectWire,
     setSelection,
-    simulation,
+    toggleFullscreen,
     undo,
   ]);
 
   return (
-    <div className="lab3d">
+    <div className="lab3d" ref={rootRef}>
       <Toolbar
         onStart={simulation.start}
         onPause={simulation.pause}
@@ -355,6 +402,8 @@ export function Lab3D() {
         onTogglePalette={() => setPaletteOpen((open) => !open)}
         serialVisible={serialVisible}
         onToggleSerial={() => setSerialVisible((visible) => !visible)}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
       />
 
       <div className="lab3d-body">
@@ -391,33 +440,16 @@ export function Lab3D() {
               </div>
             )}
 
-            {/*
-            Yurish tugmalari (§4).
-
-            Doim ko'rinib turadi, lekin xira: klaviatura bilan boshqarish
-            faqat kimdir uni bilsa ishlaydi, sichqoncha bilan aylantirayotgan
-            bolaga esa xalaqit bermasligi kerak.
-          */}
-            <div className="lab3d-keyhint" aria-hidden="true">
-              <span>
-                <kbd>W</kbd>
-                <kbd>A</kbd>
-                <kbd>S</kbd>
-                <kbd>D</kbd> yurish
-              </span>
-              <span>
-                <kbd>Q</kbd>
-                <kbd>E</kbd> balandlik
-              </span>
-              <span>
-                <kbd>Shift</kbd> tez
-              </span>
-            </div>
-
             {problems.length > 0 && (
               <ul className="lab3d-errors" role="alert">
+                {/*
+                  Kalit — muammoning ID'si, MATNI emas: bir xil xabar bir
+                  necha komponentga tegishli bo'lishi mumkin («LED hech
+                  narsaga ulanmagan» ikkita LED uchun) va React takroriy
+                  kalitdan shikoyat qilardi.
+                */}
                 {problems.slice(0, 4).map((problem) => (
-                  <li key={problem.message} data-kind={problem.severity}>
+                  <li key={problem.id} data-kind={problem.severity}>
                     <Icon name={problem.severity === "error" ? "error" : "warning"} size={15} />
                     {problem.message}
                   </li>

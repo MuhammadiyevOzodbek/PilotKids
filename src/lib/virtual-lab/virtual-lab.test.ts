@@ -3569,6 +3569,239 @@ void loop() {}
     const issues = validateCircuit(partial);
     expect(issues.some((i) => i.message.includes("D7"))).toBe(true);
   });
+
+  /* ───────── Haqiqiy moduldagi o'n olti oyoq ───────── */
+
+  it("katalogda haqiqiy moduldagi 16 oyoq bor", () => {
+    const ids = getDefinition("lcd1602")!.pins.map((p) => p.id);
+    // VSS va VDD ning ID'lari eski sxemalar uchun `gnd`/`vcc` bo'lib qoladi.
+    expect(ids).toEqual([
+      "gnd",
+      "vcc",
+      "vo",
+      "rs",
+      "rw",
+      "e",
+      "d0",
+      "d1",
+      "d2",
+      "d3",
+      "d4",
+      "d5",
+      "d6",
+      "d7",
+      "a",
+      "k",
+    ]);
+    expect(getDefinition("lcd1602")!.pins.every((p) => p.connectable)).toBe(true);
+  });
+
+  it("yangi oyoqlarga tortilgan sim saqlashdan keyin ham qoladi", () => {
+    const withExtras = circuit();
+    withExtras.wires.push(
+      {
+        id: "w-rw",
+        from: { nodeId: "lcd", pinId: "rw" },
+        to: { nodeId: "uno", pinId: "GND2" },
+        color: "black",
+      },
+      {
+        id: "w-a",
+        from: { nodeId: "lcd", pinId: "a" },
+        to: { nodeId: "uno", pinId: "5V" },
+        color: "red",
+      },
+      {
+        id: "w-k",
+        from: { nodeId: "lcd", pinId: "k" },
+        to: { nodeId: "uno", pinId: "GND1" },
+        color: "black",
+      },
+    );
+    const restored = sanitizeCircuit(JSON.parse(JSON.stringify(withExtras)));
+    for (const id of ["w-rw", "w-a", "w-k"]) {
+      expect(restored.wires.some((w) => w.id === id)).toBe(true);
+    }
+  });
+
+  /* ───────── Kod va sxema mosligi ───────── */
+
+  it("koddagi pinlar sxemaga mos kelmasa ekran jim qoladi", () => {
+    // E simi D11 o'rniga D10 ga ketgan — haqiqiy modul ham ishlamaydi.
+    const wrong = circuit();
+    wrong.wires = wrong.wires.map((w) =>
+      w.id === "w-e" ? { ...w, to: { nodeId: "uno", pinId: "D10" } } : w,
+    );
+    const sim = runSketch(wrong, CODE);
+    expect(sim.getRuntimeState().lcd?.lines ?? []).toEqual([]);
+    expect(sim.getLogs().some((l) => l.level === "warning" && l.text.includes("mos emas"))).toBe(
+      true,
+    );
+  });
+
+  it("quvvat simi uzilsa ekran o'chadi", () => {
+    const unpowered = circuit();
+    unpowered.wires = unpowered.wires.filter((w) => w.id !== "lcd-v");
+    const state = runSketch(unpowered, CODE).getRuntimeState().lcd;
+    expect(state?.powered).toBe(false);
+    expect(state?.lines).toEqual([]);
+  });
+
+  /* ───────── Orqa yoritish A/K orqali ───────── */
+
+  it("A/K ulanmaganda yoritish sozlamadan olinadi", () => {
+    const dark = circuit();
+    dark.nodes = dark.nodes.map((n) =>
+      n.id === "lcd" ? { ...n, settings: { backlight: false } } : n,
+    );
+    expect(runSketch(dark, CODE).getRuntimeState().lcd?.backlight).toBe(false);
+  });
+
+  it("A 5V ga, K GND ga ulansa yoritish sozlamadan qat'i nazar yonadi", () => {
+    const lit = circuit();
+    lit.nodes = lit.nodes.map((n) =>
+      n.id === "lcd" ? { ...n, settings: { backlight: false } } : n,
+    );
+    lit.wires.push(
+      {
+        id: "w-a",
+        from: { nodeId: "lcd", pinId: "a" },
+        to: { nodeId: "uno", pinId: "5V" },
+        color: "red",
+      },
+      {
+        id: "w-k",
+        from: { nodeId: "lcd", pinId: "k" },
+        to: { nodeId: "uno", pinId: "GND1" },
+        color: "black",
+      },
+    );
+    expect(runSketch(lit, CODE).getRuntimeState().lcd?.backlight).toBe(true);
+  });
+
+  it("K ulanmagan bo'lsa yoritish yonmaydi", () => {
+    const half = circuit();
+    half.wires.push({
+      id: "w-a",
+      from: { nodeId: "lcd", pinId: "a" },
+      to: { nodeId: "uno", pinId: "5V" },
+      color: "red",
+    });
+    expect(runSketch(half, CODE).getRuntimeState().lcd?.backlight).toBe(false);
+  });
+
+  /* ───────── Kontrast (VO) ───────── */
+
+  it("VO to'g'ridan-to'g'ri GND da bo'lsa kontrast eng yuqori", () => {
+    const grounded = circuit();
+    grounded.wires.push({
+      id: "w-vo",
+      from: { nodeId: "lcd", pinId: "vo" },
+      to: { nodeId: "uno", pinId: "GND2" },
+      color: "black",
+    });
+    expect(runSketch(grounded, CODE).getRuntimeState().lcd?.contrast).toBeCloseTo(1, 2);
+  });
+
+  it("VO 5V ga ulansa kontrast nolga tushadi — matn ko'rinmaydi", () => {
+    const washed = circuit();
+    washed.wires.push({
+      id: "w-vo",
+      from: { nodeId: "lcd", pinId: "vo" },
+      to: { nodeId: "uno", pinId: "5V" },
+      color: "red",
+    });
+    expect(runSketch(washed, CODE).getRuntimeState().lcd?.contrast).toBeCloseTo(0, 2);
+  });
+
+  it("VO ga ulangan potensiometr kontrastni boshqaradi", () => {
+    /** VO → potensiometr o'rta oyog'i; potensiometr 5V va GND orasida. */
+    const withPot = (value: number): Circuit => {
+      const base = circuit();
+      base.nodes.push({
+        id: "pot",
+        type: "potentiometer",
+        x: 200,
+        y: 200,
+        rotation: 0,
+        settings: { value },
+      });
+      base.wires.push(
+        {
+          id: "p-v",
+          from: { nodeId: "pot", pinId: "vcc" },
+          to: { nodeId: "uno", pinId: "5V" },
+          color: "red",
+        },
+        {
+          id: "p-g",
+          from: { nodeId: "pot", pinId: "gnd" },
+          to: { nodeId: "uno", pinId: "GND2" },
+          color: "black",
+        },
+        {
+          id: "p-w",
+          from: { nodeId: "pot", pinId: "wiper" },
+          to: { nodeId: "lcd", pinId: "vo" },
+          color: "blue",
+        },
+      );
+      return base;
+    };
+
+    const low = runSketch(withPot(20), CODE).getRuntimeState().lcd?.contrast ?? 0;
+    const high = runSketch(withPot(1000), CODE).getRuntimeState().lcd?.contrast ?? 0;
+    // Murvat yerga yaqin uchda — belgilar to'q; 5V uchida — ekran bo'shdek.
+    expect(low).toBeGreaterThan(0.8);
+    expect(high).toBeLessThan(0.2);
+  });
+
+  it("VO ulanmagan bo'lsa matn baribir o'qiladi", () => {
+    const contrast = runSketch(circuit(), CODE).getRuntimeState().lcd?.contrast ?? 0;
+    expect(contrast).toBeGreaterThan(0.5);
+  });
+
+  /* ───────── Ko'rinish buyruqlari ───────── */
+
+  it("noDisplay() matnni berkitadi, display() qaytaradi", () => {
+    const hidden = CODE.replace("void loop() {}", "void loop() { lcd.noDisplay(); }");
+    expect(runSketch(circuit(), hidden).getRuntimeState().lcd?.lines).toEqual([]);
+
+    const shown = CODE.replace("void loop() {}", "void loop() { lcd.noDisplay(); lcd.display(); }");
+    expect(runSketch(circuit(), shown).getRuntimeState().lcd?.lines?.[0]?.trimEnd()).toBe("Salom");
+  });
+
+  it("cursor() va blink() holati ko'rinadi", () => {
+    const code = CODE.replace("void loop() {}", "void loop() { lcd.cursor(); lcd.blink(); }");
+    const state = runSketch(circuit(), code).getRuntimeState().lcd;
+    expect(state?.cursorVisible).toBe(true);
+    expect(state?.cursorBlink).toBe(true);
+  });
+
+  it("home() kursorni boshiga qaytaradi", () => {
+    const code = CODE.replace("void loop() {}", 'void loop() { lcd.home(); lcd.print("X"); }');
+    const lines = runSketch(circuit(), code).getRuntimeState().lcd?.lines ?? [];
+    expect(lines[0]?.startsWith("X")).toBe(true);
+  });
+
+  /* ───────── Ulanish tekshiruvi ───────── */
+
+  it("RW va VO ulanmagani uchun ogohlantiradi", () => {
+    const issues = validateCircuit(circuit());
+    expect(issues.some((i) => i.message.includes("RW"))).toBe(true);
+    expect(issues.some((i) => i.message.includes("VO"))).toBe(true);
+  });
+
+  it("RW GND ga ulansa ogohlantirish yo'qoladi", () => {
+    const fixed = circuit();
+    fixed.wires.push({
+      id: "w-rw",
+      from: { nodeId: "lcd", pinId: "rw" },
+      to: { nodeId: "uno", pinId: "GND2" },
+      color: "black",
+    });
+    expect(validateCircuit(fixed).some((i) => i.message.includes("RW"))).toBe(false);
+  });
 });
 
 describe("rele", () => {

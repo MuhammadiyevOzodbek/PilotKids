@@ -5,9 +5,17 @@
  * ta'riflanadi va shu yerga ro'yxatdan o'tadi. Yangi blok qo'shish =
  * `defs/` ga bitta obyekt qo'shish; boshqa hech qayerga tegilmaydi.
  *
- * Registr modul darajasida bir marta to'ldiriladi. Takroriy `type` —
- * dasturchi xatosi: jim yozib ketish o'rniga darhol xato beriladi, aks
- * holda ikki xil blok bir xil ID bilan saqlanib, loyihalar buzilardi.
+ * Registr modul darajasida bir marta to'ldiriladi. BITTA to'ldirish
+ * ichida takroriy `type` — dasturchi xatosi: jim yozib ketish o'rniga
+ * darhol xato beriladi, aks holda ikki xil blok bir xil ID bilan
+ * saqlanib, loyihalar buzilardi.
+ *
+ * Butun ro'yxatni QAYTA to'ldirish esa xato emas: `index.ts` har safar
+ * `resetRegistry()` dan boshlaydi. Bu ataylab — dasturlash muhitida
+ * (HMR) yoki modul grafi ikki nusxaga bo'linganda `blocks/index.ts`
+ * qayta baholanishi mumkin, registr moduli esa eskisicha qolib ketadi.
+ * Ilgari bunday holatda butun laboratoriya «Blok turi takrorlandi»
+ * xatosi bilan yiqilardi.
  */
 
 import type { BlockCategoryId, BlockDefinition, BlockLevel } from "./types";
@@ -45,8 +53,14 @@ export function blocksInCategory(category: BlockCategoryId, level?: BlockLevel):
   );
 }
 
-/** Faqat testlar uchun: registrni bo'shatadi. */
-export function resetRegistryForTests(): void {
+/**
+ * Registrni bo'shatadi — ro'yxatga olish har safar toza holatdan boshlanadi.
+ *
+ * Buni `registerAll()` chaqiradi. Modul qayta baholanganda eski yozuvlar
+ * qolib ketmasligi kerak: aks holda o'chirilgan blok registrda «tirik»
+ * bo'lib qolardi yoki takroriy tur xatosi chiqardi.
+ */
+export function resetRegistry(): void {
   REGISTRY.clear();
   ORDER.length = 0;
 }
