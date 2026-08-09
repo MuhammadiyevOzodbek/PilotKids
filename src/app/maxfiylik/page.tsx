@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "Maxfiylik siyosati",
   description:
     "PilotKids qanday ma'lumot yig'adi, ularni qanday saqlaydi va bolalar maxfiyligini qanday himoya qiladi.",
+  alternates: { canonical: "/maxfiylik" },
+  openGraph: { url: "/maxfiylik" },
 };
 
 const h2Style: React.CSSProperties = {

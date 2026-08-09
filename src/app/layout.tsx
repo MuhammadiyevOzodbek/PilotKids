@@ -5,7 +5,7 @@ import { sora, jakarta } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
 import { ThemeProvider } from "@/components/theme-provider";
 import { InlineScript } from "@/components/inline-script";
-import { siteUrl, siteName, siteTitle, siteDescription } from "@/lib/site";
+import { siteUrl, siteName, siteTitle, siteDescription, siteKeywords } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,14 +17,21 @@ export const metadata: Metadata = {
     template: `%s · ${siteName}`,
   },
   description: siteDescription,
-  keywords: ["robototexnika", "bolalar", "STEM", "Arduino", "kod", "PilotKids"],
+  keywords: siteKeywords,
   applicationName: siteName,
-  alternates: { canonical: "/" },
+  /*
+   * `alternates.canonical` bu yerda ATAYLAB yo'q.
+   *
+   * Metadata maydonlari pastga meros bo'lib o'tadi: ildizda `canonical: "/"`
+   * tursa, o'z qiymatini bermagan HAR BIR sahifa (masalan `/maxfiylik`) ham
+   * bosh sahifani canonical deb ko'rsatib qolardi — bu Google uchun "bu
+   * sahifani indekslama" degani. Shu bois canonical har bir ochiq sahifada
+   * alohida beriladi.
+   */
   openGraph: {
     type: "website",
     siteName,
     locale: "uz_UZ",
-    url: "/",
     title: siteTitle,
     description: siteDescription,
   },

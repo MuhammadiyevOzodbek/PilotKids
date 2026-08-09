@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Icon } from "@/components/icon";
@@ -15,10 +16,61 @@ import {
   categories as categoriesFallback,
 } from "@/lib/data";
 import { getFeaturedCourses, getCategories } from "@/lib/queries";
-import { contactEmail } from "@/lib/site";
+import { contactEmail, siteUrl, siteName, siteTitle, siteDescription } from "@/lib/site";
+import { JsonLd } from "@/components/json-ld";
 
 // Build vaqtida DB'ga so'rov yubormaslik uchun sahifa so'rov paytida render qilinadi.
 export const dynamic = "force-dynamic";
+
+/**
+ * Bosh sahifa metadata'si.
+ *
+ * Sarlavha `layout.tsx` dagi `%s · PilotKids` shablonidan chetda turishi
+ * kerak (aks holda "PilotKids … · PilotKids" bo'lardi), shu bois `absolute`.
+ */
+export const metadata: Metadata = {
+  title: { absolute: siteTitle },
+  description: siteDescription,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName,
+    locale: "uz_UZ",
+    url: "/",
+    title: siteTitle,
+    description: siteDescription,
+  },
+  twitter: { card: "summary_large_image", title: siteTitle, description: siteDescription },
+};
+
+/**
+ * Google uchun tuzilgan ma'lumot (schema.org).
+ *
+ * ATAYLAB minimal: manzil, telefon, ijtimoiy tarmoq, reyting yoki asoschi
+ * kabi maydonlar loyihada tasdiqlangan manba bo'lmagani uchun yozilmagan —
+ * to'qilgan qiymat Search Console'da "structured data" xatosi beradi.
+ *
+ * `SearchAction` ham yo'q: saytda ochiq qidiruv manzili yo'q, global qidiruv
+ * faqat ilova ichida (sessiya ortida) ishlaydi.
+ */
+const organizationLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: siteName,
+  url: `${siteUrl}/`,
+  logo: `${siteUrl}/icon.svg`,
+  description: siteDescription,
+  email: contactEmail,
+};
+
+const websiteLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: siteName,
+  url: `${siteUrl}/`,
+  inLanguage: "uz-UZ",
+  description: siteDescription,
+};
 
 /** Footer ustunlaridagi matnli link → haqiqiy manzil.
  *  Xaritada bo'lmagan yozuv umuman ko'rsatilmaydi (bosiladigan, lekin
@@ -87,6 +139,8 @@ export default async function Home() {
   }
   return (
     <>
+      <JsonLd data={organizationLd} />
+      <JsonLd data={websiteLd} />
       <main id="content" style={{ minHeight: "100svh" }}>
         {/* HERO (navy, always dark) */}
         <section
@@ -270,6 +324,23 @@ export default async function Home() {
                   textWrap: "balance",
                 }}
               >
+                {/* Sahifadagi YAGONA h1. Birinchi qator — sayt nima haqidaligini
+                    aniq aytadi (qidiruv uchun), ikkinchisi esa asl shior.
+                    Ikkalasi bitta sarlavha ichida, chunki h1 bittadan ortiq
+                    bo'lmasligi kerak. */}
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "clamp(17px,2.9vw,24px)",
+                    fontWeight: 700,
+                    letterSpacing: "-.01em",
+                    lineHeight: 1.25,
+                    color: "#8fb2ff",
+                    marginBottom: 10,
+                  }}
+                >
+                  PilotKids — bolalar uchun robototexnika va dasturlash platformasi
+                </span>
                 Kelajak muhandislari shu yerdan boshlaydi
               </h1>
               <p
@@ -281,8 +352,9 @@ export default async function Home() {
                   margin: "22px 0 34px",
                 }}
               >
-                7–18 yoshli bolalar uchun robototexnika, kod va STEM — o&apos;ynab, qurib va sinab
-                o&apos;rganish platformasi.
+                7–18 yoshli bolalar uchun robototexnika, Arduino, elektronika va dasturlash.
+                Interaktiv darslar va virtual laboratoriyada o&apos;ynab, qurib va sinab
+                o&apos;rganiladi.
               </p>
               <div className="hero-cta" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link

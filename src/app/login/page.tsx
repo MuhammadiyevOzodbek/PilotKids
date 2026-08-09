@@ -9,6 +9,11 @@ import { LoginHeader } from "./login-header";
 export const metadata: Metadata = {
   title: "Kirish",
   description: "PilotKids hisobingizga kiring — telefon, parol, Google yoki Telegram orqali.",
+  alternates: { canonical: "/login" },
+  // Kirish formasi qidiruv natijasi sifatida foydasiz — indeksdan chiqarilgan,
+  // ammo `follow` ochiq: bu yerdagi havolalar (bosh sahifa, shartlar) baribir
+  // sudralsin.
+  robots: { index: false, follow: true },
 };
 
 export default function LoginPage() {

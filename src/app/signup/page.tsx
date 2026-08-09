@@ -6,7 +6,12 @@ import { SignupClient } from "./signup-client";
 
 export const metadata: Metadata = {
   title: "Ro'yxatdan o'tish",
-  description: "PilotKids'da bepul hisob yarating — robototexnika, kod va STEM darslari.",
+  description:
+    "PilotKids'da bepul hisob yarating — robototexnika, Arduino, elektronika va dasturlash darslari.",
+  alternates: { canonical: "/signup" },
+  // Forma sahifasi indeksga kirmaydi (sitemap'da ham yo'q), lekin havolalari
+  // sudralaveradi.
+  robots: { index: false, follow: true },
 };
 
 const PERKS = [

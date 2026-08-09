@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "Foydalanish shartlari",
   description:
     "PilotKids platformasidan foydalanish qoidalari: akkaunt, ota-ona mas'uliyati, AI tutor va xatti-harakat qoidalari.",
+  alternates: { canonical: "/shartlar" },
+  openGraph: { url: "/shartlar" },
 };
 
 const h2Style: React.CSSProperties = {

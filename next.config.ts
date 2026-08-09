@@ -43,6 +43,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  /*
+   * `www.pilotkids.uz` → `pilotkids.uz` yo'naltirishi bu yerda ATAYLAB YO'Q.
+   *
+   * Uni Vercel domen sozlamasi (Project → Domains) bajaradi va bu yo'naltirish
+   * chekkada, ilova umuman ishga tushmasdan oldin sodir bo'ladi. Agar shu
+   * qatorga ham `redirects()` yozilsa, ikki qatlam bir-biriga qarshi ishlab
+   * cheksiz halqa hosil qilishi mumkin (chekka apex → www, ilova www → apex).
+   *
+   * Ya'ni kanonik domen BITTA joyda belgilanadi: Vercel'da `pilotkids.uz`
+   * asosiy (primary) domen bo'lishi, `www.pilotkids.uz` esa unga
+   * yo'naltirilishi kerak. Kod tomonda kanoniklik `src/lib/site.ts` dagi
+   * `canonicalOrigin` va sahifalardagi `alternates.canonical` bilan
+   * ta'minlanadi.
+   */
 };
 
 export default nextConfig;
